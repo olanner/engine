@@ -1,0 +1,53 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29215.179
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Reflex", "Reflex\Reflex.vcxproj", "{9CE084CF-A684-48C5-8CD9-72AF569E6E9E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3F4F3176-0408-406B-A636-53249898E2DA} = {3F4F3176-0408-406B-A636-53249898E2DA}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "neat", "neat\neat.vcxproj", "{3F4F3176-0408-406B-A636-53249898E2DA}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "neat Test", "neat Test\neat Test.vcxproj", "{6DD8E25A-4028-43C6-9010-645041FE5741}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3F4F3176-0408-406B-A636-53249898E2DA} = {3F4F3176-0408-406B-A636-53249898E2DA}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Demo", "Demo\Demo.vcxproj", "{B59DDFD0-DCAA-4671-981D-E4D8C212BAB7}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3F4F3176-0408-406B-A636-53249898E2DA} = {3F4F3176-0408-406B-A636-53249898E2DA}
+		{9CE084CF-A684-48C5-8CD9-72AF569E6E9E} = {9CE084CF-A684-48C5-8CD9-72AF569E6E9E}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9CE084CF-A684-48C5-8CD9-72AF569E6E9E}.Debug|x64.ActiveCfg = Debug|x64
+		{9CE084CF-A684-48C5-8CD9-72AF569E6E9E}.Debug|x64.Build.0 = Debug|x64
+		{9CE084CF-A684-48C5-8CD9-72AF569E6E9E}.Release|x64.ActiveCfg = Release|x64
+		{9CE084CF-A684-48C5-8CD9-72AF569E6E9E}.Release|x64.Build.0 = Release|x64
+		{3F4F3176-0408-406B-A636-53249898E2DA}.Debug|x64.ActiveCfg = Debug|x64
+		{3F4F3176-0408-406B-A636-53249898E2DA}.Debug|x64.Build.0 = Debug|x64
+		{3F4F3176-0408-406B-A636-53249898E2DA}.Release|x64.ActiveCfg = Release|x64
+		{3F4F3176-0408-406B-A636-53249898E2DA}.Release|x64.Build.0 = Release|x64
+		{6DD8E25A-4028-43C6-9010-645041FE5741}.Debug|x64.ActiveCfg = Debug|x64
+		{6DD8E25A-4028-43C6-9010-645041FE5741}.Debug|x64.Build.0 = Debug|x64
+		{6DD8E25A-4028-43C6-9010-645041FE5741}.Release|x64.ActiveCfg = Release|x64
+		{6DD8E25A-4028-43C6-9010-645041FE5741}.Release|x64.Build.0 = Release|x64
+		{B59DDFD0-DCAA-4671-981D-E4D8C212BAB7}.Debug|x64.ActiveCfg = Debug|x64
+		{B59DDFD0-DCAA-4671-981D-E4D8C212BAB7}.Debug|x64.Build.0 = Debug|x64
+		{B59DDFD0-DCAA-4671-981D-E4D8C212BAB7}.Release|x64.ActiveCfg = Release|x64
+		{B59DDFD0-DCAA-4671-981D-E4D8C212BAB7}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9A550033-0111-483D-94F7-4E175A49D457}
+	EndGlobalSection
+EndGlobal
