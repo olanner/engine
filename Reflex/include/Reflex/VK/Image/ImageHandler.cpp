@@ -12,8 +12,8 @@ ImageHandler::ImageHandler(
 	: theirVulkanFramework(vulkanFramework)
 	, theirImageAllocator(imageAllocator)
 	, myDescriptorPool()
-	, myImageArraysSet()
-	, myImageArraysSetLayout()
+	, myImageSet()
+	, myImageSetLayout()
 	, mySampler()
 	, mySamplerSet()
 	, mySamplerSetLayout()
@@ -21,6 +21,8 @@ ImageHandler::ImageHandler(
 	, myImageIDKeeper(MaxNumImages2D)
 	, myImagesCube{}
 	, myCubeIDKeeper(MaxNumImagesCube)
+	, myImages2DArray{}
+	, myImages2DArrayIDKeeper(MaxNumImages2DArray)
 	, myOwners{}
 {
 	for (uint32_t i = 0; i < numOwners; ++i)
@@ -31,7 +33,7 @@ ImageHandler::ImageHandler(
 	// POOL
 	VkDescriptorPoolSize sampledImageDescriptorSize;
 	sampledImageDescriptorSize.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	sampledImageDescriptorSize.descriptorCount = MaxNumImages2D + MaxNumImagesCube;
+	sampledImageDescriptorSize.descriptorCount = MaxNumImages2D + MaxNumImagesCube + MaxNumImages2DArray;
 	VkDescriptorPoolSize storageImageDescriptorSize;
 	storageImageDescriptorSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	storageImageDescriptorSize.descriptorCount = MaxNumStorageImages;
@@ -39,8 +41,6 @@ ImageHandler::ImageHandler(
 	samplerDescriptorsSize.type = VK_DESCRIPTOR_TYPE_SAMPLER;
 	samplerDescriptorsSize.descriptorCount = MaxNumSamplers;
 	VkDescriptorPoolSize image2DArrayDescriptorSize;
-	image2DArrayDescriptorSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	image2DArrayDescriptorSize.descriptorCount = MaxNumSamplers;
 
 	std::array<VkDescriptorPoolSize, 3> poolSizes
 	{
@@ -63,36 +63,36 @@ ImageHandler::ImageHandler(
 
 	// IMAGE ARRAYS DESCRIPTOR
 	//LAYOUT
-	VkDescriptorSetLayoutBinding sampImgArrBinding;
-	sampImgArrBinding.descriptorCount = MaxNumImages2D;
-	sampImgArrBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	sampImgArrBinding.binding = 0;
-	sampImgArrBinding.pImmutableSamplers = nullptr;
-	sampImgArrBinding.stageFlags =
+	VkDescriptorSetLayoutBinding images2DBinding;
+	images2DBinding.descriptorCount = MaxNumImages2D;
+	images2DBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	images2DBinding.binding = ImageSetImages2DBinding;
+	images2DBinding.pImmutableSamplers = nullptr;
+	images2DBinding.stageFlags =
 		VK_SHADER_STAGE_FRAGMENT_BIT |
 		VK_SHADER_STAGE_VERTEX_BIT |
 		VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV |
 		VK_SHADER_STAGE_ANY_HIT_BIT_NV |
 		VK_SHADER_STAGE_RAYGEN_BIT_NV |
 		VK_SHADER_STAGE_MISS_BIT_NV;
-
-	VkDescriptorSetLayoutBinding storageImgArrBinding;
-	storageImgArrBinding.descriptorCount = MaxNumStorageImages;
-	storageImgArrBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	storageImgArrBinding.binding = 1;
-	storageImgArrBinding.pImmutableSamplers = nullptr;
-	storageImgArrBinding.stageFlags =
+	
+	VkDescriptorSetLayoutBinding images2DArrayBinding;
+	images2DArrayBinding.descriptorCount = MaxNumImages2DArray;
+	images2DArrayBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	images2DArrayBinding.binding = ImageSetImages2DArrayBinding;
+	images2DArrayBinding.pImmutableSamplers = nullptr;
+	images2DArrayBinding.stageFlags =
 		VK_SHADER_STAGE_FRAGMENT_BIT |
 		VK_SHADER_STAGE_VERTEX_BIT |
 		VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV |
-		VK_SHADER_STAGE_RAYGEN_BIT_NV |
 		VK_SHADER_STAGE_ANY_HIT_BIT_NV |
+		VK_SHADER_STAGE_RAYGEN_BIT_NV |
 		VK_SHADER_STAGE_MISS_BIT_NV;
 
 	VkDescriptorSetLayoutBinding cubeMapArrBinding;
 	cubeMapArrBinding.descriptorCount = MaxNumImagesCube;
 	cubeMapArrBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	cubeMapArrBinding.binding = 2;
+	cubeMapArrBinding.binding = ImageSetImagesCubeBinding;
 	cubeMapArrBinding.pImmutableSamplers = nullptr;
 	cubeMapArrBinding.stageFlags =
 		VK_SHADER_STAGE_FRAGMENT_BIT |
@@ -100,6 +100,19 @@ ImageHandler::ImageHandler(
 		VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV |
 		VK_SHADER_STAGE_ANY_HIT_BIT_NV |
 		VK_SHADER_STAGE_RAYGEN_BIT_NV |
+		VK_SHADER_STAGE_MISS_BIT_NV;
+	
+	VkDescriptorSetLayoutBinding imagesStorageBinding;
+	imagesStorageBinding.descriptorCount = MaxNumStorageImages;
+	imagesStorageBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	imagesStorageBinding.binding = ImageSetImagesStorageBinding;
+	imagesStorageBinding.pImmutableSamplers = nullptr;
+	imagesStorageBinding.stageFlags =
+		VK_SHADER_STAGE_FRAGMENT_BIT |
+		VK_SHADER_STAGE_VERTEX_BIT |
+		VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV |
+		VK_SHADER_STAGE_RAYGEN_BIT_NV |
+		VK_SHADER_STAGE_ANY_HIT_BIT_NV |
 		VK_SHADER_STAGE_MISS_BIT_NV;
 
 	VkDescriptorSetLayoutCreateInfo imgArrLayoutInfo;
@@ -109,15 +122,16 @@ ImageHandler::ImageHandler(
 
 	VkDescriptorSetLayoutBinding bindings[]
 	{
-		sampImgArrBinding,
-		storageImgArrBinding,
+		images2DBinding,
+		images2DArrayBinding,
 		cubeMapArrBinding,
+		imagesStorageBinding,
 	};
 
 	imgArrLayoutInfo.bindingCount = ARRAYSIZE(bindings);
 	imgArrLayoutInfo.pBindings = bindings;
 
-	auto resultLayout = vkCreateDescriptorSetLayout(theirVulkanFramework.GetDevice(), &imgArrLayoutInfo, nullptr, &myImageArraysSetLayout);
+	auto resultLayout = vkCreateDescriptorSetLayout(theirVulkanFramework.GetDevice(), &imgArrLayoutInfo, nullptr, &myImageSetLayout);
 	assert(!resultLayout && "failed creating image array descriptor set LAYOUT");
 
 	// SET
@@ -126,10 +140,10 @@ ImageHandler::ImageHandler(
 	imgArrAllocInfo.pNext = nullptr;
 
 	imgArrAllocInfo.descriptorSetCount = 1;
-	imgArrAllocInfo.pSetLayouts = &myImageArraysSetLayout;
+	imgArrAllocInfo.pSetLayouts = &myImageSetLayout;
 	imgArrAllocInfo.descriptorPool = myDescriptorPool;
 
-	auto resultAlloc = vkAllocateDescriptorSets(theirVulkanFramework.GetDevice(), &imgArrAllocInfo, &myImageArraysSet);
+	auto resultAlloc = vkAllocateDescriptorSets(theirVulkanFramework.GetDevice(), &imgArrAllocInfo, &myImageSet);
 	assert(!resultAlloc && "failed creating image array descriptor set");
 
 	// SAMPLER
@@ -149,7 +163,7 @@ ImageHandler::ImageHandler(
 	samplerInfo.maxAnisotropy = 8.f;
 	samplerInfo.compareEnable = VK_FALSE;
 	samplerInfo.minLod = 0.f;
-	samplerInfo.maxLod = 16.f;
+	samplerInfo.maxLod = FLT_MAX;
 	samplerInfo.unnormalizedCoordinates = VK_FALSE;
 
 	auto resultSampler = vkCreateSampler(theirVulkanFramework.GetDevice(), &samplerInfo, nullptr, &mySampler);
@@ -160,7 +174,7 @@ ImageHandler::ImageHandler(
 	VkDescriptorSetLayoutBinding sampBinding;
 	sampBinding.descriptorCount = 1;
 	sampBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-	sampBinding.binding = 0;
+	sampBinding.binding = SamplerSetSamplersBinding;
 	sampBinding.pImmutableSamplers = nullptr;
 	sampBinding.stageFlags =
 		VK_SHADER_STAGE_FRAGMENT_BIT |
@@ -201,7 +215,7 @@ ImageHandler::ImageHandler(
 	write.pNext = nullptr;
 
 	write.dstSet = mySamplerSet;
-	write.dstBinding = 0;
+	write.dstBinding = SamplerSetSamplersBinding;
 	write.dstArrayElement = 0;
 	write.descriptorCount = 1;
 	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
@@ -235,8 +249,8 @@ ImageHandler::ImageHandler(
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.pNext = nullptr;
 
-		write.dstSet = myImageArraysSet;
-		write.dstBinding = 0;
+		write.dstSet = myImageSet;
+		write.dstBinding = ImageSetImages2DBinding;
 		write.dstArrayElement = 0;
 		write.descriptorCount = MaxNumImages2D;
 		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -247,6 +261,41 @@ ImageHandler::ImageHandler(
 		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
 	}
 
+	auto imgArrData = rawAlbedo.images[0][0];
+	imgArrData.resize(imgArrData.size() * 2);
+	auto [resultDefImgArr, imgArrView] = 
+		theirImageAllocator.RequestImageArray(imgArrData,
+		2,
+		rawAlbedo.width,
+		rawAlbedo.height,
+		1 + std::log2(std::max(rawAlbedo.width, rawAlbedo.height)),
+		myOwners.data(),
+		myOwners.size());
+
+	{
+		VkDescriptorImageInfo imgArrInfo{};
+		imgArrInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imgArrInfo.imageView = imgArrView;
+
+		std::vector<VkDescriptorImageInfo> defImgArrInfos;
+		defImgArrInfos.resize(MaxNumImages2D, imgArrInfo);
+
+		VkWriteDescriptorSet write{};
+		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write.pNext = nullptr;
+
+		write.dstSet = myImageSet;
+		write.dstBinding = ImageSetImages2DArrayBinding;
+		write.dstArrayElement = 0;
+		write.descriptorCount = MaxNumImages2DArray;
+		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+		write.pImageInfo = defImgArrInfos.data();
+		write.pBufferInfo = nullptr;
+		write.pTexelBufferView = nullptr;
+
+		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+	}
+	
 	auto [resultStorage, storageView] = theirImageAllocator.RequestImage2D(nullptr,
 																			0,
 																			16,
@@ -268,8 +317,8 @@ ImageHandler::ImageHandler(
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.pNext = nullptr;
 
-		write.dstSet = myImageArraysSet;
-		write.dstBinding = 1;
+		write.dstSet = myImageSet;
+		write.dstBinding = ImageSetImagesStorageBinding;
 		write.dstArrayElement = i;
 		write.descriptorCount = 1;
 		write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -322,8 +371,8 @@ ImageHandler::ImageHandler(
 			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			write.pNext = nullptr;
 
-			write.dstSet = myImageArraysSet;
-			write.dstBinding = 2;
+			write.dstSet = myImageSet;
+			write.dstBinding = ImageSetImagesCubeBinding;
 			write.dstArrayElement = 0;
 			write.descriptorCount = MaxNumImagesCube;
 			write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -340,7 +389,7 @@ ImageHandler::ImageHandler(
 ImageHandler::~ImageHandler()
 {
 	vkDestroySampler(theirVulkanFramework.GetDevice(), mySampler, nullptr);
-	vkDestroyDescriptorSetLayout(theirVulkanFramework.GetDevice(), myImageArraysSetLayout, nullptr);
+	vkDestroyDescriptorSetLayout(theirVulkanFramework.GetDevice(), myImageSetLayout, nullptr);
 	vkDestroyDescriptorSetLayout(theirVulkanFramework.GetDevice(), mySamplerSetLayout, nullptr);
 	vkDestroyDescriptorPool(theirVulkanFramework.GetDevice(), myDescriptorPool, nullptr);
 }
@@ -384,8 +433,8 @@ ImageHandler::AddImage2D(const char* path)
 	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write.pNext = nullptr;
 
-	write.dstSet = myImageArraysSet;
-	write.dstBinding = 0;
+	write.dstSet = myImageSet;
+	write.dstBinding = ImageSetImages2DBinding;
 	write.dstArrayElement = uint32_t(imgID);
 	write.descriptorCount = 1;
 	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -439,8 +488,8 @@ ImageHandler::AddImage2D(
 	VkWriteDescriptorSet write{};
 	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 
-	write.dstSet = myImageArraysSet;
-	write.dstBinding = 0;
+	write.dstSet = myImageSet;
+	write.dstBinding = ImageSetImages2DBinding;
 	write.dstArrayElement = uint32_t(imgID);
 	write.descriptorCount = 1;
 	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -451,14 +500,14 @@ ImageHandler::AddImage2D(
 	return imgID;
 }
 
-ImageID
+ImageArrayID
 ImageHandler::AddImage2DArray(
 	std::vector<char>&& pixelData, 
 	Vec2f imageDim, 
 	VkFormat format, 
 	uint32_t numPixelVals)
 {
-	ImageID id = myImageIDKeeper.FetchFreeID();
+	ImageArrayID id = myImages2DArrayIDKeeper.FetchFreeID();
 	if (BAD_ID(id))
 	{
 		return id;
@@ -481,15 +530,14 @@ ImageHandler::AddImage2DArray(
 	VkDescriptorImageInfo imgInfo{};
 	imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	imgInfo.imageView = fontView;
-	imgInfo.sampler = mySampler;
 
 	VkWriteDescriptorSet write{};
 	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 
 	write.descriptorCount = 1;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	write.dstSet = myImageArraysSet;
-	write.dstBinding = 0;
+	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	write.dstSet = myImageSet;
+	write.dstBinding = ImageSetImages2DArrayBinding;
 	write.dstArrayElement = uint32_t(id);
 	write.pImageInfo = &imgInfo;
 
@@ -555,8 +603,8 @@ ImageHandler::AddImageCube(const char* path)
 	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write.pNext = nullptr;
 
-	write.dstSet = myImageArraysSet;
-	write.dstBinding = 2;
+	write.dstSet = myImageSet;
+	write.dstBinding = ImageSetImagesCubeBinding;
 	write.dstArrayElement = uint32_t(cubeID);
 	write.descriptorCount = 1;
 	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -595,8 +643,8 @@ ImageHandler::AddStorageImage(
 	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write.pNext = nullptr;
 
-	write.dstSet = myImageArraysSet;
-	write.dstBinding = 1;
+	write.dstSet = myImageSet;
+	write.dstBinding = ImageSetImagesStorageBinding;
 	write.dstArrayElement = index;
 	write.descriptorCount = 1;
 	write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -610,15 +658,15 @@ ImageHandler::AddStorageImage(
 }
 
 VkDescriptorSetLayout
-ImageHandler::GetImageArraySetLayout() const
+ImageHandler::GetImageSetLayout() const
 {
-	return myImageArraysSetLayout;
+	return myImageSetLayout;
 }
 
 VkDescriptorSet
-ImageHandler::GetImageArraySet() const
+ImageHandler::GetImageSet() const
 {
-	return myImageArraysSet;
+	return myImageSet;
 }
 
 VkDescriptorSetLayout
@@ -662,7 +710,7 @@ ImageHandler::BindImages(
 							pipelineLayout,
 							setIndex,
 							1,
-							&myImageArraysSet,
+							&myImageSet,
 							0,
 							nullptr);
 }

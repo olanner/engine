@@ -220,7 +220,7 @@ CubeFilterer::CreateCubeFilterPass(CubeDimension cubeDim)
 		.SetDepthEnabled(false);
 	std::tie(result, myFilteringPipeline[uint32_t(cubeDim)]) = pBuilder.Construct({
 		theirImageHandler.GetSamplerSetLayout(),
-		theirImageHandler.GetImageArraySetLayout()
+		theirImageHandler.GetImageSetLayout()
 																				  }, theirVulkanFramework.GetDevice());
 }
 

@@ -21,7 +21,7 @@ struct GlyphInstance
 	Vec2f pos;
 	Vec2f pivot;
 	float scale;
-	float fontID;
+	float imgArrID;
 	float glyphIndex;
 	float padding2;
 };

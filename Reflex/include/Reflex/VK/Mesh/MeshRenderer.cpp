@@ -122,7 +122,7 @@ MeshRenderer::MeshRenderer(
 	std::tie(result, myDeferredGeoPipeline) = pBuilder.Construct({
 		globLayout,
 		theirImageHandler.GetSamplerSetLayout(),
-		theirImageHandler.GetImageArraySetLayout(),
+		theirImageHandler.GetImageSetLayout(),
 		instLayout}, theirVulkanFramework.GetDevice());
 
 	// DEFERRED LIGHT PIPELINE
@@ -145,7 +145,7 @@ MeshRenderer::MeshRenderer(
 	std::tie(result, myDeferredLightPipeline) = pBuilderGeo.Construct({
 		globLayout,
 		theirImageHandler.GetSamplerSetLayout(),
-		theirImageHandler.GetImageArraySetLayout(),
+		theirImageHandler.GetImageSetLayout(),
 		myDeferredRenderPass.subpasses[1].inputAttachmentLayout}, theirVulkanFramework.GetDevice());
 }
 

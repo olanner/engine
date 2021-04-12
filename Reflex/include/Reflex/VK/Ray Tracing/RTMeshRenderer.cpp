@@ -95,7 +95,7 @@ RTMeshRenderer::RTMeshRenderer(
 	{
 		theirSceneGlobals.GetGlobalsLayout(),
 		theirImageHandler.GetSamplerSetLayout(),
-		theirImageHandler.GetImageArraySetLayout(),
+		theirImageHandler.GetImageSetLayout(),
 		theirAccStructHandler.GetInstanceStructuresLayout(),
 		theirMeshHandler.GetMeshDataLayout(),
 	};

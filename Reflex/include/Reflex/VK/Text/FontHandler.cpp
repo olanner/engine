@@ -4,6 +4,7 @@
 
 #include "Reflex/VK/VulkanFramework.h"
 #include "Reflex/VK/Memory/ImageAllocator.h"
+#include "Reflex/VK/Image/ImageHandler.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "freetype-d.lib")
@@ -15,11 +16,11 @@ FT_Library FTLibrary;
 
 FontHandler::FontHandler(
 	VulkanFramework& vulkanFramework,
-	ImageAllocator& imageAllocator,
+	ImageHandler& imageHandler,
 	QueueFamilyIndex* firstOwner,
 	uint32_t numOwners)
 	: theirVulkanFramework(vulkanFramework)
-	, theirImageAllocator(imageAllocator)
+	, theirImageHandler(imageHandler)
 	, myFontIDKeeper(MaxNumFonts)
 {
 	myOwners.resize(numOwners);
@@ -30,120 +31,6 @@ FontHandler::FontHandler(
 
 	auto result = FT_Init_FreeType(&FTLibrary);
 	assert(!result && "failed initializing free type");
-
-	//	DESCRIPTOR SET POOL
-	VkDescriptorPoolSize sampledFontsDescriptorSize;
-	sampledFontsDescriptorSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	sampledFontsDescriptorSize.descriptorCount = MaxNumFonts;
-
-	std::array<VkDescriptorPoolSize, 1> poolSizes
-	{
-		sampledFontsDescriptorSize
-	};
-
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.pNext = nullptr;
-	poolInfo.flags = NULL;
-
-	poolInfo.poolSizeCount = poolSizes.size();
-	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = 1;
-
-	result = vkCreateDescriptorPool(theirVulkanFramework.GetDevice(), &poolInfo, nullptr, &myDescriptorPool);
-	assert(!result && "failed creating pool");
-
-	//	IMAGE ARRAYS DESCRIPTOR LAYOUT
-	VkDescriptorSetLayoutBinding sampledFonts;
-	sampledFonts.descriptorCount = MaxNumFonts;
-	sampledFonts.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	sampledFonts.binding = 0;
-	sampledFonts.pImmutableSamplers = nullptr;
-	sampledFonts.stageFlags =
-		VK_SHADER_STAGE_FRAGMENT_BIT |
-		VK_SHADER_STAGE_VERTEX_BIT |
-		VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV |
-		VK_SHADER_STAGE_ANY_HIT_BIT_NV |
-		VK_SHADER_STAGE_RAYGEN_BIT_NV |
-		VK_SHADER_STAGE_MISS_BIT_NV;
-
-	VkDescriptorSetLayoutCreateInfo fontArraySetLayout;
-	fontArraySetLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	fontArraySetLayout.pNext = nullptr;
-	fontArraySetLayout.flags = NULL;
-
-	VkDescriptorSetLayoutBinding bindings[]
-	{
-		sampledFonts,
-	};
-
-	fontArraySetLayout.bindingCount = ARRAYSIZE(bindings);
-	fontArraySetLayout.pBindings = bindings;
-
-	result = vkCreateDescriptorSetLayout(theirVulkanFramework.GetDevice(), &fontArraySetLayout, nullptr, &myFontArraySetLayout);
-	assert(!result && "failed creating image array descriptor set LAYOUT");
-
-	// FONT ARRAY SET
-	VkDescriptorSetAllocateInfo fontArrayAllocInfo;
-	fontArrayAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	fontArrayAllocInfo.pNext = nullptr;
-
-	fontArrayAllocInfo.descriptorSetCount = 1;
-	fontArrayAllocInfo.pSetLayouts = &myFontArraySetLayout;
-	fontArrayAllocInfo.descriptorPool = myDescriptorPool;
-
-	result = vkAllocateDescriptorSets(theirVulkanFramework.GetDevice(), &fontArrayAllocInfo, &myFontArraySet);
-	assert(!result && "failed creating image array descriptor set");
-
-	//	SAMPLER
-	VkSamplerCreateInfo samplerInfo{};
-	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-	samplerInfo.anisotropyEnable = true;
-	samplerInfo.maxLod = 16.0;
-	samplerInfo.maxAnisotropy = 8;
-	samplerInfo.minFilter = VK_FILTER_LINEAR;
-	samplerInfo.magFilter = VK_FILTER_LINEAR;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-
-	result = vkCreateSampler(theirVulkanFramework.GetDevice(), &samplerInfo, nullptr, &mySampler);
-	assert(!result && "failed creating font sampler");
-
-	//	DEFAULT FONT
-	{
-		VkImageView fontView = nullptr;
-		std::tie(result, fontView) = theirImageAllocator.RequestImageArray({},
-																		   LastFontGlyph - FirstFontGlyph + 1,
-																		   32,
-																		   32,
-																		   1,
-																		   myOwners.data(),
-																		   myOwners.size(),
-																		   VK_FORMAT_R8_UNORM);
-		assert(!result && "failed creating default font");
-
-		VkDescriptorImageInfo imgInfo{};
-		imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imgInfo.imageView = fontView;
-		imgInfo.sampler = mySampler;
-		std::array<VkDescriptorImageInfo, MaxNumFonts> imgInfos;
-		imgInfos.fill(imgInfo);
-
-		VkWriteDescriptorSet write{};
-		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-
-		write.descriptorCount = MaxNumFonts;
-		write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		write.dstSet = myFontArraySet;
-		write.dstBinding = 0;
-		write.dstArrayElement = 0;
-		write.pImageInfo = imgInfos.data();
-
-		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
-	}
 
 }
 
@@ -162,6 +49,8 @@ FontHandler::AddFont(
 		return id;
 	}
 
+	Font& font = myFonts[int(id)];
+
 	FT_Face face;
 
 	auto result = FT_New_Face(FTLibrary, path, 0, &face);
@@ -177,82 +66,36 @@ FontHandler::AddFont(
 	for (char c = FirstFontGlyph; c <= LastFontGlyph; ++c)
 	{
 		auto rawGlyph = DrawGlyph(face, res, c);
-		myFontGlyphStrides[int(id)][c - FirstFontGlyph] = rawGlyph.metrics;
+		font.metrics[c - FirstFontGlyph] = rawGlyph.metrics;
 		fontData.insert(fontData.end(), rawGlyph.bmp.begin(), rawGlyph.bmp.end());
 		numLayers++;
 	}
 
-	VkImageView fontView{};
-	std::tie(result, fontView) = theirImageAllocator.RequestImageArray(fontData,
-																	   numLayers,
-																	   res,
-																	   res,
-																	   NUM_MIPS(res),
-																	   myOwners.data(),
-																	   myOwners.size(),
-																	   VK_FORMAT_R8_UNORM);
-
-
-	VkDescriptorImageInfo imgInfo{};
-	imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imgInfo.imageView = fontView;
-	imgInfo.sampler = mySampler;
-
-	VkWriteDescriptorSet write{};
-	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-
-	write.descriptorCount = 1;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	write.dstSet = myFontArraySet;
-	write.dstBinding = 0;
-	write.dstArrayElement = uint32_t(id);
-	write.pImageInfo = &imgInfo;
-
-	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+	font.imgArrID = theirImageHandler.AddImage2DArray(std::move(fontData), {res,res}, VK_FORMAT_R8_UNORM, 1);
+	
 	return id;
 }
 
-VkDescriptorSetLayout
-FontHandler::GetFontArraySetLayout() const
-{
-	return myFontArraySetLayout;
-}
-
-VkDescriptorSet
-FontHandler::GetFontArraySet() const
-{
-	return myFontArraySet;
-}
-
-void
-FontHandler::BindFonts(
-	VkCommandBuffer		commandBuffer,
-	VkPipelineLayout	pipelineLayout,
-	uint32_t			setIndex,
-	VkPipelineBindPoint bindPoint) const
-{
-	vkCmdBindDescriptorSets(commandBuffer,
-							bindPoint,
-							pipelineLayout,
-							setIndex,
-							1,
-							&myFontArraySet,
-							0,
-							nullptr);
-}
-
-ImageAllocator& 
-FontHandler::GetImageAllocator() const
-{
-	return theirImageAllocator;
-}
 
 GlyphMetrics
 FontHandler::GetGlyphMetrics(
 	FontID		id, 
 	uint32_t	glyphIndex) const
 {
-	return myFontGlyphStrides[int(id)][glyphIndex];
+	return myFonts[int(id)].metrics[glyphIndex];
+}
+
+ImageHandler& 
+FontHandler::GetImageHandler()
+{
+	return theirImageHandler;
+}
+
+Font
+FontHandler::operator[](
+	FontID id)
+{
+	return myFonts[int(id)];
 }
 
 RawGlyph

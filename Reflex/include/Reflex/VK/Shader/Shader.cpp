@@ -123,13 +123,12 @@ Shader::FetchBinaryData(const char* path) const
 		std::string preAmble;
 		preAmble.append("#define SET_SAMPLERS_COUNT ").append(std::to_string(MaxNumSamplers)).append("\n");
 		preAmble.append("#define SET_TLAS_COUNT ").append(std::to_string(MaxNumInstanceStructures)).append("\n");
-		preAmble.append("#define SAMPLED_IMAGE_COUNT ").append(std::to_string(MaxNumImages2D)).append("\n");
+		preAmble.append("#define SAMPLED_IMAGE_2D_COUNT ").append(std::to_string(MaxNumImages2D)).append("\n");
+		preAmble.append("#define SAMPLED_IMAGE_2D_ARRAY_COUNT ").append(std::to_string(MaxNumImages2D)).append("\n");
+		preAmble.append("#define SAMPLED_CUBE_COUNT ").append(std::to_string(MaxNumImagesCube)).append("\n");
 		preAmble.append("#define STORAGE_IMAGE_COUNT ").append(std::to_string(MaxNumStorageImages)).append("\n");
 		preAmble.append("#define MAX_NUM_INSTANCES ").append(std::to_string(MaxNumInstances)).append("\n");
 		preAmble.append("#define MAX_NUM_MESHES ").append(std::to_string(MaxNumMeshesLoaded)).append("\n");
-
-		preAmble.append("#define SAMPLED_CUBE_COUNT ").append(std::to_string(MaxNumImagesCube)).append("\n");
-		preAmble.append("#define FONTS_COUNT ").append(std::to_string(MaxNumFonts)).append("\n");
 
 		retBin = VKCompile(path, glslang::EShTargetVulkan_1_1, glslang::EShTargetSpv_1_3, preAmble.c_str());
 		if (!retBin.empty())

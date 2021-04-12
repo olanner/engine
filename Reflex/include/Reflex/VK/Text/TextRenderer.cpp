@@ -89,7 +89,8 @@ TextRenderer::TextRenderer(
 	std::tie(result, myTextPipeline) = pBuilder.Construct(
 	{
 		theirSceneGlobals.GetGlobalsLayout(),
-		theirFontHandler.GetFontArraySetLayout(),
+		theirFontHandler.GetImageHandler().GetSamplerSetLayout(),
+		theirFontHandler.GetImageHandler().GetImageSetLayout(),
 		glyphLayout
 	}, theirVulkanFramework.GetDevice());
 
@@ -181,11 +182,12 @@ VkSemaphore* signalSemaphore)
 					continue;
 				}
 
+				Font font = theirFontHandler[cmd.fontID];
 				GlyphInstance instance{};
 				instance.glyphIndex = myCharToGlyphIndex[cmd.text[charIndex]];
-				instance.fontID = float(cmd.fontID);
+				instance.imgArrID = float(font.imgArrID);
 
-				GlyphMetrics metrics = theirFontHandler.GetGlyphMetrics(cmd.fontID, instance.glyphIndex);
+				GlyphMetrics metrics = font.metrics[instance.glyphIndex];
 				metrics.xStride *= cmd.scale;
 				metrics.yOffset *= cmd.scale;
 				instance.pos = {cmd.position.x + colOffset * ratio, cmd.position.y + metrics.yOffset + rowOffset};
@@ -206,11 +208,9 @@ VkSemaphore* signalSemaphore)
 
 	// DESCRIPTORS
 	theirSceneGlobals.BindGlobals(cmdBuffer, myTextPipeline.layout, 0);
-	theirFontHandler.BindFonts(cmdBuffer, myTextPipeline.layout, 1);
-	theirUniformHandler.BindUniform(myGlyphInstancesID,
-									cmdBuffer,
-									myTextPipeline.layout,
-									2);
+	theirFontHandler.GetImageHandler().BindSamplers(cmdBuffer, myTextPipeline.layout, 1);
+	theirFontHandler.GetImageHandler().BindImages(cmdBuffer, myTextPipeline.layout, 2);
+	theirUniformHandler.BindUniform(myGlyphInstancesID,	cmdBuffer, myTextPipeline.layout, 3);
 
 	// DRAW 
 	vkCmdDraw(myCmdBuffers[swapchainImageIndex], 6, numGlyphs, 0, 0);

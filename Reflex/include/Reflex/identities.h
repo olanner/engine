@@ -11,10 +11,11 @@ struct PixelValue
 	uint8_t r,g,b,a;
 };
 
-enum class			MeshID;
-enum class			ImageID;
-enum class			CubeID;
-enum class			UniformID;
-enum class			InstanceStructID;
-enum class			FontID;
+enum class MeshID;
+enum class ImageID;
+enum class ImageArrayID;
+enum class CubeID;
+enum class UniformID;
+enum class InstanceStructID;
+enum class FontID;
 

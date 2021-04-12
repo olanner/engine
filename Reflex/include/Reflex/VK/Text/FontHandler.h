@@ -7,6 +7,12 @@ struct GlyphMetrics
 	float				yOffset;
 };
 
+struct Font
+{
+	ImageArrayID imgArrID;
+	std::array<GlyphMetrics, NumGlyphsPerFont> metrics;
+};
+
 struct RawGlyph
 {
 	std::vector<char>	bmp;
@@ -18,26 +24,21 @@ class FontHandler
 public:
 												FontHandler(
 													class VulkanFramework&	vulkanFramework,
-													class ImageAllocator&	imageAllocator,
+													class ImageHandler&		imageHandler,
 													QueueFamilyIndex*		firstOwner,
 													uint32_t				numOwners);
 												~FontHandler();
 
 	FontID										AddFont(const char* path);
 	
-	VkDescriptorSetLayout						GetFontArraySetLayout() const;
-	VkDescriptorSet								GetFontArraySet() const;
-
-	void										BindFonts(
-													VkCommandBuffer		commandBuffer,
-													VkPipelineLayout	pipelineLayout,
-													uint32_t			setIndex,
-													VkPipelineBindPoint	bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS) const;
-
-	ImageAllocator&								GetImageAllocator() const;
+	
 	GlyphMetrics								GetGlyphMetrics(
 													FontID		id,
 													uint32_t	glyphIndex) const;
+
+	ImageHandler&								GetImageHandler();
+
+	Font										operator[](FontID id);
 
 private:
 	static RawGlyph								DrawGlyph(
@@ -46,16 +47,10 @@ private:
 													char	glyph);
 	
 	VulkanFramework&							theirVulkanFramework;
-	ImageAllocator&								theirImageAllocator;
+	ImageHandler&								theirImageHandler;
 
-	VkSampler									mySampler;
-	VkDescriptorPool							myDescriptorPool;
-	VkDescriptorSetLayout						myFontArraySetLayout;
-	VkDescriptorSet								myFontArraySet;
-
-	std::array<VkImageView, MaxNumFonts>		myFonts;
-	std::array<std::array<GlyphMetrics, NumGlyphsPerFont>, MaxNumFonts>
-												myFontGlyphStrides;
+	std::array<Font, MaxNumFonts>				myFonts;
+	
 	IDKeeper<FontID>							myFontIDKeeper;
 
 	neat::static_vector<QueueFamilyIndex, 16>	myOwners;

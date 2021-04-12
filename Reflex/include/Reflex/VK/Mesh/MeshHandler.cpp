@@ -147,7 +147,7 @@ MeshHandler::~MeshHandler()
 VkDescriptorSetLayout
 MeshHandler::GetImageArraySetLayout() const
 {
-	return theirImageHandler.GetImageArraySetLayout();
+	return theirImageHandler.GetImageSetLayout();
 }
 
 MeshID

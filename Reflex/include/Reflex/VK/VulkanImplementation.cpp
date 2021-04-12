@@ -112,18 +112,7 @@ VulkanImplementation::Init(
 												 myQueueFamilyIndices.data(),
 												 myQueueFamilyIndices.size());
 
-	//VkFormat colFormats[]
-	//{
-	//	VK_FORMAT_R8G8B8A8_SRGB,
-	//	VK_FORMAT_R8G8B8A8_SRGB,
-	//	VK_FORMAT_R32G32B32A32_SFLOAT,
-	//	VK_FORMAT_R32G32B32A32_SFLOAT,
-	//};
-	//myRenderPassFactory->RequestRenderPass( 4,
-	//										colFormats,
-	//										{ 1920,1080 },
-	//										int( RenderPassRequestFlags::UseDepthAttachment ) | int( RenderPassRequestFlags::BuildFramebuffer )
-	//);
+	
 
 	// HANDLERS
 	myUniformHandler = std::make_shared<UniformHandler>(myVulkanFramework,
@@ -137,7 +126,7 @@ VulkanImplementation::Init(
 									   myQueueFamilyIndices.data(),
 									   myQueueFamilyIndices.size());
 	myFontHandler = std::make_shared<FontHandler>(myVulkanFramework,
-									*myImageAllocator,
+									*myImageHandler,
 									myQueueFamilyIndices.data(),
 									myQueueFamilyIndices.size());
 

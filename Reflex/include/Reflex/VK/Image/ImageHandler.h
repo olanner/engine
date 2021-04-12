@@ -16,7 +16,7 @@ public:
 													std::vector<char>&&	pixelData,
 													VkFormat			format = VK_FORMAT_R8G8B8A8_SRGB,
 													uint32_t			numPixelVals = 4);
-	ImageID										AddImage2DArray(
+	ImageArrayID								AddImage2DArray(
 													std::vector<char>&&	pixelData,
 													Vec2f				imageDim,
 													VkFormat			format = VK_FORMAT_R8G8B8A8_SRGB,
@@ -28,8 +28,8 @@ public:
 													uint32_t	width,
 													uint32_t	height);
 
-	VkDescriptorSetLayout						GetImageArraySetLayout() const;
-	VkDescriptorSet								GetImageArraySet() const;
+	VkDescriptorSetLayout						GetImageSetLayout() const;
+	VkDescriptorSet								GetImageSet() const;
 	VkDescriptorSetLayout						GetSamplerSetLayout() const;
 	VkDescriptorSet								GetSamplerSet() const;
 
@@ -56,8 +56,8 @@ private:
 	ImageAllocator&								theirImageAllocator;
 
 	VkDescriptorPool							myDescriptorPool;
-	VkDescriptorSet								myImageArraysSet;
-	VkDescriptorSetLayout						myImageArraysSetLayout;
+	VkDescriptorSet								myImageSet;
+	VkDescriptorSetLayout						myImageSetLayout;
 
 	VkSampler									mySampler;
 	VkDescriptorSet								mySamplerSet;
@@ -70,6 +70,10 @@ private:
 	std::array<float, MaxNumImagesCube>			myImagesCubeDims;
 	std::array<VkImageView, MaxNumImagesCube>	myImagesCube;
 	IDKeeper<CubeID>							myCubeIDKeeper;
+
+	std::array<VkImageView, MaxNumImages2DArray>
+												myImages2DArray;
+	IDKeeper<ImageArrayID>						myImages2DArrayIDKeeper;
 
 	neat::static_vector<QueueFamilyIndex, 16>	myOwners;
 
