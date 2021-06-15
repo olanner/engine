@@ -32,6 +32,8 @@ FontHandler::FontHandler(
 	auto result = FT_Init_FreeType(&FTLibrary);
 	assert(!result && "failed initializing free type");
 
+	AddFont("open_sans_reg.ttf");
+
 }
 
 FontHandler::~FontHandler()
@@ -71,7 +73,7 @@ FontHandler::AddFont(
 		numLayers++;
 	}
 
-	font.imgArrID = theirImageHandler.AddImage2DArray(std::move(fontData), {res,res}, VK_FORMAT_R8_UNORM, 1);
+	font.imgArrID = theirImageHandler.AddImage2DArray(std::move(fontData), {res,res}, VK_FORMAT_R8G8B8A8_UNORM, 4);
 	
 	return id;
 }
@@ -114,8 +116,8 @@ FontHandler::DrawGlyph(
 
 	auto slot = fontFace->glyph;
 
-	std::vector<char> rawImg;
-	rawImg.resize(resolution * resolution);
+	std::vector<PixelValue> rawPixels;
+	rawPixels.resize(resolution * resolution, {255,255,255,0});
 
 	auto charIndex = FT_Get_Char_Index(fontFace, glyph);
 
@@ -149,12 +151,16 @@ FontHandler::DrawGlyph(
 		for (int x = 0; x < xMax; x++)
 		{
 			int iy = resolution - y - 1;
-			rawImg[iy * resolution + x] = bitmap->buffer[(yMax - y - 1) * bitmap->width + x];
+			rawPixels[iy * resolution + x].a = bitmap->buffer[(yMax - y - 1) * bitmap->width + x];
 		}
 	}
 
 	GlyphMetrics metrics;
 	metrics.xStride = strideF;
 	metrics.yOffset = -abs(yOffsetF);
-	return {rawImg, metrics};
+
+	std::vector<char> rawImg;
+	rawImg.resize(rawPixels.size() * 4);
+	memcpy(rawImg.data(), rawPixels.data(), rawImg.size());
+	return { rawImg, metrics};
 }

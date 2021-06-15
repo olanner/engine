@@ -9,7 +9,8 @@
 #include "VK/Mesh/MeshRenderCommand.h"
 #include "VK/Ray Tracing/AccelerationStructureHandler.h"
 #include "VK/Ray Tracing/RTMeshRenderer.h"
-#include "VK/Text/TextRenderer.h"
+#include "VK/Sprite/SpriteRenderer.h"
+#include "VK/Text/FontHandler.h"
 
 bool*							gUseRayTracing;
 
@@ -17,13 +18,16 @@ bool*							gUseRayTracing;
 std::shared_ptr<SceneGlobals>					gSceneGlobals;
 std::shared_ptr<MeshHandler>					gMeshHandler;
 std::shared_ptr<ImageHandler>					gImageHandler;
+std::shared_ptr<FontHandler>					gFontHandler;
 std::shared_ptr<CubeFilterer>					gCubeFilterer;
 std::shared_ptr<AccelerationStructureHandler>	gAccStructHandler;
 
 // FEATURES
 std::shared_ptr<MeshRenderer>					gMeshRenderer;
 std::shared_ptr<RTMeshRenderer>					gRTMeshRenderer;
-std::shared_ptr<TextRenderer>					gTextRenderer;
+std::shared_ptr<SpriteRenderer>					gTextRenderer;
+
+VulkanFramework*								gVulkanFramework;
 
 Reflex::Reflex(
 	const WindowInfo&	windowInformation,
@@ -62,9 +66,9 @@ Reflex::Reflex(
 	);
 
 	QueueFamilyIndex indices[]{myVKImplementation->myPresQueueIndex, myVKImplementation->myTransQueueIndex};
-	auto tr = std::make_shared<TextRenderer>(myVKImplementation->myVulkanFramework,
+	auto tr = std::make_shared<SpriteRenderer>(myVKImplementation->myVulkanFramework,
 										*myVKImplementation->mySceneGlobals,
-										*myVKImplementation->myFontHandler,
+										*myVKImplementation->myImageHandler,
 										*myVKImplementation->myRenderPassFactory,
 										*myVKImplementation->myUniformHandler,
 										indices,
@@ -88,8 +92,11 @@ Reflex::Reflex(
 	gImageHandler = myVKImplementation->myImageHandler;
 	gCubeFilterer = myVKImplementation->myCubeFilterer;
 	gTextRenderer = tr;
+	gFontHandler = myVKImplementation->myFontHandler;
 
 	gUseRayTracing = &myVKImplementation->myUseRayTracing;
+
+	gVulkanFramework = &myVKImplementation->myVulkanFramework;
 }
 
 Reflex::~Reflex()
@@ -233,23 +240,44 @@ rflx::PushRenderCommand(
 	float			scale,
 	const Vec4f&	color)
 {
-	TextRenderCommand cmd{};
 
-	for (int charIndex = 0; charIndex < cmd.text.size(); ++charIndex)
+	
+	auto [tw, th] = gVulkanFramework->GetTargetResolution();
+	float ratio = th / tw;
+	float colOffset = 0;
+	float rowOffset = 0;
+	for (int charIndex = 0; charIndex < 128; ++charIndex)
 	{
 		if (text[charIndex] == '\0')
 		{
-			cmd.numCharacters = charIndex;
 			break;
 		}
-		cmd.text[charIndex] = text[charIndex];
-	}
+		
+		if (text[charIndex] == '\n')
+		{
+			colOffset = 0;
+			rowOffset += scale;
+			continue;
+		}
 
-	cmd.color = color;
-	cmd.position = position;
-	cmd.scale = scale;
-	cmd.fontID = fontID;
-	gTextRenderer->PushRenderCommand(cmd);
+		Font font = (*gFontHandler)[fontID];
+		SpriteRenderCommand cmd{};
+		cmd.imgArrID = font.imgArrID;
+		cmd.imgArrIndex = text[charIndex] - FirstFontGlyph;
+
+		GlyphMetrics metrics = font.metrics[cmd.imgArrIndex];
+		metrics.xStride *= scale;
+		metrics.yOffset *= scale;
+		cmd.position = { position.x + colOffset * ratio, position.y + metrics.yOffset + rowOffset };
+
+		cmd.pivot = { 0, -1 };
+		cmd.color = color;
+		cmd.scale = scale;
+
+		colOffset += metrics.xStride;
+
+		gTextRenderer->PushRenderCommand(cmd);
+	}
 }
 
 void

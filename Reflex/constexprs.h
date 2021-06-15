@@ -34,7 +34,7 @@ constexpr uint32_t	MaxNumShaderModulesPerShader = 8;
 //	FRAME VALID
 constexpr uint32_t	MaxNumInstances = 512;
 constexpr uint32_t	MaxNumInstanceStructures = 8;
-constexpr uint32_t	MaxNumGlyphInstances = 1024;
+constexpr uint32_t	MaxNumSpriteInstances = 1024;
 
 constexpr uint32_t	MaxNumTransfers = 128;
 constexpr uint32_t	MaxNumImmediateTransfers = 32;

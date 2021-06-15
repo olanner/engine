@@ -114,7 +114,7 @@
     <ClInclude Include="include\Reflex\VK\RenderPass\RenderPassBuilder.h" />
     <ClInclude Include="include\Reflex\VK\RenderPass\RenderPassFactory.h" />
     <ClInclude Include="include\Reflex\VK\Text\FontHandler.h" />
-    <ClInclude Include="include\Reflex\VK\Text\TextRenderer.h" />
+    <ClInclude Include="include\Reflex\VK\Sprite\SpriteRenderer.h" />
     <ClInclude Include="include\Reflex\VK\WorkerSystem\WorkerSystem.h" />
     <ClInclude Include="include\Reflex\VK\Presenter\Presenter.h" />
     <ClInclude Include="include\Reflex\VK\Geometry\Vertex2D.h" />
@@ -176,7 +176,7 @@
     <ClCompile Include="include\Reflex\VK\Shader\VKCompile.cpp" />
     <ClCompile Include="include\Reflex\VK\Image\ImageHandler.cpp" />
     <ClCompile Include="include\Reflex\VK\Text\FontHandler.cpp" />
-    <ClCompile Include="include\Reflex\VK\Text\TextRenderer.cpp" />
+    <ClCompile Include="include\Reflex\VK\Sprite\SpriteRenderer.cpp" />
     <ClCompile Include="include\Reflex\VK\Uniform\UniformHandler.cpp" />
     <ClCompile Include="include\Reflex\VK\VulkanFramework.cpp" />
     <ClCompile Include="include\Reflex\VK\VulkanImplementation.cpp" />

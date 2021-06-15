@@ -1,7 +1,6 @@
 #include "pch.h"
-#include "TextRenderer.h"
+#include "SpriteRenderer.h"
 
-#include "FontHandler.h"
 #include "Reflex/VK/VulkanFramework.h"
 #include "Reflex/VK/Image/ImageHandler.h"
 #include "Reflex/VK/Pipelines/PipelineBuilder.h"
@@ -11,10 +10,10 @@
 #include "Reflex/VK/Uniform/UniformHandler.h"
 
 
-TextRenderer::TextRenderer(
+SpriteRenderer::SpriteRenderer(
 	VulkanFramework&	vulkanFramework,
 	SceneGlobals&		sceneGlobals,
-	FontHandler&		fontHandler,
+	ImageHandler&		imageHandler,
 	RenderPassFactory&	renderPassFactory,
 	UniformHandler&		uniformHandler,
 	QueueFamilyIndex*	firstOwner,
@@ -22,7 +21,7 @@ TextRenderer::TextRenderer(
 	uint32_t			cmdBufferFamily)
 	: theirVulkanFramework(vulkanFramework)
 	, theirSceneGlobals(sceneGlobals)
-	, theirFontHandler(fontHandler)
+	, theirImageHandler(imageHandler)
 	, theirUniformHandler(uniformHandler)
 {
 	for (uint32_t ownerIndex = 0; ownerIndex < numOwners; ++ownerIndex)
@@ -30,15 +29,9 @@ TextRenderer::TextRenderer(
 		myOwners.emplace_back(firstOwner[ownerIndex]);
 	}
 
-	for (char c = FirstFontGlyph; c <= LastFontGlyph; ++c)
-	{
-		myCharToGlyphIndex[c] = c - FirstFontGlyph;
-	}
-	theirFontHandler.AddFont("gadugi.ttf");
-
 	//	UNIFORM
-	myGlyphInstancesID = theirUniformHandler.RequestUniformBuffer(nullptr, MaxNumGlyphInstances * sizeof GlyphInstance);
-	assert(!BAD_ID(myGlyphInstancesID) && "failed creating glyph instance uniform");
+	mySpriteInstancesID = theirUniformHandler.RequestUniformBuffer(nullptr, MaxNumSpriteInstances * sizeof SpriteInstance);
+	assert(!BAD_ID(mySpriteInstancesID) && "failed creating glyph instance uniform");
 
 	// RENDER PASS
 	auto [w, h] = theirVulkanFramework.GetTargetResolution();
@@ -67,14 +60,14 @@ TextRenderer::TextRenderer(
 	// PIPELINE
 	char shaderPaths[][128]
 	{
-		"Shaders/text_vshader.vert",
-		"Shaders/text_fshader.frag"
+		"Shaders/sprite_vshader.vert",
+		"Shaders/sprite_fshader.frag"
 	};
-	myTextShader = new Shader(shaderPaths,
+	mySpriteShader = new Shader(shaderPaths,
 							  _ARRAYSIZE(shaderPaths),
 							  theirVulkanFramework);
 
-	PipelineBuilder pBuilder(1, myRenderPass.renderPass, myTextShader);
+	PipelineBuilder pBuilder(1, myRenderPass.renderPass, mySpriteShader);
 	pBuilder
 		.SetDepthEnabled(false)
 		.SetSubpass(0)
@@ -83,14 +76,14 @@ TextRenderer::TextRenderer(
 		.DefineViewport({w,h}, {0,0,w,h})
 		.DefineVertexInput(nullptr);
 
-	auto [glyphLayout, glyphSet] = theirUniformHandler[myGlyphInstancesID];
+	auto [glyphLayout, glyphSet] = theirUniformHandler[mySpriteInstancesID];
 
 	VkResult result;
-	std::tie(result, myTextPipeline) = pBuilder.Construct(
+	std::tie(result, mySpritePipeline) = pBuilder.Construct(
 	{
 		theirSceneGlobals.GetGlobalsLayout(),
-		theirFontHandler.GetImageHandler().GetSamplerSetLayout(),
-		theirFontHandler.GetImageHandler().GetImageSetLayout(),
+		theirImageHandler.GetSamplerSetLayout(),
+		theirImageHandler.GetImageSetLayout(),
 		glyphLayout
 	}, theirVulkanFramework.GetDevice());
 
@@ -112,21 +105,16 @@ TextRenderer::TextRenderer(
 		assert(!resultFence && "failed creating fences");
 	}
 
-	int val = 0;
-
-
 }
 
-
-
 std::tuple<VkSubmitInfo, VkFence>
-TextRenderer::RecordSubmit(
-	uint32_t					swapchainImageIndex,
-	VkSemaphore* waitSemaphores,
-	uint32_t					numWaitSemaphores,
-	VkPipelineStageFlags* waitPipelineStages,
-	uint32_t					numWaitStages,
-VkSemaphore* signalSemaphore)
+SpriteRenderer::RecordSubmit(
+	uint32_t				swapchainImageIndex,
+	VkSemaphore*			waitSemaphores,
+	uint32_t				numWaitSemaphores,
+	VkPipelineStageFlags*	waitPipelineStages,
+	uint32_t				numWaitStages,
+	VkSemaphore*			signalSemaphore)
 {
 	// RECORD
 	while (vkGetFenceStatus(theirVulkanFramework.GetDevice(), myCmdBufferFences[swapchainImageIndex]))
@@ -155,65 +143,35 @@ VkSemaphore* signalSemaphore)
 					swapchainImageIndex,
 					{0,0,w,h});
 
-	vkCmdBindPipeline(myCmdBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, myTextPipeline.pipeline);
+	vkCmdBindPipeline(myCmdBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, mySpritePipeline.pipeline);
 
 	// UPDATE INSTANCE DATA
-
-	uint32_t numGlyphs = 0;
+	uint32_t numInstances = 0;
+	std::array<SpriteInstance, MaxNumSpriteInstances> spriteInstances{};
+	for (auto& cmd : myRenderCommands[myRecordIndex])
 	{
-		uint32_t instanceIndex = 0;
-		std::array<GlyphInstance, MaxNumGlyphInstances> instances{};
-		auto[tw, th] = theirVulkanFramework.GetTargetResolution();
-		float ratio = th / tw;
-		for (auto&& cmd : myRenderCommands[myRecordIndex])
-		{
-			float colOffset = 0;
-			float rowOffset = 0;
-			for (int charIndex = 0; charIndex < cmd.numCharacters; ++charIndex)
-			{
-				if (instanceIndex == MaxNumGlyphInstances - 1)
-				{
-					break;
-				}
-				if (cmd.text[charIndex] == '\n')
-				{
-					colOffset = 0;
-					rowOffset += cmd.scale;
-					continue;
-				}
-
-				Font font = theirFontHandler[cmd.fontID];
-				GlyphInstance instance{};
-				instance.glyphIndex = myCharToGlyphIndex[cmd.text[charIndex]];
-				instance.imgArrID = float(font.imgArrID);
-
-				GlyphMetrics metrics = font.metrics[instance.glyphIndex];
-				metrics.xStride *= cmd.scale;
-				metrics.yOffset *= cmd.scale;
-				instance.pos = {cmd.position.x + colOffset * ratio, cmd.position.y + metrics.yOffset + rowOffset};
-
-				instance.pivot = {0, -1};
-				instance.color = cmd.color;
-				instance.scale = cmd.scale;
-
-				colOffset += metrics.xStride;
-
-				instances[instanceIndex++] = instance;
-			}
-		}
-
-		numGlyphs = instanceIndex + 1;
-		theirUniformHandler.UpdateUniformData(myGlyphInstancesID, instances.data());
+		spriteInstances[numInstances] = {};
+		spriteInstances[numInstances].color = cmd.color;
+		spriteInstances[numInstances].pos = cmd.position;
+		spriteInstances[numInstances].pivot = cmd.pivot;
+		spriteInstances[numInstances].scale = cmd.scale;
+		spriteInstances[numInstances].imgArrID = float(cmd.imgArrID);
+		spriteInstances[numInstances].imgArrIndex = float(cmd.imgArrIndex);
+		numInstances++;
 	}
+	theirUniformHandler.UpdateUniformData(mySpriteInstancesID, spriteInstances.data());
 
 	// DESCRIPTORS
-	theirSceneGlobals.BindGlobals(cmdBuffer, myTextPipeline.layout, 0);
-	theirFontHandler.GetImageHandler().BindSamplers(cmdBuffer, myTextPipeline.layout, 1);
-	theirFontHandler.GetImageHandler().BindImages(cmdBuffer, myTextPipeline.layout, 2);
-	theirUniformHandler.BindUniform(myGlyphInstancesID,	cmdBuffer, myTextPipeline.layout, 3);
+	theirSceneGlobals.BindGlobals(cmdBuffer, mySpritePipeline.layout, 0);
+	theirImageHandler.BindSamplers(cmdBuffer, mySpritePipeline.layout, 1);
+	theirImageHandler.BindImages(cmdBuffer, mySpritePipeline.layout, 2);
+	theirUniformHandler.BindUniform(mySpriteInstancesID, cmdBuffer, mySpritePipeline.layout, 3);
 
-	// DRAW 
-	vkCmdDraw(myCmdBuffers[swapchainImageIndex], 6, numGlyphs, 0, 0);
+	// DRAW
+	if (numInstances > 0)
+	{
+		vkCmdDraw(myCmdBuffers[swapchainImageIndex], 6, numInstances, 0, 0);
+	}
 
 	vkCmdEndRenderPass(myCmdBuffers[swapchainImageIndex]);
 
@@ -242,7 +200,8 @@ VkSemaphore* signalSemaphore)
 	return {submitInfo, myCmdBufferFences[swapchainImageIndex]};
 }
 
-void TextRenderer::BeginPush()
+void
+SpriteRenderer::BeginPush()
 {
 	{
 		std::scoped_lock<std::mutex> lock(mySwapMutex);
@@ -251,12 +210,15 @@ void TextRenderer::BeginPush()
 	myRenderCommands[myPushIndex].clear();
 }
 
-void TextRenderer::PushRenderCommand(const TextRenderCommand& textRenderCommand)
+void
+SpriteRenderer::PushRenderCommand(
+	const SpriteRenderCommand& textRenderCommand)
 {
 	myRenderCommands[myPushIndex].emplace_back(textRenderCommand);
 }
 
-void TextRenderer::EndPush()
+void
+SpriteRenderer::EndPush()
 {
 }
 
