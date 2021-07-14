@@ -8,18 +8,17 @@
 class MeshHandle;
 namespace rflx
 {
-	MeshHandle LoadMesh(const char*, std::vector<ImageHandle>&&);
+	MeshHandle CreateMesh(
+				const char* path, 
+				std::vector<ImageHandle>&& imgHandles = {});
 }
 
 class MeshHandle
 {
-	friend MeshHandle rflx::LoadMesh(const char*, std::vector<ImageHandle>&&);
+	friend MeshHandle rflx::CreateMesh(const char*, std::vector<ImageHandle>&&);
 
 public:
-	MeshID	GetID() const
-	{
-		return myID;
-	}
+	MeshID	GetID() const;
 
 private:
 			MeshHandle(MeshID id);

@@ -35,7 +35,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 
 
-	Window window(hInstance, nCmdShow, {L"Demo", 1920, 1080, true, OnWinProc});
+	Window window(hInstance, nCmdShow, {L"Demo", 1920, 1200, true, OnWinProc});
 	{
 #ifdef _DEVELOPMENT
 		AllocConsole();
@@ -59,13 +59,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		}
 
 
-		MeshHandle plane = rflx::LoadMesh("Assets/Sascha/plane.obj", {});
-		MeshHandle plane1 = rflx::LoadMesh("Assets/plane.obj", {});
+		MeshHandle plane = rflx::CreateMesh("Assets/Sascha/plane.obj", {});
+		MeshHandle plane1 = rflx::CreateMesh("Assets/plane.obj", {});
 		//MeshHandle sphereRows = rflx::LoadMesh( "Assets/sphere_rows.fbx", {albedo, material});
 
-		MeshHandle dragon = rflx::LoadMesh("Assets/Sascha/dragon.fbx", {rflx::LoadImage2D({ {255,0,0,255} }),rflx::LoadImage2D({ {255,0,0,255} })});
-		MeshHandle venus = rflx::LoadMesh("Assets/Sascha/venus.fbx", {});
-		MeshHandle knot = rflx::LoadMesh("Assets/Sascha/torusknot.fbx", {});
+		MeshHandle dragon = rflx::CreateMesh("Assets/Sascha/dragon.fbx", {rflx::CreateImage({ {255,0,0,255} }),rflx::CreateImage({ {255,0,0,255} })});
+		MeshHandle venus = rflx::CreateMesh("Assets/Sascha/venus.fbx", {});
+		MeshHandle knot = rflx::CreateMesh("Assets/Sascha/torusknot.fbx", {});
 
 
 		constexpr int gridDimX = 7;
@@ -78,21 +78,21 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			{
 				std::vector<PixelValue> albPixels;
 				albPixels.resize(1, {255,255,255,255});
-				ImageHandle albedo = rflx::LoadImage2D(std::move(albPixels));
+				ImageHandle albedo = rflx::CreateImage(std::move(albPixels));
 
 				std::vector<PixelValue> matPixels;
 				matPixels.resize(1, {uint8_t(float(x) / float(gridDimX) * 256.f),uint8_t((y > 0) * 255),0,0});
-				ImageHandle material = rflx::LoadImage2D(std::move(matPixels));
+				ImageHandle material = rflx::CreateImage(std::move(matPixels));
 
-				MeshHandle sphereHandle = rflx::LoadMesh("Assets/sphere.fbx", {albedo, material});
+				MeshHandle sphereHandle = rflx::CreateMesh("Assets/sphere.fbx", {albedo, material});
 
 				sphereGrid.emplace_back(sphereHandle);
 			}
 		}
 
 		std::vector<CubeHandle> skyboxes;
-		skyboxes.emplace_back(rflx::LoadImageCube("Assets/Cube Maps/stor_forsen.dds"));
-		skyboxes.emplace_back(rflx::LoadImageCube("Assets/Cube Maps/yokohama.dds"));
+		skyboxes.emplace_back(rflx::CreateImageCube("Assets/Cube Maps/stor_forsen.dds"));
+		skyboxes.emplace_back(rflx::CreateImageCube("Assets/Cube Maps/yokohama.dds"));
 
 		TickFunc render = [&] (float dt, float tt, int fnr)
 		{

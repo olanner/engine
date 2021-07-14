@@ -4,10 +4,11 @@
 #include "Reflex/WindowInfo/WindowInfo.h"
 #include "Reflex/identities.h"
 #include "Reflex/VK/Mesh/MeshHandle.h"
+#include "Reflex/VK/Image/CubeHandle.h"
+#include "Reflex/VK/Image/ImageHandle.h"
 
 #include "glm/glm.hpp"
-#include "VK/Image/CubeHandle.h"
-#include "VK/Image/ImageHandle.h"
+
 
 using Vec2f = glm::vec2;
 using Vec3f = glm::vec3;
@@ -34,13 +35,6 @@ private:
 
 namespace rflx
 {
-	MeshHandle	LoadMesh(
-					const char*					path, 
-					std::vector<ImageHandle>&&	imgHandles = {});
-	ImageHandle LoadImage2D(const char* path);
-	ImageHandle LoadImage2D(std::vector<PixelValue>&& data);
-	CubeHandle	LoadImageCube(const char* path);
-
 	void		SetUseRayTracing(bool useFlag);
 
 	void		BeginPush();

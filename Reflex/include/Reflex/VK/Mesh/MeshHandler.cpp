@@ -8,9 +8,9 @@
 #include "Reflex/VK/VulkanFramework.h"
 
 MeshHandler::MeshHandler(
-	VulkanFramework&		vulkanFramework,
-	BufferAllocator&		bufferAllocator,
-	ImageHandler&			textureSetHandler,
+	VulkanFramework& vulkanFramework,
+	BufferAllocator& bufferAllocator,
+	ImageHandler& textureSetHandler,
 	const QueueFamilyIndex* firstOwner,
 	uint32_t				numOwners)
 	: theirVulkanFramework(vulkanFramework)
@@ -152,8 +152,8 @@ MeshHandler::GetImageArraySetLayout() const
 
 MeshID
 MeshHandler::AddMesh(
-	const char*				path, 
-	std::vector<ImageID>&&	imageIDs)
+	const char* path,
+	std::vector<ImageID>&& imageIDs)
 {
 	MeshID meshID = myMeshIDKeeper.FetchFreeID();
 	if (BAD_ID(meshID))
@@ -190,14 +190,14 @@ MeshHandler::AddMesh(
 	}
 
 	auto [resultV, vBuffer] = theirBufferAllocator.RequestVertexBuffer(raw.vertices.data(),
-																		uint32_t(raw.vertices.size()),
-																		myOwners.data(),
-																		myOwners.size()
+		uint32_t(raw.vertices.size()),
+		myOwners.data(),
+		myOwners.size()
 	);
 	auto [resultI, iBuffer] = theirBufferAllocator.RequestIndexBuffer(raw.indices.data(),
-																	   uint32_t(raw.indices.size()),
-																	   myOwners.data(),
-																	   myOwners.size()
+		uint32_t(raw.indices.size()),
+		myOwners.data(),
+		myOwners.size()
 	);
 	if (resultV || resultI)
 	{
@@ -236,13 +236,13 @@ MeshHandler::BindMeshData(
 	VkPipelineBindPoint bindPoint)
 {
 	vkCmdBindDescriptorSets(cmdBuffer,
-							bindPoint,
-							layout,
-							setIndex,
-							1,
-							&myMeshDataSet,
-							0,
-							nullptr);
+		bindPoint,
+		layout,
+		setIndex,
+		1,
+		&myMeshDataSet,
+		0,
+		nullptr);
 }
 
 Vec4f
@@ -255,7 +255,7 @@ MeshHandler::LoadImagesFromDoc(
 
 	if (doc.HasMember("Albedo"))
 	{
-		char* raw = (char*) doc["Albedo"].GetString();
+		char* raw = (char*)doc["Albedo"].GetString();
 		char texPath[128]{};
 		strcpy_s(texPath, raw);
 		albedoID = theirImageHandler.AddImage2D(texPath);
@@ -263,7 +263,7 @@ MeshHandler::LoadImagesFromDoc(
 	}
 	if (doc.HasMember("Material"))
 	{
-		char* raw = (char*) doc["Material"].GetString();
+		char* raw = (char*)doc["Material"].GetString();
 		char texPath[128]{};
 		strcpy_s(texPath, raw);
 		materialID = theirImageHandler.AddImage2D(texPath);
@@ -282,7 +282,7 @@ MeshHandler::LoadImagesFromDoc(
 void
 MeshHandler::WriteMeshDescriptorData(MeshID meshID)
 {
-	auto [vBuffer, iBuffer] = std::tuple<VkBuffer, VkBuffer>{myMeshes[int(meshID)].vertexBuffer,myMeshes[int(meshID)].indexBuffer};
+	auto [vBuffer, iBuffer] = std::tuple<VkBuffer, VkBuffer>{ myMeshes[int(meshID)].vertexBuffer,myMeshes[int(meshID)].indexBuffer };
 
 
 	VkWriteDescriptorSet vWrite{};

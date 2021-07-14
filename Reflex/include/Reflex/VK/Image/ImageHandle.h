@@ -5,24 +5,21 @@
 class ImageHandle;
 namespace rflx
 {
-	ImageHandle LoadImage2D(const char*);
-	ImageHandle LoadImage2D(std::vector<PixelValue>&&);
+	ImageHandle CreateImage(const char* path);
+	ImageHandle CreateImage(std::vector<PixelValue>&& pixelData);
 }
 
 class ImageHandle
 {
-	friend ImageHandle rflx::LoadImage2D(const char*);
-	friend ImageHandle rflx::LoadImage2D(std::vector<PixelValue>&&);
+	friend ImageHandle rflx::CreateImage(const char*);
+	friend ImageHandle rflx::CreateImage(std::vector<PixelValue>&&);
 
 public:
-	ImageID		GetID() const
-	{
-		return myID;
-	}
+	ImageID	GetID() const;
 
 private:
-				ImageHandle(ImageID id);
+			ImageHandle(ImageID id);
 
-	ImageID		myID;
+	ImageID	myID;
 
 };

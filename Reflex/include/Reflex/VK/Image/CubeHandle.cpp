@@ -3,6 +3,11 @@
 
 #include "Reflex/VK/Scene/SceneGlobals.h"
 
+CubeID CubeHandle::GetID() const
+{
+    return myID;
+}
+
 void
 CubeHandle::SetAsSkybox() const
 {

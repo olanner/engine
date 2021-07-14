@@ -4,26 +4,22 @@
 class CubeHandle;
 namespace rflx
 {
-	CubeHandle LoadImageCube(const char*);
+	CubeHandle CreateImageCube(const char* path);
 }
 
 class CubeHandle
 {
-	friend CubeHandle rflx::LoadImageCube(const char*);
+	friend CubeHandle rflx::CreateImageCube(const char*);
 
 
 public:
-	CubeID					GetID() const
-	{
-		return myID;
-	}
-
-	void					SetAsSkybox() const;
+	CubeID									GetID() const;
+	void									SetAsSkybox() const;
 
 private:
-							CubeHandle(CubeID id);
+											CubeHandle(CubeID id);
 
 	std::shared_ptr<class SceneGlobals>		theirSceneGlobals;
-	CubeID					myID;
+	CubeID									myID;
 
 };

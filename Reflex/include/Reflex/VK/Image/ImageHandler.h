@@ -21,6 +21,10 @@ public:
 													Vec2f				imageDim,
 													VkFormat			format = VK_FORMAT_R8G8B8A8_SRGB,
 													uint32_t			numPixelVals = 4);
+	ImageArrayID								AddImage2DArrayTiled(
+													const char* path,
+													uint32_t	rows,
+													uint32_t	cols);
 	CubeID										AddImageCube(const char* path);
 	VkResult									AddStorageImage(
 													uint32_t	index,

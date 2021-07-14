@@ -11,6 +11,8 @@
 #include "VK/Ray Tracing/RTMeshRenderer.h"
 #include "VK/Sprite/SpriteRenderer.h"
 #include "VK/Text/FontHandler.h"
+#include "VK/Image/CubeHandle.h"
+#include "VK/Image/ImageHandle.h"
 
 bool*							gUseRayTracing;
 
@@ -129,7 +131,7 @@ Reflex::EndFrame()
 }
 
 MeshHandle
-rflx::LoadMesh(
+rflx::CreateMesh(
 	const char*					 path,
 	std::vector<ImageHandle>&&	 imgHandles)
 {
@@ -151,7 +153,7 @@ rflx::LoadMesh(
 }
 
 ImageHandle
-rflx::LoadImage2D(
+rflx::CreateImage(
 	const char* path)
 {
 	ImageID id = gImageHandler->AddImage2D(path);
@@ -159,7 +161,7 @@ rflx::LoadImage2D(
 }
 
 ImageHandle
-rflx::LoadImage2D(
+rflx::CreateImage(
 	std::vector<PixelValue>&& data)
 {
 	std::vector<char> dataAligned(data.size() * 4);
@@ -170,7 +172,7 @@ rflx::LoadImage2D(
 }
 
 CubeHandle
-rflx::LoadImageCube(
+rflx::CreateImageCube(
 	const char* path)
 {
 	CubeHandle handle(gImageHandler->AddImageCube(path));
@@ -213,21 +215,21 @@ rflx::PushRenderCommand(
 	const Vec3f& forward,
 	float				rotation)
 {
-	MeshRenderCommand cmnd{};
-	cmnd.id = handle.GetID();
+	MeshRenderCommand cmd{};
+	cmd.id = handle.GetID();
 
-	cmnd.transform =
+	cmd.transform =
 		glm::translate(glm::identity<Mat4f>(), position) *
 		glm::rotate(glm::identity<Mat4f>(), rotation, forward) *
 		glm::scale(glm::identity<Mat4f>(), scale);
 
 	if (*gUseRayTracing)
 	{
-		gRTMeshRenderer->PushRenderCommand(cmnd);
+		gRTMeshRenderer->PushRenderCommand(cmd);
 	}
 	else
 	{
-		gMeshRenderer->PushRenderCommand(cmnd);
+		gMeshRenderer->PushRenderCommand(cmd);
 	}
 
 }

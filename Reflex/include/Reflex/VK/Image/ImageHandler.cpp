@@ -5,9 +5,9 @@
 #include "Reflex/VK/Memory/ImageAllocator.h"
 
 ImageHandler::ImageHandler(
-	VulkanFramework&	vulkanFramework,
-	ImageAllocator&		imageAllocator,
-	QueueFamilyIndex*	firstOwner,
+	VulkanFramework& vulkanFramework,
+	ImageAllocator& imageAllocator,
+	QueueFamilyIndex* firstOwner,
 	uint32_t			numOwners)
 	: theirVulkanFramework(vulkanFramework)
 	, theirImageAllocator(imageAllocator)
@@ -75,7 +75,7 @@ ImageHandler::ImageHandler(
 		VK_SHADER_STAGE_ANY_HIT_BIT_NV |
 		VK_SHADER_STAGE_RAYGEN_BIT_NV |
 		VK_SHADER_STAGE_MISS_BIT_NV;
-	
+
 	VkDescriptorSetLayoutBinding images2DArrayBinding;
 	images2DArrayBinding.descriptorCount = MaxNumImages2DArray;
 	images2DArrayBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
@@ -101,7 +101,7 @@ ImageHandler::ImageHandler(
 		VK_SHADER_STAGE_ANY_HIT_BIT_NV |
 		VK_SHADER_STAGE_RAYGEN_BIT_NV |
 		VK_SHADER_STAGE_MISS_BIT_NV;
-	
+
 	VkDescriptorSetLayoutBinding imagesStorageBinding;
 	imagesStorageBinding.descriptorCount = MaxNumStorageImages;
 	imagesStorageBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -230,12 +230,12 @@ ImageHandler::ImageHandler(
 	RawDDS rawAlbedo = ReadDDS("Engine Assets/def_albedo.dds");
 
 	auto [resultAlbedo, albedoView] = theirImageAllocator.RequestImage2D(rawAlbedo.images[0][0].data(),
-																		  rawAlbedo.images[0][0].size(),
-																		  rawAlbedo.width,
-																		  rawAlbedo.height,
-																		  1 + std::log2(std::max(rawAlbedo.width, rawAlbedo.height)),
-																		  myOwners.data(),
-																		  myOwners.size());
+		rawAlbedo.images[0][0].size(),
+		rawAlbedo.width,
+		rawAlbedo.height,
+		1 + std::log2(std::max(rawAlbedo.width, rawAlbedo.height)),
+		myOwners.data(),
+		myOwners.size());
 
 	{
 		VkDescriptorImageInfo imageInfo{};
@@ -263,14 +263,14 @@ ImageHandler::ImageHandler(
 
 	auto imgArrData = rawAlbedo.images[0][0];
 	imgArrData.resize(imgArrData.size() * 2);
-	auto [resultDefImgArr, imgArrView] = 
+	auto [resultDefImgArr, imgArrView] =
 		theirImageAllocator.RequestImageArray(imgArrData,
-		2,
-		rawAlbedo.width,
-		rawAlbedo.height,
-		1 + std::log2(std::max(rawAlbedo.width, rawAlbedo.height)),
-		myOwners.data(),
-		myOwners.size());
+			2,
+			rawAlbedo.width,
+			rawAlbedo.height,
+			1 + std::log2(std::max(rawAlbedo.width, rawAlbedo.height)),
+			myOwners.data(),
+			myOwners.size());
 
 	{
 		VkDescriptorImageInfo imgArrInfo{};
@@ -295,17 +295,17 @@ ImageHandler::ImageHandler(
 
 		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
 	}
-	
+
 	auto [resultStorage, storageView] = theirImageAllocator.RequestImage2D(nullptr,
-																			0,
-																			16,
-																			16,
-																			1,
-																			myOwners.data(),
-																			myOwners.size(),
-																			VK_FORMAT_R8_UNORM,
-																			VK_IMAGE_LAYOUT_GENERAL,
-																			VK_IMAGE_USAGE_STORAGE_BIT
+		0,
+		16,
+		16,
+		1,
+		myOwners.data(),
+		myOwners.size(),
+		VK_FORMAT_R8_UNORM,
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_IMAGE_USAGE_STORAGE_BIT
 	);
 	for (uint32_t i = 0; i < MaxNumStorageImages; ++i)
 	{
@@ -352,12 +352,12 @@ ImageHandler::ImageHandler(
 			rawCube.images[5][0].size(),
 		};
 		auto [resultCube, cubeView] = theirImageAllocator.RequestImageCube(data,
-																			bytes,
-																			rawCube.width,
-																			rawCube.height,
-																			1 + std::log2(std::max(rawCube.width, rawCube.height)),
-																			myOwners.data(),
-																			myOwners.size());
+			bytes,
+			rawCube.width,
+			rawCube.height,
+			1 + std::log2(std::max(rawCube.width, rawCube.height)),
+			myOwners.data(),
+			myOwners.size());
 
 		{
 			VkDescriptorImageInfo imageInfo{};
@@ -384,6 +384,7 @@ ImageHandler::ImageHandler(
 		}
 	}
 	AddImage2D("brdfFilament.dds");
+	AddImage2DArrayTiled("brdfFilament.dds", 1, 1);
 }
 
 ImageHandler::~ImageHandler()
@@ -409,12 +410,12 @@ ImageHandler::AddImage2D(const char* path)
 	VkResult result{};
 	{
 		std::tie(result, myImages2D[int(imgID)]) = theirImageAllocator.RequestImage2D(rawDDS.imagesInline.data(),
-																						   rawDDS.images[0][0].size(),
-																						   rawDDS.width,
-																						   rawDDS.height,
-																						   NUM_MIPS(std::max(rawDDS.width, rawDDS.height)),
-																						   myOwners.data(),
-																						   myOwners.size());
+			rawDDS.images[0][0].size(),
+			rawDDS.width,
+			rawDDS.height,
+			NUM_MIPS(std::max(rawDDS.width, rawDDS.height)),
+			myOwners.data(),
+			myOwners.size());
 	}
 
 	if (result)
@@ -423,7 +424,7 @@ ImageHandler::AddImage2D(const char* path)
 		return ImageID(INVALID_ID);
 	}
 
-	myImages2DDims[uint32_t(imgID)] = {rawDDS.width, rawDDS.height};
+	myImages2DDims[uint32_t(imgID)] = { rawDDS.width, rawDDS.height };
 
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -463,14 +464,15 @@ ImageHandler::AddImage2D(
 	uint32_t dim = sqrtf(pixelData.size() / numPixelVals);
 	VkResult result{};
 	{
-		std::tie(result, myImages2D[int(imgID)]) = theirImageAllocator.RequestImage2D(pixelData.data(),
-																					  pixelData.size(),
-																					  dim,
-																					  dim,
-																					  NUM_MIPS(dim),
-																					  myOwners.data(),
-																					  myOwners.size(),
-																					  format);
+		std::tie(result, myImages2D[int(imgID)]) = theirImageAllocator.RequestImage2D(
+			pixelData.data(),
+			pixelData.size(),
+			dim,
+			dim,
+			NUM_MIPS(dim),
+			myOwners.data(),
+			myOwners.size(),
+			format);
 	}
 
 	if (result)
@@ -479,7 +481,7 @@ ImageHandler::AddImage2D(
 		return ImageID(INVALID_ID);
 	}
 
-	myImages2DDims[uint32_t(imgID)] = {dim, dim};
+	myImages2DDims[uint32_t(imgID)] = { dim, dim };
 
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -502,9 +504,9 @@ ImageHandler::AddImage2D(
 
 ImageArrayID
 ImageHandler::AddImage2DArray(
-	std::vector<char>&& pixelData, 
-	Vec2f imageDim, 
-	VkFormat format, 
+	std::vector<char>&& pixelData,
+	Vec2f imageDim,
+	VkFormat format,
 	uint32_t numPixelVals)
 {
 	ImageArrayID id = myImages2DArrayIDKeeper.FetchFreeID();
@@ -513,18 +515,88 @@ ImageHandler::AddImage2DArray(
 		return id;
 	}
 
-	
+
 	VkResult result;
 	VkImageView fontView{};
 	uint32_t numLayers = pixelData.size() / (imageDim.x * imageDim.y * numPixelVals);
 	std::tie(result, fontView) = theirImageAllocator.RequestImageArray(pixelData,
-																	   numLayers,
-																	   imageDim.x,
-																	   imageDim.y,
-																	   NUM_MIPS(std::max(imageDim.x,imageDim.y)),
-																	   myOwners.data(),
-																	   myOwners.size(),
-																	   format);
+		numLayers,
+		imageDim.x,
+		imageDim.y,
+		NUM_MIPS(std::max(imageDim.x, imageDim.y)),
+		myOwners.data(),
+		myOwners.size(),
+		format);
+
+
+	VkDescriptorImageInfo imgInfo{};
+	imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imgInfo.imageView = fontView;
+
+	VkWriteDescriptorSet write{};
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+
+	write.descriptorCount = 1;
+	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	write.dstSet = myImageSet;
+	write.dstBinding = ImageSetImages2DArrayBinding;
+	write.dstArrayElement = uint32_t(id);
+	write.pImageInfo = &imgInfo;
+
+	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+	return id;
+}
+
+ImageArrayID
+ImageHandler::AddImage2DArrayTiled(
+	const char* path,
+	uint32_t	rows,
+	uint32_t	cols)
+{
+	const auto rawDDS = ReadDDS(path);
+
+	ImageArrayID id = myImages2DArrayIDKeeper.FetchFreeID();
+	if (BAD_ID(id))
+	{
+		return id;
+	}
+
+	VkResult result;
+	VkImageView fontView{};
+
+	std::vector<char> sortedData;
+	sortedData.reserve(rawDDS.imagesInline.size());
+
+	const uint32_t numTiles = rows * cols;
+	const uint32_t tileWidth = rawDDS.width / cols;
+	const uint32_t tileHeight = rawDDS.height / rows;
+	const uint32_t bytesPerTile = rawDDS.imagesInline.size() / numTiles;
+
+	for (uint32_t tile = 0; tile < numTiles; ++tile)
+	{
+		uint32_t x = tile % cols * (tileWidth * 4);
+		uint32_t y = tile / rows * tileHeight;
+		for (uint32_t byte = 0; byte < bytesPerTile; byte++)
+		{
+			uint32_t ix = x + byte % (tileWidth * 4);
+			uint32_t iy = y + byte / (tileWidth * 4);
+			uint32_t index = iy * (rawDDS.width * 4) + ix;
+
+			sortedData.emplace_back(rawDDS.imagesInline[index]);
+
+		}
+	}
+
+
+	std::tie(result, fontView) = theirImageAllocator.RequestImageArray(
+		sortedData,
+		numTiles,
+		tileWidth,
+		tileHeight,
+		NUM_MIPS(std::max(tileWidth, tileHeight)),
+		myOwners.data(),
+		myOwners.size(),
+		VK_FORMAT_R8G8B8A8_UNORM);
 
 
 	VkDescriptorImageInfo imgInfo{};
@@ -579,12 +651,12 @@ ImageHandler::AddImageCube(const char* path)
 			rawDDS.images[5][0].size(),
 		};
 		std::tie(result, myImagesCube[int(cubeID)]) = theirImageAllocator.RequestImageCube(data,
-																								bytes,
-																								rawDDS.width,
-																								rawDDS.height,
-																								1 + std::log2(std::max(rawDDS.width, rawDDS.height)),
-																								myOwners.data(),
-																								myOwners.size());
+			bytes,
+			rawDDS.width,
+			rawDDS.height,
+			1 + std::log2(std::max(rawDDS.width, rawDDS.height)),
+			myOwners.data(),
+			myOwners.size());
 	}
 
 	if (result)
@@ -625,15 +697,15 @@ ImageHandler::AddStorageImage(
 	uint32_t	height)
 {
 	auto [result, view] = theirImageAllocator.RequestImage2D(nullptr,
-															  0,
-															  width,
-															  height,
-															  1,
-															  myOwners.data(),
-															  myOwners.size(),
-															  format,
-															  VK_IMAGE_LAYOUT_GENERAL,
-															  VK_IMAGE_USAGE_STORAGE_BIT);
+		0,
+		width,
+		height,
+		1,
+		myOwners.data(),
+		myOwners.size(),
+		format,
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_IMAGE_USAGE_STORAGE_BIT);
 
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -689,13 +761,13 @@ ImageHandler::BindSamplers(
 	VkPipelineBindPoint bindPoint)
 {
 	vkCmdBindDescriptorSets(commandBuffer,
-							bindPoint,
-							pipelineLayout,
-							setIndex,
-							1,
-							&mySamplerSet,
-							0,
-							nullptr);
+		bindPoint,
+		pipelineLayout,
+		setIndex,
+		1,
+		&mySamplerSet,
+		0,
+		nullptr);
 }
 
 void
@@ -706,13 +778,13 @@ ImageHandler::BindImages(
 	VkPipelineBindPoint bindPoint)
 {
 	vkCmdBindDescriptorSets(commandBuffer,
-							bindPoint,
-							pipelineLayout,
-							setIndex,
-							1,
-							&myImageSet,
-							0,
-							nullptr);
+		bindPoint,
+		pipelineLayout,
+		setIndex,
+		1,
+		&myImageSet,
+		0,
+		nullptr);
 }
 
 VkImageView
