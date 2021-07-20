@@ -14,14 +14,15 @@ public:
 	ImageID										AddImage2D(const char* path);
 	ImageID										AddImage2D(
 													std::vector<char>&&	pixelData,
+													Vec2f				dimension,
 													VkFormat			format = VK_FORMAT_R8G8B8A8_SRGB,
 													uint32_t			numPixelVals = 4);
-	ImageArrayID								AddImage2DArray(
+	/*ImageArrayID								AddImage2DArray(
 													std::vector<char>&&	pixelData,
 													Vec2f				imageDim,
 													VkFormat			format = VK_FORMAT_R8G8B8A8_SRGB,
-													uint32_t			numPixelVals = 4);
-	ImageArrayID								AddImage2DArrayTiled(
+													uint32_t			numPixelVals = 4);*/
+	ImageID										AddImage2DTiled(
 													const char* path,
 													uint32_t	rows,
 													uint32_t	cols);
@@ -67,17 +68,13 @@ private:
 	VkDescriptorSet								mySamplerSet;
 	VkDescriptorSetLayout						mySamplerSetLayout;
 
-	std::array<Vec2f, MaxNumImages2D>			myImages2DDims;
-	std::array<VkImageView, MaxNumImages2D>		myImages2D;
+	std::array<Vec2f, MaxNumImages>				myImages2DDims;
+	std::array<VkImageView, MaxNumImages>		myImages2D;
 	IDKeeper<ImageID>							myImageIDKeeper;
 
 	std::array<float, MaxNumImagesCube>			myImagesCubeDims;
 	std::array<VkImageView, MaxNumImagesCube>	myImagesCube;
 	IDKeeper<CubeID>							myCubeIDKeeper;
-
-	std::array<VkImageView, MaxNumImages2DArray>
-												myImages2DArray;
-	IDKeeper<ImageArrayID>						myImages2DArrayIDKeeper;
 
 	neat::static_vector<QueueFamilyIndex, 16>	myOwners;
 

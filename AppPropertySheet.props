@@ -3,24 +3,24 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <OutDir>$(SolutionDir)..\Bin\</OutDir>
-    <IntDir>$(SolutionDir)..\Temp\obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)..\bin\</OutDir>
+    <IntDir>$(SolutionDir)..\tmp\obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)_$(Configuration)$(PlatformTarget)</TargetName>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);</IncludePath>
-    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;</LibraryPath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\lib\;</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <Link>
-      <ProgramDatabaseFile>$(SolutionDir)..\Temp\pdb\$(TargetName).pdb</ProgramDatabaseFile>
+      <ProgramDatabaseFile>$(SolutionDir)..\tmp\pdb\$(TargetName).pdb</ProgramDatabaseFile>
       <ProfileGuidedDatabase>$(OutDir)$(TargetName).pgd</ProfileGuidedDatabase>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
     </Link>
     <ClCompile>
-      <PrecompiledHeaderOutputFile>$(SolutionDir)..\Temp\$(ProjectName)\pch\$(TargetName).pch</PrecompiledHeaderOutputFile>
-      <ProgramDataBaseFileName>$(SolutionDir)..\Temp\pdb\$(ProjectName)\</ProgramDataBaseFileName>
+      <PrecompiledHeaderOutputFile>$(SolutionDir)..\tmp\$(ProjectName)\pch\$(TargetName).pch</PrecompiledHeaderOutputFile>
+      <ProgramDataBaseFileName>$(SolutionDir)..\tmp\pdb\$(ProjectName)\</ProgramDataBaseFileName>
     </ClCompile>
     <BuildLog>
-      <Path>$(SolutionDir)..\Temp\log\$(MSBuildProjectName).log</Path>
+      <Path>$(SolutionDir)..\tmp\log\$(MSBuildProjectName).log</Path>
     </BuildLog>
   </ItemDefinitionGroup>
   <ItemGroup />

@@ -3,23 +3,23 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <OutDir>$(SolutionDir)..\Lib\</OutDir>
-    <IntDir>$(SolutionDir)..\Temp\obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)..\lib\</OutDir>
+    <IntDir>$(SolutionDir)..\tmp\obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
     <TargetName>$(ProjectName)_$(Configuration)$(PlatformTarget)</TargetName>
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);</IncludePath>
     <TargetExt>.lib</TargetExt>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <PrecompiledHeaderOutputFile>$(SolutionDir)..\Temp\pch\$(TargetName).pch</PrecompiledHeaderOutputFile>
-      <ProgramDataBaseFileName>$(SolutionDir)..\Temp\pdb\$(TargetName).pdb</ProgramDataBaseFileName>
+      <PrecompiledHeaderOutputFile>$(SolutionDir)..\tmp\pch\$(TargetName).pch</PrecompiledHeaderOutputFile>
+      <ProgramDataBaseFileName>$(SolutionDir)..\tmp\pdb\$(TargetName).pdb</ProgramDataBaseFileName>
       <PreprocessorDefinitions>UNICODE;_RELEASE;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <BuildLog>
-      <Path>$(SolutionDir)..\Temp\log\$(MSBuildProjectName).log</Path>
+      <Path>$(SolutionDir)..\tmp\log\$(MSBuildProjectName).log</Path>
     </BuildLog>
     <Link>
-      <ProgramDatabaseFile>$(SolutionDir)..\Temp\pdb\$(TargetName).pdb</ProgramDatabaseFile>
+      <ProgramDatabaseFile>$(SolutionDir)..\tmp\pdb\$(TargetName).pdb</ProgramDatabaseFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup />

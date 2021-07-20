@@ -94,6 +94,8 @@
     <ClInclude Include="Include\neat\General\MultiApplication.h" />
     <ClInclude Include="Include\neat\Image\DDSReader.h" />
     <ClInclude Include="Include\neat\Image\ImageReader.h" />
+    <ClInclude Include="Include\neat\Image\libtga\tga.h" />
+    <ClInclude Include="Include\neat\Image\libtga\tgaconfig.h" />
     <ClInclude Include="Include\neat\Input\InputHandler.h" />
     <ClInclude Include="Include\neat\Math\float4.h" />
     <ClInclude Include="Include\neat\Containers\static_vector.h" />
@@ -111,6 +113,9 @@
     <ClCompile Include="Include\neat\General\Window.cpp" />
     <ClCompile Include="Include\neat\Image\DDSReader.cpp" />
     <ClCompile Include="Include\neat\Image\ImageReader.cpp" />
+    <ClCompile Include="Include\neat\Image\libtga\tga.cpp" />
+    <ClCompile Include="Include\neat\Image\libtga\tgaread.cpp" />
+    <ClCompile Include="Include\neat\Image\libtga\tgawrite.cpp" />
     <ClCompile Include="Include\neat\Input\InputHandler.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

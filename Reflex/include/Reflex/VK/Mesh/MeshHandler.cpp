@@ -25,7 +25,7 @@ MeshHandler::MeshHandler(
 
 	VkDescriptorPoolSize poolSize;
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSize.descriptorCount = MaxNumImages2D * 2; // Index + Vertex
+	poolSize.descriptorCount = MaxNumImages * 2; // Index + Vertex
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;

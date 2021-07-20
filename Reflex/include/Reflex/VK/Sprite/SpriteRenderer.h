@@ -20,7 +20,7 @@ struct SpriteRenderCommand
 	Vec2f			position;
 	Vec2f			pivot;
 	float			scale;
-	ImageArrayID	imgArrID;
+	ImageID			imgArrID;
 	uint32_t		imgArrIndex;
 };
 

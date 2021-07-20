@@ -26,7 +26,7 @@ CubeFilterer::CubeFilterer(
 	size_t sizes[6]{};
 	VkResult result;
 	std::tie(result, myCube) =
-		theirImageAllocator.RequestImageCube(nullptr, sizes,
+		theirImageAllocator.RequestImageCube({}, 0,
 											  2048, 2048, NUM_MIPS(2048),
 											  qIndices, 2,
 											  VK_FORMAT_R8G8B8A8_UNORM,

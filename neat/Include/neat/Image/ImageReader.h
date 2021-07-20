@@ -1,23 +1,47 @@
 
 #pragma once
 
-enum class Channel : char
+namespace neat
 {
-	R, G, B, A
-};
+	enum class ChannelSwizzle
+	{
+		Unknown,
+		R,
+		RGBA,
+		RGB,
+		ABGR,
+		BGRA,
+		BGR,
+	};
 
-struct ImageFormat
-{
-	uint32_t numChannels = 0;
-	size_t channelByteSize = 0;
-	Channel channelSwizzle[4] = {};
-};
+	enum class ImageFileFormat
+	{
+		Unknown,
+		DDS,
+		Targa
 
-struct RawImage
-{
-	uint32_t width = 0;
-	uint32_t height = 0;
-	std::vector<std::vector<char>> images;
-};
+	};
 
-std::tuple<ImageFormat, RawImage> ReadImage(const char *);
+	enum class ImageError
+	{
+		None,
+		FileReadError,
+		UnsupportedFileFormat,
+		UnsupportedImageFormat,
+		GenericError
+	};
+
+	struct Image
+	{
+		ImageFileFormat fileFormat = ImageFileFormat::Unknown;
+		ChannelSwizzle swizzle = ChannelSwizzle::Unknown;
+		uint32_t width = 0;
+		uint32_t height = 0;
+		uint32_t layers = 0;
+		uint32_t pixelDepth = 0;
+		std::vector<char> pixelData;
+		ImageError error = ImageError::GenericError;
+	};
+
+	Image ReadImage(const char* path);
+}

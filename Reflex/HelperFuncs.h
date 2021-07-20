@@ -1,6 +1,6 @@
 
 #pragma once
-#include <rapidjson/document.h>
+#include "rapidjson/document.h"
 
 inline rapidjson::Document
 OpenJsonDoc(const char* path)

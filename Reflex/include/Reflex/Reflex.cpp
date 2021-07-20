@@ -166,8 +166,8 @@ rflx::CreateImage(
 {
 	std::vector<char> dataAligned(data.size() * 4);
 	memcpy(dataAligned.data(), data.data(), data.size() * sizeof PixelValue);
-	data.resize(0);
-	ImageID id = gImageHandler->AddImage2D(std::move(dataAligned));
+	float dim = sqrtf(float(data.size()));
+	ImageID id = gImageHandler->AddImage2D(std::move(dataAligned), { dim, dim});
 	return ImageHandle(id);
 }
 

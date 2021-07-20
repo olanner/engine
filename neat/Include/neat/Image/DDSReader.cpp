@@ -60,63 +60,62 @@ struct DDSDXT10
 };
 #define DDSCAPS2_CUBEMAP 0x200
 
-RawDDS ReadDDS( const char* path )
+RawDDS ReadDDS(const char* path)
 {
 	RawDDS ret;
 	std::vector<char> rawData;
 	std::ifstream in;
-	in.open( path, std::ios::binary | std::ios::ate );
-	if ( !in.good() )
+	in.open(path, std::ios::binary | std::ios::ate);
+	if (!in.good())
 	{
 		return {};
 	}
 
 	size_t fileSize = in.tellg();
-	rawData.resize( fileSize );
-	in.seekg( 0, std::ios::beg );
-	in.read( rawData.data(), fileSize );
+	rawData.resize(fileSize);
+	in.seekg(0, std::ios::beg);
+	in.read(rawData.data(), fileSize);
 
-	DDS* dds = (DDS*) rawData.data();
+	DDS* dds = (DDS*)rawData.data();
 	ret.width = dds->header.width;
 	ret.height = dds->header.height;
 	ret.numLayers = 1;
 	ret.numMipMaps = dds->header.mipMapCount;
 
-	if ( dds->header.dwCaps2 & DDSCAPS2_CUBEMAP )
+	if (dds->header.dwCaps2 & DDSCAPS2_CUBEMAP)
 	{
 		ret.numLayers = 6;
 	}
 
+	ret.maskA = dds->header.pixelFormat.dwABitMask;
+	ret.maskR = dds->header.pixelFormat.dwRBitMask;
+	ret.maskG = dds->header.pixelFormat.dwGBitMask;
+	ret.maskB = dds->header.pixelFormat.dwBBitMask;
+	ret.pixelDepth = dds->header.pixelFormat.dwRGBBitCount;
 
-	ret.images.resize( ret.numLayers );
-	if ( strcmp( (char*) &dds->header.pixelFormat.dwFourCC, "DX10" ) )
+	ret.images.resize(ret.numLayers);
+	if (strcmp((char*)&dds->header.pixelFormat.dwFourCC, "DX10"))
 	{
 		int offset = 0;
-		for ( int i = 0; i < ret.numLayers; ++i )
+		for (int i = 0; i < ret.numLayers; ++i)
 		{
 			std::vector<std::vector<char>> images;
-			images.resize( dds->header.mipMapCount );
+			images.resize(dds->header.mipMapCount);
 
-			for ( int i = 0; i < dds->header.mipMapCount; ++i )
+			for (int i = 0; i < dds->header.mipMapCount; ++i)
 			{
-				char* data = (char*) ( dds->data + offset );
-				images[i].resize( ( dds->header.width ) / pow( 2, i ) * ( dds->header.height ) / pow( 2, i ) * 4 );
-				memcpy( images[i].data(), data, images[i].size() );
+				char* data = (char*)(dds->data + offset);
+				images[i].resize((dds->header.width) / pow(2, i) * (dds->header.height) / pow(2, i) * 4);
+				memcpy(images[i].data(), data, images[i].size());
 				offset += images[i].size();
 			}
 			ret.images[i] = images;
 		}
 	}
 
-
-	size_t size = 0;
-	for ( auto& layer : ret.images )
+	for (auto& layer : ret.images)
 	{
-		for ( auto& mip : layer )
-		{
-			size += mip.size();
-			ret.imagesInline.insert( ret.imagesInline.end(), mip.begin(), mip.end() );
-		}
+		ret.imagesInline.insert(ret.imagesInline.end(), layer[0].begin(), layer[0].end());
 	}
 
 	return ret;

@@ -73,7 +73,7 @@ FontHandler::AddFont(
 		numLayers++;
 	}
 
-	font.imgArrID = theirImageHandler.AddImage2DArray(std::move(fontData), {res,res}, VK_FORMAT_R8G8B8A8_UNORM, 4);
+	font.imgArrID = theirImageHandler.AddImage2D(std::move(fontData), {res,res}, VK_FORMAT_R8G8B8A8_UNORM, 4);
 	
 	return id;
 }

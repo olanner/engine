@@ -163,8 +163,8 @@ ImageAllocator::RequestImage2D(
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImageCube(
-	const char*				initialData[6],
-	size_t					initialDataNumBytes[6],
+	std::vector<char>		initialData,
+	size_t					inititalDataBytesPerLayer,
 	uint32_t				width,
 	uint32_t				height,
 	uint32_t				numMips,
@@ -179,7 +179,7 @@ ImageAllocator::RequestImageCube(
 	VkImageView view{};
 	VkDeviceMemory memory{};
 
-	assert(!(initialData && !initialDataNumBytes) && "invalid operation : requesting image with valid data with invalid number of bytes");
+	assert((initialData.size() / 6 == inititalDataBytesPerLayer) && "invalid operation : requesting image with valid data with invalid number of bytes");
 
 	// IMAGE
 	VkImageCreateInfo imageInfo{};
@@ -226,10 +226,6 @@ ImageAllocator::RequestImageCube(
 	{
 		return {VK_ERROR_FEATURE_NOT_PRESENT, nullptr};
 	}
-	if (initialData)
-	{
-		assert(std::accumulate(initialDataNumBytes, initialDataNumBytes + 6, 0) <= memReq.size && "byte size of image layer 0 mip 0 is too large");
-	}
 
 	VkMemoryAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -250,11 +246,11 @@ ImageAllocator::RequestImageCube(
 
 	// FIRST IMAGE ALLOC
 
-	if (initialData)
+	if (!initialData.empty())
 	{
 		for (int i = 0; i < 6; ++i)
 		{
-			RecordImageAlloc(image, width, height, i, initialData[i], initialDataNumBytes[i], firstOwner, numOwners);
+			RecordImageAlloc(image, width, height, i, &initialData[i*inititalDataBytesPerLayer], inititalDataBytesPerLayer, firstOwner, numOwners);
 		}
 		for (int i = 0; i < 6; ++i)
 		{

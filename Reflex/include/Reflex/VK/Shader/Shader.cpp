@@ -123,8 +123,8 @@ Shader::FetchBinaryData(const char* path) const
 		std::string preAmble;
 		preAmble.append("#define SET_SAMPLERS_COUNT ").append(std::to_string(MaxNumSamplers)).append("\n");
 		preAmble.append("#define SET_TLAS_COUNT ").append(std::to_string(MaxNumInstanceStructures)).append("\n");
-		preAmble.append("#define SAMPLED_IMAGE_2D_COUNT ").append(std::to_string(MaxNumImages2D)).append("\n");
-		preAmble.append("#define SAMPLED_IMAGE_2D_ARRAY_COUNT ").append(std::to_string(MaxNumImages2D)).append("\n");
+		preAmble.append("#define SAMPLED_IMAGE_2D_COUNT ").append(std::to_string(MaxNumImages)).append("\n");
+		preAmble.append("#define SAMPLED_IMAGE_2D_ARRAY_COUNT ").append(std::to_string(MaxNumImages)).append("\n");
 		preAmble.append("#define SAMPLED_CUBE_COUNT ").append(std::to_string(MaxNumImagesCube)).append("\n");
 		preAmble.append("#define STORAGE_IMAGE_COUNT ").append(std::to_string(MaxNumStorageImages)).append("\n");
 		preAmble.append("#define MAX_NUM_INSTANCES ").append(std::to_string(MaxNumInstances)).append("\n");

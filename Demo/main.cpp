@@ -35,7 +35,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 
 
-	Window window(hInstance, nCmdShow, {L"Demo", 1920, 1200, true, OnWinProc});
+	Window window(hInstance, nCmdShow, {L"Demo", 1920, 1080, true, OnWinProc});
 	{
 #ifdef _DEVELOPMENT
 		AllocConsole();

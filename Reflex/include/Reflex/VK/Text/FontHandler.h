@@ -9,8 +9,8 @@ struct GlyphMetrics
 
 struct Font
 {
-	ImageArrayID imgArrID;
-	std::array<GlyphMetrics, NumGlyphsPerFont> metrics;
+	ImageID										imgArrID;
+	std::array<GlyphMetrics, NumGlyphsPerFont>	metrics;
 };
 
 struct RawGlyph

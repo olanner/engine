@@ -18,11 +18,9 @@ ImageHandler::ImageHandler(
 	, mySamplerSet()
 	, mySamplerSetLayout()
 	, myImages2D{}
-	, myImageIDKeeper(MaxNumImages2D)
+	, myImageIDKeeper(MaxNumImages)
 	, myImagesCube{}
 	, myCubeIDKeeper(MaxNumImagesCube)
-	, myImages2DArray{}
-	, myImages2DArrayIDKeeper(MaxNumImages2DArray)
 	, myOwners{}
 {
 	for (uint32_t i = 0; i < numOwners; ++i)
@@ -33,7 +31,7 @@ ImageHandler::ImageHandler(
 	// POOL
 	VkDescriptorPoolSize sampledImageDescriptorSize;
 	sampledImageDescriptorSize.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	sampledImageDescriptorSize.descriptorCount = MaxNumImages2D + MaxNumImagesCube + MaxNumImages2DArray;
+	sampledImageDescriptorSize.descriptorCount = MaxNumImages + MaxNumImagesCube;
 	VkDescriptorPoolSize storageImageDescriptorSize;
 	storageImageDescriptorSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	storageImageDescriptorSize.descriptorCount = MaxNumStorageImages;
@@ -64,24 +62,11 @@ ImageHandler::ImageHandler(
 	// IMAGE ARRAYS DESCRIPTOR
 	//LAYOUT
 	VkDescriptorSetLayoutBinding images2DBinding;
-	images2DBinding.descriptorCount = MaxNumImages2D;
+	images2DBinding.descriptorCount = MaxNumImages;
 	images2DBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 	images2DBinding.binding = ImageSetImages2DBinding;
 	images2DBinding.pImmutableSamplers = nullptr;
 	images2DBinding.stageFlags =
-		VK_SHADER_STAGE_FRAGMENT_BIT |
-		VK_SHADER_STAGE_VERTEX_BIT |
-		VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV |
-		VK_SHADER_STAGE_ANY_HIT_BIT_NV |
-		VK_SHADER_STAGE_RAYGEN_BIT_NV |
-		VK_SHADER_STAGE_MISS_BIT_NV;
-
-	VkDescriptorSetLayoutBinding images2DArrayBinding;
-	images2DArrayBinding.descriptorCount = MaxNumImages2DArray;
-	images2DArrayBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	images2DArrayBinding.binding = ImageSetImages2DArrayBinding;
-	images2DArrayBinding.pImmutableSamplers = nullptr;
-	images2DArrayBinding.stageFlags =
 		VK_SHADER_STAGE_FRAGMENT_BIT |
 		VK_SHADER_STAGE_VERTEX_BIT |
 		VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV |
@@ -123,7 +108,6 @@ ImageHandler::ImageHandler(
 	VkDescriptorSetLayoutBinding bindings[]
 	{
 		images2DBinding,
-		images2DArrayBinding,
 		cubeMapArrBinding,
 		imagesStorageBinding,
 	};
@@ -229,8 +213,8 @@ ImageHandler::ImageHandler(
 
 	RawDDS rawAlbedo = ReadDDS("Engine Assets/def_albedo.dds");
 
-	auto [resultAlbedo, albedoView] = theirImageAllocator.RequestImage2D(rawAlbedo.images[0][0].data(),
-		rawAlbedo.images[0][0].size(),
+	auto [resultAlbedo, albedoView] = theirImageAllocator.RequestImageArray(rawAlbedo.images[0][0],
+		1,
 		rawAlbedo.width,
 		rawAlbedo.height,
 		1 + std::log2(std::max(rawAlbedo.width, rawAlbedo.height)),
@@ -243,7 +227,7 @@ ImageHandler::ImageHandler(
 		imageInfo.imageView = albedoView;
 
 		std::vector<VkDescriptorImageInfo> defAlbedoInfos;
-		defAlbedoInfos.resize(MaxNumImages2D, imageInfo);
+		defAlbedoInfos.resize(MaxNumImages, imageInfo);
 
 		VkWriteDescriptorSet write{};
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -252,7 +236,7 @@ ImageHandler::ImageHandler(
 		write.dstSet = myImageSet;
 		write.dstBinding = ImageSetImages2DBinding;
 		write.dstArrayElement = 0;
-		write.descriptorCount = MaxNumImages2D;
+		write.descriptorCount = MaxNumImages;
 		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 		write.pImageInfo = defAlbedoInfos.data();
 		write.pBufferInfo = nullptr;
@@ -261,40 +245,40 @@ ImageHandler::ImageHandler(
 		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
 	}
 
-	auto imgArrData = rawAlbedo.images[0][0];
-	imgArrData.resize(imgArrData.size() * 2);
-	auto [resultDefImgArr, imgArrView] =
-		theirImageAllocator.RequestImageArray(imgArrData,
-			2,
-			rawAlbedo.width,
-			rawAlbedo.height,
-			1 + std::log2(std::max(rawAlbedo.width, rawAlbedo.height)),
-			myOwners.data(),
-			myOwners.size());
+	//auto imgArrData = rawAlbedo.images[0][0];
+	//imgArrData.resize(imgArrData.size() * 2);
+	//auto [resultDefImgArr, imgArrView] =
+	//	theirImageAllocator.RequestImageArray(imgArrData,
+	//		2,
+	//		rawAlbedo.width,
+	//		rawAlbedo.height,
+	//		1 + std::log2(std::max(rawAlbedo.width, rawAlbedo.height)),
+	//		myOwners.data(),
+	//		myOwners.size());
 
-	{
-		VkDescriptorImageInfo imgArrInfo{};
-		imgArrInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imgArrInfo.imageView = imgArrView;
+	//{
+	//	VkDescriptorImageInfo imgArrInfo{};
+	//	imgArrInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	//	imgArrInfo.imageView = imgArrView;
 
-		std::vector<VkDescriptorImageInfo> defImgArrInfos;
-		defImgArrInfos.resize(MaxNumImages2D, imgArrInfo);
+	//	std::vector<VkDescriptorImageInfo> defImgArrInfos;
+	//	defImgArrInfos.resize(MaxNumImages, imgArrInfo);
 
-		VkWriteDescriptorSet write{};
-		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		write.pNext = nullptr;
+	//	VkWriteDescriptorSet write{};
+	//	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	//	write.pNext = nullptr;
 
-		write.dstSet = myImageSet;
-		write.dstBinding = ImageSetImages2DArrayBinding;
-		write.dstArrayElement = 0;
-		write.descriptorCount = MaxNumImages2DArray;
-		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-		write.pImageInfo = defImgArrInfos.data();
-		write.pBufferInfo = nullptr;
-		write.pTexelBufferView = nullptr;
+	//	write.dstSet = myImageSet;
+	//	write.dstBinding = ImageSetImages2DArrayBinding;
+	//	write.dstArrayElement = 0;
+	//	write.descriptorCount = MaxNumImages2DArray;
+	//	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	//	write.pImageInfo = defImgArrInfos.data();
+	//	write.pBufferInfo = nullptr;
+	//	write.pTexelBufferView = nullptr;
 
-		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
-	}
+	//	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+	//}
 
 	auto [resultStorage, storageView] = theirImageAllocator.RequestImage2D(nullptr,
 		0,
@@ -332,27 +316,10 @@ ImageHandler::ImageHandler(
 
 	{
 		RawDDS rawCube = ReadDDS("Engine Assets/def_cube.dds");
-
-		const char* data[6]
-		{
-			rawCube.images[0][0].data(),
-			rawCube.images[1][0].data(),
-			rawCube.images[2][0].data(),
-			rawCube.images[3][0].data(),
-			rawCube.images[4][0].data(),
-			rawCube.images[5][0].data(),
-		};
-		size_t bytes[6]
-		{
-			rawCube.images[0][0].size(),
-			rawCube.images[1][0].size(),
-			rawCube.images[2][0].size(),
-			rawCube.images[3][0].size(),
-			rawCube.images[4][0].size(),
-			rawCube.images[5][0].size(),
-		};
-		auto [resultCube, cubeView] = theirImageAllocator.RequestImageCube(data,
-			bytes,
+		
+		auto [resultCube, cubeView] = theirImageAllocator.RequestImageCube(
+			rawCube.imagesInline,
+			rawCube.imagesInline.size()/6,
 			rawCube.width,
 			rawCube.height,
 			1 + std::log2(std::max(rawCube.width, rawCube.height)),
@@ -379,12 +346,12 @@ ImageHandler::ImageHandler(
 			write.pImageInfo = cubeDescInfos.data();
 			write.pBufferInfo = nullptr;
 			write.pTexelBufferView = nullptr;
-
+			
 			vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
 		}
 	}
 	AddImage2D("brdfFilament.dds");
-	AddImage2DArrayTiled("brdfFilament.dds", 1, 1);
+	AddImage2DTiled("Engine Assets/def_albedo.dds", 8, 8);
 }
 
 ImageHandler::~ImageHandler()
@@ -398,59 +365,15 @@ ImageHandler::~ImageHandler()
 ImageID
 ImageHandler::AddImage2D(const char* path)
 {
-	ImageID imgID = myImageIDKeeper.FetchFreeID();
-	if (BAD_ID(imgID))
-	{
-		LOG("no more free image slots");
-		return ImageID(INVALID_ID);
-	}
-
 	auto rawDDS = ReadDDS(path);
 
-	VkResult result{};
-	{
-		std::tie(result, myImages2D[int(imgID)]) = theirImageAllocator.RequestImage2D(rawDDS.imagesInline.data(),
-			rawDDS.images[0][0].size(),
-			rawDDS.width,
-			rawDDS.height,
-			NUM_MIPS(std::max(rawDDS.width, rawDDS.height)),
-			myOwners.data(),
-			myOwners.size());
-	}
-
-	if (result)
-	{
-		LOG("failed loading image 2D, error code :", result);
-		return ImageID(INVALID_ID);
-	}
-
-	myImages2DDims[uint32_t(imgID)] = { rawDDS.width, rawDDS.height };
-
-	VkDescriptorImageInfo imageInfo{};
-	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageInfo.imageView = myImages2D[int(imgID)];
-
-	VkWriteDescriptorSet write{};
-	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	write.pNext = nullptr;
-
-	write.dstSet = myImageSet;
-	write.dstBinding = ImageSetImages2DBinding;
-	write.dstArrayElement = uint32_t(imgID);
-	write.descriptorCount = 1;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	write.pImageInfo = &imageInfo;
-	write.pBufferInfo = nullptr;
-	write.pTexelBufferView = nullptr;
-
-	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
-
-	return imgID;
+	return AddImage2D(std::move(rawDDS.imagesInline), {rawDDS.width, rawDDS.height});
 }
 
 ImageID
 ImageHandler::AddImage2D(
 	std::vector<char>&& pixelData,
+	Vec2f				dimension,
 	VkFormat			format,
 	uint32_t			numPixelVals)
 {
@@ -460,16 +383,15 @@ ImageHandler::AddImage2D(
 		LOG("no more free image slots");
 		return ImageID(INVALID_ID);
 	}
-
-	uint32_t dim = sqrtf(pixelData.size() / numPixelVals);
+	uint32_t layers = pixelData.size() / (dimension.x * dimension.y * numPixelVals);
 	VkResult result{};
 	{
-		std::tie(result, myImages2D[int(imgID)]) = theirImageAllocator.RequestImage2D(
-			pixelData.data(),
-			pixelData.size(),
-			dim,
-			dim,
-			NUM_MIPS(dim),
+		std::tie(result, myImages2D[int(imgID)]) = theirImageAllocator.RequestImageArray(
+			pixelData,
+					layers,
+			dimension.x,
+			dimension.y,
+			NUM_MIPS(std::max(dimension.x, dimension.y)),
 			myOwners.data(),
 			myOwners.size(),
 			format);
@@ -481,7 +403,7 @@ ImageHandler::AddImage2D(
 		return ImageID(INVALID_ID);
 	}
 
-	myImages2DDims[uint32_t(imgID)] = { dim, dim };
+	myImages2DDims[uint32_t(imgID)] = dimension;
 
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -502,68 +424,59 @@ ImageHandler::AddImage2D(
 	return imgID;
 }
 
-ImageArrayID
-ImageHandler::AddImage2DArray(
-	std::vector<char>&& pixelData,
-	Vec2f imageDim,
-	VkFormat format,
-	uint32_t numPixelVals)
-{
-	ImageArrayID id = myImages2DArrayIDKeeper.FetchFreeID();
-	if (BAD_ID(id))
-	{
-		return id;
-	}
+//ImageArrayID
+//ImageHandler::AddImage2DArray(
+//	std::vector<char>&& pixelData,
+//	Vec2f imageDim,
+//	VkFormat format,
+//	uint32_t numPixelVals)
+//{
+//	ImageArrayID id = myImages2DArrayIDKeeper.FetchFreeID();
+//	if (BAD_ID(id))
+//	{
+//		return id;
+//	}
+//
+//
+//	VkResult result;
+//	VkImageView fontView{};
+//	uint32_t numLayers = pixelData.size() / (imageDim.x * imageDim.y * numPixelVals);
+//	std::tie(result, fontView) = theirImageAllocator.RequestImageArray(pixelData,
+//		numLayers,
+//		imageDim.x,
+//		imageDim.y,
+//		NUM_MIPS(std::max(imageDim.x, imageDim.y)),
+//		myOwners.data(),
+//		myOwners.size(),
+//		format);
+//
+//
+//	VkDescriptorImageInfo imgInfo{};
+//	imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+//	imgInfo.imageView = fontView;
+//
+//	VkWriteDescriptorSet write{};
+//	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//
+//	write.descriptorCount = 1;
+//	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+//	write.dstSet = myImageSet;
+//	write.dstBinding = ImageSetImages2DArrayBinding;
+//	write.dstArrayElement = uint32_t(id);
+//	write.pImageInfo = &imgInfo;
+//
+//	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+//	return id;
+//}
 
-
-	VkResult result;
-	VkImageView fontView{};
-	uint32_t numLayers = pixelData.size() / (imageDim.x * imageDim.y * numPixelVals);
-	std::tie(result, fontView) = theirImageAllocator.RequestImageArray(pixelData,
-		numLayers,
-		imageDim.x,
-		imageDim.y,
-		NUM_MIPS(std::max(imageDim.x, imageDim.y)),
-		myOwners.data(),
-		myOwners.size(),
-		format);
-
-
-	VkDescriptorImageInfo imgInfo{};
-	imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imgInfo.imageView = fontView;
-
-	VkWriteDescriptorSet write{};
-	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-
-	write.descriptorCount = 1;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	write.dstSet = myImageSet;
-	write.dstBinding = ImageSetImages2DArrayBinding;
-	write.dstArrayElement = uint32_t(id);
-	write.pImageInfo = &imgInfo;
-
-	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
-	return id;
-}
-
-ImageArrayID
-ImageHandler::AddImage2DArrayTiled(
+ImageID
+ImageHandler::AddImage2DTiled(
 	const char* path,
 	uint32_t	rows,
 	uint32_t	cols)
 {
 	const auto rawDDS = ReadDDS(path);
-
-	ImageArrayID id = myImages2DArrayIDKeeper.FetchFreeID();
-	if (BAD_ID(id))
-	{
-		return id;
-	}
-
-	VkResult result;
-	VkImageView fontView{};
-
+	
 	std::vector<char> sortedData;
 	sortedData.reserve(rawDDS.imagesInline.size());
 
@@ -586,35 +499,8 @@ ImageHandler::AddImage2DArrayTiled(
 
 		}
 	}
-
-
-	std::tie(result, fontView) = theirImageAllocator.RequestImageArray(
-		sortedData,
-		numTiles,
-		tileWidth,
-		tileHeight,
-		NUM_MIPS(std::max(tileWidth, tileHeight)),
-		myOwners.data(),
-		myOwners.size(),
-		VK_FORMAT_R8G8B8A8_UNORM);
-
-
-	VkDescriptorImageInfo imgInfo{};
-	imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imgInfo.imageView = fontView;
-
-	VkWriteDescriptorSet write{};
-	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-
-	write.descriptorCount = 1;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	write.dstSet = myImageSet;
-	write.dstBinding = ImageSetImages2DArrayBinding;
-	write.dstArrayElement = uint32_t(id);
-	write.pImageInfo = &imgInfo;
-
-	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
-	return id;
+	
+	return AddImage2D(std::move(sortedData), {tileWidth, tileHeight});
 }
 
 CubeID
@@ -628,11 +514,16 @@ ImageHandler::AddImageCube(const char* path)
 	}
 
 	auto rawDDS = ReadDDS(path);
+	if (rawDDS.numLayers != 6)
+	{
+		LOG(path, "is not a cube map image");
+		return CubeID(INVALID_ID);
+	}
 
 	VkResult result{};
 
 	{
-		const char* data[6]
+		/*const char* data[6]
 		{
 			rawDDS.images[0][0].data(),
 			rawDDS.images[1][0].data(),
@@ -649,9 +540,11 @@ ImageHandler::AddImageCube(const char* path)
 			rawDDS.images[3][0].size(),
 			rawDDS.images[4][0].size(),
 			rawDDS.images[5][0].size(),
-		};
-		std::tie(result, myImagesCube[int(cubeID)]) = theirImageAllocator.RequestImageCube(data,
-			bytes,
+		};*/
+		std::tie(result, myImagesCube[int(cubeID)]) = 
+			theirImageAllocator.RequestImageCube(
+			rawDDS.imagesInline,
+			rawDDS.imagesInline.size() / 6,
 			rawDDS.width,
 			rawDDS.height,
 			1 + std::log2(std::max(rawDDS.width, rawDDS.height)),

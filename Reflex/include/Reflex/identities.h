@@ -13,7 +13,6 @@ struct PixelValue
 
 enum class MeshID;
 enum class ImageID;
-enum class ImageArrayID;
 enum class CubeID;
 enum class UniformID;
 enum class InstanceStructID;

@@ -23,8 +23,8 @@ public:
 														VkPipelineStageFlags	targetPipelineStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 	std::tuple<VkResult, VkImageView>				RequestImageCube(
-														const char*				initialData[6],
-														size_t					initialDataNumBytes[6],
+														std::vector<char>		initialData,
+														size_t					inititalDataBytesPerLayer,
 														uint32_t				width,
 														uint32_t				height,
 														uint32_t				numMips,
