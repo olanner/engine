@@ -21,6 +21,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Demo", "Demo\Demo.vcxproj",
 		{9CE084CF-A684-48C5-8CD9-72AF569E6E9E} = {9CE084CF-A684-48C5-8CD9-72AF569E6E9E}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Glue", "Glue\Glue.vcxproj", "{437C2118-CB58-45A4-8C21-5343E6D07259}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -43,6 +45,10 @@ Global
 		{B59DDFD0-DCAA-4671-981D-E4D8C212BAB7}.Debug|x64.Build.0 = Debug|x64
 		{B59DDFD0-DCAA-4671-981D-E4D8C212BAB7}.Release|x64.ActiveCfg = Release|x64
 		{B59DDFD0-DCAA-4671-981D-E4D8C212BAB7}.Release|x64.Build.0 = Release|x64
+		{437C2118-CB58-45A4-8C21-5343E6D07259}.Debug|x64.ActiveCfg = Debug|x64
+		{437C2118-CB58-45A4-8C21-5343E6D07259}.Debug|x64.Build.0 = Debug|x64
+		{437C2118-CB58-45A4-8C21-5343E6D07259}.Release|x64.ActiveCfg = Release|x64
+		{437C2118-CB58-45A4-8C21-5343E6D07259}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

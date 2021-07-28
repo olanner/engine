@@ -1,18 +1,19 @@
 
 #pragma once
 
+#include "glm/glm.hpp"
+using Vec2f = glm::vec2;
+using Vec3f = glm::vec3;
+using Vec4f = glm::vec4;
+using Mat3f = glm::mat3x3;
+
 #include "Reflex/WindowInfo/WindowInfo.h"
 #include "Reflex/identities.h"
 #include "Reflex/VK/Mesh/MeshHandle.h"
 #include "Reflex/VK/Image/CubeHandle.h"
 #include "Reflex/VK/Image/ImageHandle.h"
 
-#include "glm/glm.hpp"
 
-using Vec2f = glm::vec2;
-using Vec3f = glm::vec3;
-using Vec4f = glm::vec4;
-using Mat3f = glm::mat3x3;
 using Mat4f = glm::mat4x4;
 
 class Reflex
@@ -49,6 +50,13 @@ namespace rflx
 					const Vec3f&	position,
 					float			scale,
 					const Vec4f&	color);
+	void		PushRenderCommand(
+					ImageHandle		handle,
+					uint32_t		subImg,
+					Vec2f			position,
+					float			scale,
+					Vec2f			pivot = {0,0},
+					Vec4f			color = {1,1,1,1});
 	void		EndPush();
 
 	void		SetView(

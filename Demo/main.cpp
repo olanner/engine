@@ -3,6 +3,7 @@
 #define _DEVELOPMENT
 
 #include <string>
+#include <random>
 
 //#include "neat/General/Application.h"
 #include "neat/General/MultiApplication.h"
@@ -61,9 +62,45 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 		MeshHandle plane = rflx::CreateMesh("Assets/Sascha/plane.obj", {});
 		MeshHandle plane1 = rflx::CreateMesh("Assets/plane.obj", {});
-		//MeshHandle sphereRows = rflx::LoadMesh( "Assets/sphere_rows.fbx", {albedo, material});
 
-		MeshHandle dragon = rflx::CreateMesh("Assets/Sascha/dragon.fbx", {rflx::CreateImage({ {255,0,0,255} }),rflx::CreateImage({ {255,0,0,255} })});
+		std::vector<PixelValue> red(1, {255,0,0,255});
+		std::vector<PixelValue> rndMat(8*8);
+
+		std::random_device rd;
+		std::mt19937_64 mt(rd());
+		std::uniform_int_distribution<int> dist(0, 256);
+
+		for (int i = 0; i < rndMat.size(); ++i)
+		{
+			int y = i / 8;
+			int x = i % 8;
+			if ((y+x)%2)
+			{
+				rndMat[i].r = dist(mt);
+				rndMat[i].g = 255;
+			}
+			else
+			{
+				rndMat[i].r = dist(mt);
+				rndMat[i].g = 255;
+			}
+		}
+
+		std::vector<PixelValue> checkers(64 * 64);
+		for (uint32_t y = 0; y < 64; ++y)
+		{
+			for (uint32_t x = 0; x < 64; ++x)
+			{
+				uint32_t ty = y / 8;
+				uint32_t tx = x / 8;
+				checkers[y * 64 + x] = rndMat[ty*8+tx];
+			}
+		}
+		
+		ImageHandle imgCheckers = rflx::CreateImage(std::move(checkers));
+		ImageHandle imgRND = rflx::CreateImage(std::move(rndMat));
+
+		MeshHandle dragon = rflx::CreateMesh("Assets/Sascha/dragon.fbx", {});
 		MeshHandle venus = rflx::CreateMesh("Assets/Sascha/venus.fbx", {});
 		MeshHandle knot = rflx::CreateMesh("Assets/Sascha/torusknot.fbx", {});
 
@@ -89,11 +126,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				sphereGrid.emplace_back(sphereHandle);
 			}
 		}
-
+		
 		std::vector<CubeHandle> skyboxes;
 		skyboxes.emplace_back(rflx::CreateImageCube("Assets/Cube Maps/stor_forsen.dds"));
 		skyboxes.emplace_back(rflx::CreateImageCube("Assets/Cube Maps/yokohama.dds"));
 
+		ImageHandle test = rflx::CreateImage("test2.tga", {4,4});
+		
 		TickFunc render = [&] (float dt, float tt, int fnr)
 		{
 			float fps = 1.f / dt;
@@ -190,7 +229,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			rflx::PushRenderCommand( dragon, {3,0,3}, { .33f,.33f,.33f }, {0,1,0}, 0 );
 			rflx::PushRenderCommand( venus, {-3,0,-3}, { .33f,.33f,.33f }, {0,1,0}, 3.14 + 3.14 / 4);
 			rflx::PushRenderCommand( knot, {0,3,0}, { .075f,.075f,.075f }, {0,1,0}, 0 );
-
+			rflx::PushRenderCommand(test, uint32_t(tt) % 16, {}, 1);
+			
 			//for ( int i = 0; i < 16; ++i )
 			//{
 			//	const float x = cosf( float( i ) / 16.f * 6.18f + tt ) * 8.f;
@@ -218,9 +258,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		Application app
 		(
 			window,
-			[&] (float a, float b, float c)
+			[&] (float dt, float tt, int fnr)
 		{
-			render(a, b, c); logic(a, b, c);
+			render(dt, tt, fnr); logic(dt, tt, fnr);
 		}
 		);
 

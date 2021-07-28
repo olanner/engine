@@ -27,7 +27,7 @@ std::shared_ptr<AccelerationStructureHandler>	gAccStructHandler;
 // FEATURES
 std::shared_ptr<MeshRenderer>					gMeshRenderer;
 std::shared_ptr<RTMeshRenderer>					gRTMeshRenderer;
-std::shared_ptr<SpriteRenderer>					gTextRenderer;
+std::shared_ptr<SpriteRenderer>					gSpriteRenderer;
 
 VulkanFramework*								gVulkanFramework;
 
@@ -93,7 +93,7 @@ Reflex::Reflex(
 	gRTMeshRenderer = rtmr;
 	gImageHandler = myVKImplementation->myImageHandler;
 	gCubeFilterer = myVKImplementation->myCubeFilterer;
-	gTextRenderer = tr;
+	gSpriteRenderer = tr;
 	gFontHandler = myVKImplementation->myFontHandler;
 
 	gUseRayTracing = &myVKImplementation->myUseRayTracing;
@@ -140,6 +140,7 @@ rflx::CreateMesh(
 	{
 		imgIDs.emplace_back(handle.GetID());
 	}
+	
 	MeshID id = gMeshHandler->AddMesh(path, std::move(imgIDs));
 	MeshHandle ret(id);
 
@@ -154,17 +155,21 @@ rflx::CreateMesh(
 
 ImageHandle
 rflx::CreateImage(
-	const char* path)
+	const char* path,
+	Vec2f		tiling)
 {
-	ImageID id = gImageHandler->AddImage2D(path);
+	ImageID id = ImageID(INVALID_ID);// = 
+	id = gImageHandler->AddImage2DTiled(path, tiling.y, tiling.x);
 	return ImageHandle(id);
 }
 
 ImageHandle
 rflx::CreateImage(
-	std::vector<PixelValue>&& data)
+	std::vector<PixelValue>&&	data,
+	Vec2f						tiling)
 {
-	std::vector<char> dataAligned(data.size() * 4);
+	tiling = tiling; // TODO: IMPLEMENT
+	std::vector<uint8_t> dataAligned(data.size() * 4);
 	memcpy(dataAligned.data(), data.data(), data.size() * sizeof PixelValue);
 	float dim = sqrtf(float(data.size()));
 	ImageID id = gImageHandler->AddImage2D(std::move(dataAligned), { dim, dim});
@@ -204,7 +209,7 @@ rflx::BeginPush()
 		gMeshRenderer->BeginPush();
 	}
 
-	gTextRenderer->BeginPush();
+	gSpriteRenderer->BeginPush();
 }
 
 void
@@ -278,8 +283,28 @@ rflx::PushRenderCommand(
 
 		colOffset += metrics.xStride;
 
-		gTextRenderer->PushRenderCommand(cmd);
+		gSpriteRenderer->PushRenderCommand(cmd);
 	}
+}
+
+void
+rflx::PushRenderCommand(
+	ImageHandle handle,
+	uint32_t    subImg,
+	Vec2f		position, 
+	float		scale, 
+	Vec2f		pivot, 
+	Vec4f		color)
+{
+	SpriteRenderCommand cmd;
+	cmd.imgArrID = handle.GetID();
+	cmd.imgArrIndex = subImg;
+	cmd.position = position;
+	cmd.scale = scale;
+	cmd.pivot = pivot;
+	cmd.color = color;
+
+	gSpriteRenderer->PushRenderCommand(cmd);
 }
 
 void
@@ -294,7 +319,7 @@ rflx::EndPush()
 		gMeshRenderer->EndPush();
 	}
 
-	gTextRenderer->EndPush();
+	gSpriteRenderer->EndPush();
 }
 
 void

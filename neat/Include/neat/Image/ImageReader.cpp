@@ -9,7 +9,9 @@ void OpenTGA(Image & outImg, const char* path);
 void OpenDDS(Image & outImg, const char* path);
 
 Image
-ReadImage(const char* path)
+ReadImage(
+	const char* path,
+	bool		alphaPadding)
 {
 	Image ret;
 	if (strstr(path, ".tga"))
@@ -22,16 +24,39 @@ ReadImage(const char* path)
 	}
 	else
 	{
-		ret.error = ImageError::FileReadError;
+		ret.error = ImageError::UnsupportedFileFormat;
+		return ret;
+	}
+
+	if (alphaPadding)
+	{
+		if (ret.swizzle == ImageSwizzle::RGB 
+			|| ret.swizzle == ImageSwizzle::BGR)
+		{
+			ret.alphaDepth = 8;
+			ret.bitDepth += 8;
+			for (int pix = ret.pixelData.size() - 1; pix >= 0; pix -= 3)
+			{
+				ret.pixelData.insert(ret.pixelData.begin() + pix + 1, 255);
+			}
+			if (ret.swizzle == ImageSwizzle::RGB)
+			{
+				ret.swizzle = ImageSwizzle::RGBA;
+			}
+			if (ret.swizzle == ImageSwizzle::BGR)
+			{
+				ret.swizzle = ImageSwizzle::BGRA;
+			}
+		}
 	}
 	
 	return ret;
 }
 
-#define X 0xff000000
-#define Y 0x00ff0000
-#define Z 0x0000ff00
-#define W 0x000000ff
+#define X 0x000000ff
+#define Y 0x0000ff00
+#define Z 0x00ff0000
+#define W 0xff000000
 
 void
 OpenTGA(
@@ -59,25 +84,25 @@ OpenTGA(
 	if (tgaData.flags & TGA_RGB
 		&& tga->hdr.alpha == 8)
 	{
-		outImg.swizzle = ChannelSwizzle::RGBA;
+		outImg.swizzle = ImageSwizzle::RGBA;
 	}
 	else 
 	if (tgaData.flags & TGA_BGR
 		&& tga->hdr.alpha == 8)
 	{
-		outImg.swizzle = ChannelSwizzle::BGRA;
+		outImg.swizzle = ImageSwizzle::BGRA;
 	}
 	else 
 	if (tgaData.flags & TGA_RGB
 		&& tga->hdr.alpha == 0)
 	{
-		outImg.swizzle = ChannelSwizzle::RGB;
+		outImg.swizzle = ImageSwizzle::RGB;
 	}
 	else 
 	if (tgaData.flags & TGA_BGR
 		&& tga->hdr.alpha == 0)
 	{
-		outImg.swizzle = ChannelSwizzle::BGR;
+		outImg.swizzle = ImageSwizzle::BGR;
 	}
 	else
 	{
@@ -88,11 +113,16 @@ OpenTGA(
 	outImg.width = tga->hdr.width;
 	outImg.height = tga->hdr.height;
 	outImg.layers = 1;
-	outImg.pixelDepth = tga->hdr.depth;
+	outImg.bitDepth = tga->hdr.depth;
+	outImg.colorDepth = tga->hdr.depth - tga->hdr.alpha;
+	outImg.alphaDepth = tga->hdr.alpha;
 
-	size_t dataSize = outImg.width * outImg.height * (outImg.pixelDepth / 8);
-	outImg.pixelData.resize(dataSize);
-	memcpy(outImg.pixelData.data(), tgaData.img_data, dataSize);
+	for (int row = outImg.height - 1; row >= 0; --row)
+	{
+		const uint32_t bWidth = outImg.height * outImg.bitDepth / 8;
+		const uint32_t index = row * bWidth;
+		outImg.pixelData.insert(outImg.pixelData.end(), tgaData.img_data + index, tgaData.img_data + index + bWidth);
+	}
 	
 	TGAClose(tga);
 	outImg.error = ImageError::None;
@@ -108,7 +138,7 @@ OpenDDS(
 
 	if (rawDDS.pixelDepth == 8)
 	{
-		outImg.swizzle = ChannelSwizzle::R;
+		outImg.swizzle = ImageSwizzle::R;
 	}
 	else 
 	if (rawDDS.maskR == X
@@ -116,7 +146,7 @@ OpenDDS(
 		&& rawDDS.maskB == Z
 		&& rawDDS.maskA == W)
 	{
-		outImg.swizzle = ChannelSwizzle::RGBA;
+		outImg.swizzle = ImageSwizzle::RGBA;
 	}
 	else
 	if (rawDDS.maskR == X
@@ -124,7 +154,7 @@ OpenDDS(
 		&& rawDDS.maskB == Z
 		&& rawDDS.maskA == 0)
 	{
-		outImg.swizzle = ChannelSwizzle::RGB;
+		outImg.swizzle = ImageSwizzle::RGB;
 	}
 	else 
 	if (rawDDS.maskA == X
@@ -132,7 +162,7 @@ OpenDDS(
 		&& rawDDS.maskG == Z
 		&& rawDDS.maskR == W)
 	{
-		outImg.swizzle = ChannelSwizzle::ABGR;
+		outImg.swizzle = ImageSwizzle::ABGR;
 	}
 	else
 	if (rawDDS.maskB == X
@@ -140,7 +170,7 @@ OpenDDS(
 		&& rawDDS.maskR == Z
 		&& rawDDS.maskA == W)
 	{
-		outImg.swizzle = ChannelSwizzle::BGRA;
+		outImg.swizzle = ImageSwizzle::BGRA;
 	}
 	else 
 	if (rawDDS.maskB == X
@@ -148,7 +178,7 @@ OpenDDS(
 		&& rawDDS.maskR == Z
 		&& rawDDS.maskA == 0)
 	{
-		outImg.swizzle = ChannelSwizzle::BGR;
+		outImg.swizzle = ImageSwizzle::BGR;
 	}
 	else
 	{
@@ -159,7 +189,9 @@ OpenDDS(
 	outImg.width = rawDDS.width;
 	outImg.height = rawDDS.height;
 	outImg.layers = rawDDS.numLayers;
-	outImg.pixelDepth = rawDDS.pixelDepth;
+	outImg.bitDepth = rawDDS.pixelDepth;
+	outImg.alphaDepth = !!rawDDS.maskA * 8;
+	outImg.colorDepth = rawDDS.pixelDepth - outImg.alphaDepth;
 	outImg.pixelData = std::move(rawDDS.imagesInline);
 
 	outImg.error = ImageError::None;

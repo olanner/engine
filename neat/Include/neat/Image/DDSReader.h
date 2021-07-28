@@ -11,8 +11,8 @@ struct RawDDS
 	uint32_t maskG;
 	uint32_t maskB;
 	uint32_t pixelDepth;
-	std::vector<std::vector<std::vector<char>>> images;
-	std::vector<char> imagesInline;
+	std::vector<std::vector<std::vector<uint8_t>>> images;
+	std::vector<uint8_t> imagesInline;
 };
 
 RawDDS ReadDDS(const char* path);

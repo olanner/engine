@@ -30,7 +30,7 @@ ImageAllocator::~ImageAllocator()
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImage2D(
-	const char*				initialData,
+	const uint8_t*			initialData,
 	size_t					initialDataNumBytes,
 	uint32_t				width,
 	uint32_t				height,
@@ -163,7 +163,7 @@ ImageAllocator::RequestImage2D(
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImageCube(
-	std::vector<char>		initialData,
+	std::vector<uint8_t>	initialData,
 	size_t					inititalDataBytesPerLayer,
 	uint32_t				width,
 	uint32_t				height,
@@ -297,7 +297,7 @@ ImageAllocator::RequestImageCube(
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImageArray(
-	std::vector<char>				initialData,
+	std::vector<uint8_t>			initialData,
 	uint32_t						numLayers,
 	uint32_t						width,
 	uint32_t						height,
@@ -533,7 +533,7 @@ ImageAllocator::RecordImageAlloc(
 	uint32_t				width,
 	uint32_t				height,
 	uint32_t				layer,
-	const char*				data,
+	const uint8_t*			data,
 	uint64_t				numBytes,
 	const QueueFamilyIndex* firstOwner,
 	uint32_t				numOwners)

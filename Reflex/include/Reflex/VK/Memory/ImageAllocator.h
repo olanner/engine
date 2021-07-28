@@ -10,7 +10,7 @@ public:
 													~ImageAllocator();
 
 	std::tuple<VkResult, VkImageView>				RequestImage2D(
-														const char*				initialData,
+														const uint8_t*			initialData,
 														size_t					initialDataNumBytes,
 														uint32_t				width,
 														uint32_t				height,
@@ -23,7 +23,7 @@ public:
 														VkPipelineStageFlags	targetPipelineStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 	std::tuple<VkResult, VkImageView>				RequestImageCube(
-														std::vector<char>		initialData,
+														std::vector<uint8_t>		initialData,
 														size_t					inititalDataBytesPerLayer,
 														uint32_t				width,
 														uint32_t				height,
@@ -36,7 +36,7 @@ public:
 														VkPipelineStageFlags	targetPipelineStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
 	std::tuple<VkResult, VkImageView>				RequestImageArray(
-														std::vector<char>		initialData,
+														std::vector<uint8_t>		initialData,
 														uint32_t				numLayers,
 														uint32_t				width,
 														uint32_t				height,
@@ -71,7 +71,7 @@ private:
 														uint32_t				width,
 														uint32_t				height,
 														uint32_t				layer,
-														const char*				data,
+														const uint8_t*			data,
 														uint64_t				numBytes,
 														const QueueFamilyIndex*	firstOwner,
 														uint32_t				numOwners);

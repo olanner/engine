@@ -13,15 +13,10 @@ public:
 
 	ImageID										AddImage2D(const char* path);
 	ImageID										AddImage2D(
-													std::vector<char>&&	pixelData,
+													std::vector<uint8_t>&&	pixelData,
 													Vec2f				dimension,
 													VkFormat			format = VK_FORMAT_R8G8B8A8_SRGB,
-													uint32_t			numPixelVals = 4);
-	/*ImageArrayID								AddImage2DArray(
-													std::vector<char>&&	pixelData,
-													Vec2f				imageDim,
-													VkFormat			format = VK_FORMAT_R8G8B8A8_SRGB,
-													uint32_t			numPixelVals = 4);*/
+													uint32_t			byteDepth = 4);
 	ImageID										AddImage2DTiled(
 													const char* path,
 													uint32_t	rows,
@@ -77,6 +72,9 @@ private:
 	IDKeeper<CubeID>							myCubeIDKeeper;
 
 	neat::static_vector<QueueFamilyIndex, 16>	myOwners;
+
+	std::unordered_map<neat::ImageSwizzle, VkFormat>
+												myImageSwizzleToFormat;
 
 
 };

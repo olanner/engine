@@ -99,12 +99,12 @@ RawDDS ReadDDS(const char* path)
 		int offset = 0;
 		for (int i = 0; i < ret.numLayers; ++i)
 		{
-			std::vector<std::vector<char>> images;
+			std::vector<std::vector<uint8_t>> images;
 			images.resize(dds->header.mipMapCount);
 
 			for (int i = 0; i < dds->header.mipMapCount; ++i)
 			{
-				char* data = (char*)(dds->data + offset);
+				uint8_t* data = (uint8_t*)(dds->data + offset);
 				images[i].resize((dds->header.width) / pow(2, i) * (dds->header.height) / pow(2, i) * 4);
 				memcpy(images[i].data(), data, images[i].size());
 				offset += images[i].size();

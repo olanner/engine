@@ -457,8 +457,6 @@ VulkanFramework::EnumeratePhysDevices()
 	globalProps.resize(count);
 	vkEnumerateDeviceExtensionProperties(myPhysicalDevices[myChosenPhysicalDevice], nullptr, &count, globalProps.data());
 
-
-
 	for (auto& layer : availableLayers)
 	{
 		std::vector<VkExtensionProperties> props;

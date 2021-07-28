@@ -3,9 +3,10 @@
 
 namespace neat
 {
-	enum class ChannelSwizzle
+	enum class ImageSwizzle
 	{
 		Unknown,
+		
 		R,
 		RGBA,
 		RGB,
@@ -34,14 +35,18 @@ namespace neat
 	struct Image
 	{
 		ImageFileFormat fileFormat = ImageFileFormat::Unknown;
-		ChannelSwizzle swizzle = ChannelSwizzle::Unknown;
+		ImageSwizzle swizzle = ImageSwizzle::Unknown;
 		uint32_t width = 0;
 		uint32_t height = 0;
 		uint32_t layers = 0;
-		uint32_t pixelDepth = 0;
-		std::vector<char> pixelData;
+		uint32_t bitDepth = 0;
+		uint32_t colorDepth = 0;
+		uint32_t alphaDepth = 0;
+		std::vector<uint8_t> pixelData;
 		ImageError error = ImageError::GenericError;
 	};
 
-	Image ReadImage(const char* path);
+	Image ReadImage(
+			const char* path, 
+			bool		alphaPadding = true);
 }

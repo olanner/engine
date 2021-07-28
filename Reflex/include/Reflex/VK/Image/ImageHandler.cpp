@@ -1,6 +1,6 @@
 #include "pch.h"
-#include "neat/Image/DDSReader.h"
 #include "ImageHandler.h"
+
 #include "Reflex/VK/VulkanFramework.h"
 #include "Reflex/VK/Memory/ImageAllocator.h"
 
@@ -210,16 +210,26 @@ ImageHandler::ImageHandler(
 	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
 
 	// DO DEFAULT TEXTURES
+	std::vector<uint8_t> checkers(64*64);
+	for (uint32_t y = 0; y < 64; ++y)
+	{
+		for (uint32_t x = 0; x < 64; ++x)
+		{
+			uint32_t ty = y / 8;
+			uint32_t tx = x / 8;
+			checkers[y * 64 + x] = (ty + tx) % 2 * 255;
+		}
+	}
 
-	RawDDS rawAlbedo = ReadDDS("Engine Assets/def_albedo.dds");
-
-	auto [resultAlbedo, albedoView] = theirImageAllocator.RequestImageArray(rawAlbedo.images[0][0],
+	auto [resultAlbedo, albedoView] = theirImageAllocator.RequestImageArray(
+		checkers,
 		1,
-		rawAlbedo.width,
-		rawAlbedo.height,
-		1 + std::log2(std::max(rawAlbedo.width, rawAlbedo.height)),
+		64,
+		64,
+		NUM_MIPS(64),
 		myOwners.data(),
-		myOwners.size());
+		myOwners.size(),
+		VK_FORMAT_R8_UNORM);
 
 	{
 		VkDescriptorImageInfo imageInfo{};
@@ -244,41 +254,6 @@ ImageHandler::ImageHandler(
 
 		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
 	}
-
-	//auto imgArrData = rawAlbedo.images[0][0];
-	//imgArrData.resize(imgArrData.size() * 2);
-	//auto [resultDefImgArr, imgArrView] =
-	//	theirImageAllocator.RequestImageArray(imgArrData,
-	//		2,
-	//		rawAlbedo.width,
-	//		rawAlbedo.height,
-	//		1 + std::log2(std::max(rawAlbedo.width, rawAlbedo.height)),
-	//		myOwners.data(),
-	//		myOwners.size());
-
-	//{
-	//	VkDescriptorImageInfo imgArrInfo{};
-	//	imgArrInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	//	imgArrInfo.imageView = imgArrView;
-
-	//	std::vector<VkDescriptorImageInfo> defImgArrInfos;
-	//	defImgArrInfos.resize(MaxNumImages, imgArrInfo);
-
-	//	VkWriteDescriptorSet write{};
-	//	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	//	write.pNext = nullptr;
-
-	//	write.dstSet = myImageSet;
-	//	write.dstBinding = ImageSetImages2DArrayBinding;
-	//	write.dstArrayElement = 0;
-	//	write.descriptorCount = MaxNumImages2DArray;
-	//	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	//	write.pImageInfo = defImgArrInfos.data();
-	//	write.pBufferInfo = nullptr;
-	//	write.pTexelBufferView = nullptr;
-
-	//	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
-	//}
 
 	auto [resultStorage, storageView] = theirImageAllocator.RequestImage2D(nullptr,
 		0,
@@ -315,16 +290,21 @@ ImageHandler::ImageHandler(
 	int val = 0;
 
 	{
-		RawDDS rawCube = ReadDDS("Engine Assets/def_cube.dds");
-		
+		checkers.resize(checkers.size()*6);
+		std::vector<uint8_t> checkersCube;
+		for (int i = 0; i < 6; ++i)
+		{
+			checkersCube.insert(checkersCube.end(), checkers.begin(), checkers.end());
+		}
 		auto [resultCube, cubeView] = theirImageAllocator.RequestImageCube(
-			rawCube.imagesInline,
-			rawCube.imagesInline.size()/6,
-			rawCube.width,
-			rawCube.height,
-			1 + std::log2(std::max(rawCube.width, rawCube.height)),
+			checkersCube,
+			checkersCube.size()/6,
+			64,
+			64,
+			NUM_MIPS(64),
 			myOwners.data(),
-			myOwners.size());
+			myOwners.size(),
+			VK_FORMAT_R8_UNORM);
 
 		{
 			VkDescriptorImageInfo imageInfo{};
@@ -350,8 +330,17 @@ ImageHandler::ImageHandler(
 			vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
 		}
 	}
+
+	myImageSwizzleToFormat[neat::ImageSwizzle::RGBA] = VK_FORMAT_R8G8B8A8_UNORM;
+	myImageSwizzleToFormat[neat::ImageSwizzle::RGB] = VK_FORMAT_R8G8B8_UNORM;
+	myImageSwizzleToFormat[neat::ImageSwizzle::ABGR] = VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+	myImageSwizzleToFormat[neat::ImageSwizzle::BGRA] = VK_FORMAT_B8G8R8A8_UNORM;
+	myImageSwizzleToFormat[neat::ImageSwizzle::BGR] = VK_FORMAT_B8G8R8_UNORM;
+	myImageSwizzleToFormat[neat::ImageSwizzle::R] = VK_FORMAT_R8_UNORM;
+	
+	myImageSwizzleToFormat[neat::ImageSwizzle::Unknown] = VK_FORMAT_UNDEFINED;
+	
 	AddImage2D("brdfFilament.dds");
-	AddImage2DTiled("Engine Assets/def_albedo.dds", 8, 8);
 }
 
 ImageHandler::~ImageHandler()
@@ -365,17 +354,21 @@ ImageHandler::~ImageHandler()
 ImageID
 ImageHandler::AddImage2D(const char* path)
 {
-	auto rawDDS = ReadDDS(path);
+	auto img = neat::ReadImage(path);
 
-	return AddImage2D(std::move(rawDDS.imagesInline), {rawDDS.width, rawDDS.height});
+	return AddImage2D(
+		std::move(img.pixelData), 
+		{img.width, img.height}, 
+		myImageSwizzleToFormat[img.swizzle],
+		img.bitDepth / 8);
 }
 
 ImageID
 ImageHandler::AddImage2D(
-	std::vector<char>&& pixelData,
+	std::vector<uint8_t>&& pixelData,
 	Vec2f				dimension,
 	VkFormat			format,
-	uint32_t			numPixelVals)
+	uint32_t			byteDepth)
 {
 	ImageID imgID = myImageIDKeeper.FetchFreeID();
 	if (BAD_ID(imgID))
@@ -383,7 +376,7 @@ ImageHandler::AddImage2D(
 		LOG("no more free image slots");
 		return ImageID(INVALID_ID);
 	}
-	uint32_t layers = pixelData.size() / (dimension.x * dimension.y * numPixelVals);
+	uint32_t layers = pixelData.size() / (dimension.x * dimension.y * byteDepth);
 	VkResult result{};
 	{
 		std::tie(result, myImages2D[int(imgID)]) = theirImageAllocator.RequestImageArray(
@@ -423,67 +416,21 @@ ImageHandler::AddImage2D(
 
 	return imgID;
 }
-
-//ImageArrayID
-//ImageHandler::AddImage2DArray(
-//	std::vector<char>&& pixelData,
-//	Vec2f imageDim,
-//	VkFormat format,
-//	uint32_t numPixelVals)
-//{
-//	ImageArrayID id = myImages2DArrayIDKeeper.FetchFreeID();
-//	if (BAD_ID(id))
-//	{
-//		return id;
-//	}
-//
-//
-//	VkResult result;
-//	VkImageView fontView{};
-//	uint32_t numLayers = pixelData.size() / (imageDim.x * imageDim.y * numPixelVals);
-//	std::tie(result, fontView) = theirImageAllocator.RequestImageArray(pixelData,
-//		numLayers,
-//		imageDim.x,
-//		imageDim.y,
-//		NUM_MIPS(std::max(imageDim.x, imageDim.y)),
-//		myOwners.data(),
-//		myOwners.size(),
-//		format);
-//
-//
-//	VkDescriptorImageInfo imgInfo{};
-//	imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-//	imgInfo.imageView = fontView;
-//
-//	VkWriteDescriptorSet write{};
-//	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-//
-//	write.descriptorCount = 1;
-//	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-//	write.dstSet = myImageSet;
-//	write.dstBinding = ImageSetImages2DArrayBinding;
-//	write.dstArrayElement = uint32_t(id);
-//	write.pImageInfo = &imgInfo;
-//
-//	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
-//	return id;
-//}
-
 ImageID
 ImageHandler::AddImage2DTiled(
 	const char* path,
 	uint32_t	rows,
 	uint32_t	cols)
 {
-	const auto rawDDS = ReadDDS(path);
+	const auto img = neat::ReadImage(path);
 	
-	std::vector<char> sortedData;
-	sortedData.reserve(rawDDS.imagesInline.size());
+	std::vector<uint8_t> sortedData;
+	sortedData.reserve(img.pixelData.size());
 
 	const uint32_t numTiles = rows * cols;
-	const uint32_t tileWidth = rawDDS.width / cols;
-	const uint32_t tileHeight = rawDDS.height / rows;
-	const uint32_t bytesPerTile = rawDDS.imagesInline.size() / numTiles;
+	const uint32_t tileWidth = img.width / cols;
+	const uint32_t tileHeight = img.height / rows;
+	const uint32_t bytesPerTile = img.pixelData.size() / numTiles;
 
 	for (uint32_t tile = 0; tile < numTiles; ++tile)
 	{
@@ -493,14 +440,14 @@ ImageHandler::AddImage2DTiled(
 		{
 			uint32_t ix = x + byte % (tileWidth * 4);
 			uint32_t iy = y + byte / (tileWidth * 4);
-			uint32_t index = iy * (rawDDS.width * 4) + ix;
+			uint32_t index = iy * (img.width * 4) + ix;
 
-			sortedData.emplace_back(rawDDS.imagesInline[index]);
+			sortedData.emplace_back(img.pixelData[index]);
 
 		}
 	}
 	
-	return AddImage2D(std::move(sortedData), {tileWidth, tileHeight});
+	return AddImage2D(std::move(sortedData), {tileWidth, tileHeight}, myImageSwizzleToFormat[img.swizzle]);
 }
 
 CubeID
@@ -513,41 +460,22 @@ ImageHandler::AddImageCube(const char* path)
 		return CubeID(INVALID_ID);
 	}
 
-	auto rawDDS = ReadDDS(path);
-	if (rawDDS.numLayers != 6)
+	auto img = neat::ReadImage(path);
+	if (img.layers != 6)
 	{
 		LOG(path, "is not a cube map image");
 		return CubeID(INVALID_ID);
 	}
 
 	VkResult result{};
-
 	{
-		/*const char* data[6]
-		{
-			rawDDS.images[0][0].data(),
-			rawDDS.images[1][0].data(),
-			rawDDS.images[2][0].data(),
-			rawDDS.images[3][0].data(),
-			rawDDS.images[4][0].data(),
-			rawDDS.images[5][0].data(),
-		};
-		size_t bytes[6]
-		{
-			rawDDS.images[0][0].size(),
-			rawDDS.images[1][0].size(),
-			rawDDS.images[2][0].size(),
-			rawDDS.images[3][0].size(),
-			rawDDS.images[4][0].size(),
-			rawDDS.images[5][0].size(),
-		};*/
 		std::tie(result, myImagesCube[int(cubeID)]) = 
 			theirImageAllocator.RequestImageCube(
-			rawDDS.imagesInline,
-			rawDDS.imagesInline.size() / 6,
-			rawDDS.width,
-			rawDDS.height,
-			1 + std::log2(std::max(rawDDS.width, rawDDS.height)),
+			img.pixelData,
+			img.pixelData.size() / 6,
+			img.width,
+			img.height,
+			1 + std::log2(std::max(img.width, img.height)),
 			myOwners.data(),
 			myOwners.size());
 	}
@@ -558,7 +486,7 @@ ImageHandler::AddImageCube(const char* path)
 		return CubeID(INVALID_ID);
 	}
 
-	myImagesCubeDims[uint32_t(cubeID)] = rawDDS.width;
+	myImagesCubeDims[uint32_t(cubeID)] = img.width;
 
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

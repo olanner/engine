@@ -62,7 +62,7 @@ FontHandler::AddFont(
 		return FontID(INVALID_ID);
 	}
 
-	std::vector<char> fontData;
+	std::vector<uint8_t> fontData;
 	int res = 512;
 	int numLayers = 0;
 	for (char c = FirstFontGlyph; c <= LastFontGlyph; ++c)
@@ -159,7 +159,7 @@ FontHandler::DrawGlyph(
 	metrics.xStride = strideF;
 	metrics.yOffset = -abs(yOffsetF);
 
-	std::vector<char> rawImg;
+	std::vector<uint8_t> rawImg;
 	rawImg.resize(rawPixels.size() * 4);
 	memcpy(rawImg.data(), rawPixels.data(), rawImg.size());
 	return { rawImg, metrics};

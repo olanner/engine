@@ -15,8 +15,8 @@ struct Font
 
 struct RawGlyph
 {
-	std::vector<char>	bmp;
-	GlyphMetrics		metrics;
+	std::vector<uint8_t>	bmp;
+	GlyphMetrics			metrics;
 };
 
 class FontHandler

@@ -5,14 +5,14 @@
 class ImageHandle;
 namespace rflx
 {
-	ImageHandle CreateImage(const char* path);
-	ImageHandle CreateImage(std::vector<PixelValue>&& pixelData);
+	ImageHandle CreateImage(const char* path, Vec2f tiling = {1,1});
+	ImageHandle CreateImage(std::vector<PixelValue>&& pixelData, Vec2f tiling = {1,1});
 }
 
 class ImageHandle
 {
-	friend ImageHandle rflx::CreateImage(const char*);
-	friend ImageHandle rflx::CreateImage(std::vector<PixelValue>&&);
+	friend ImageHandle rflx::CreateImage(const char*, Vec2f);
+	friend ImageHandle rflx::CreateImage(std::vector<PixelValue>&&, Vec2f);
 
 public:
 	ImageID	GetID() const;
