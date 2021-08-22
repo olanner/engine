@@ -1,0 +1,12 @@
+{
+  "solution": {
+    "path": "VKEngine.sln",
+    "projects": [
+      "Demo\\Demo.vcxproj",
+      "Glue\\Glue.vcxproj",
+      "Reflex\\Reflex.vcxproj",
+      "neat Test\\neat Test.vcxproj",
+      "neat\\neat.vcxproj"
+    ]
+  }
+}

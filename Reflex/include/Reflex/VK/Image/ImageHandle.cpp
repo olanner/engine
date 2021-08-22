@@ -1,12 +1,26 @@
 #include "pch.h"
 #include "ImageHandle.h"
 
-ImageID ImageHandle::GetID() const
+#include "Reflex/VK/HandlesInternal.h"
+
+ImageID rflx::ImageHandle::GetID() const
 {
-    return myID;
+	return myID;
 }
 
-ImageHandle::ImageHandle(ImageID id)
+Vec2f
+rflx::ImageHandle::GetDimensions() const
+{
+	return (*gImageHandler)[myID].dim;
+}
+
+uint32_t
+rflx::ImageHandle::GetLayers() const
+{
+	return (*gImageHandler)[myID].layers;
+}
+
+rflx::ImageHandle::ImageHandle(ImageID id)
 : myID(id)
 {
 }

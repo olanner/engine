@@ -1,20 +1,25 @@
 #include "pch.h"
 #include "CubeHandle.h"
 
-#include "Reflex/VK/Scene/SceneGlobals.h"
+#include "Reflex/VK/HandlesInternal.h"
 
-CubeID CubeHandle::GetID() const
+CubeID rflx::CubeHandle::GetID() const
 {
-    return myID;
+	return myID;
+}
+
+float rflx::CubeHandle::GetDim() const
+{
+	return (*gImageHandler)[myID].dim;
 }
 
 void
-CubeHandle::SetAsSkybox() const
+rflx::CubeHandle::SetAsSkybox() const
 {
-	theirSceneGlobals->SetSkybox(myID);
+	gSceneGlobals->SetSkybox(myID);
 }
 
-CubeHandle::CubeHandle(CubeID id) :
-	myID(id)
+rflx::CubeHandle::CubeHandle(CubeID	id)
+: myID(id)
 {
 }

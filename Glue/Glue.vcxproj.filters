@@ -2,9 +2,14 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClInclude Include="pch.h" />
+    <ClInclude Include="internal\Elements\Box.h" />
+    <ClInclude Include="internal\Grid.h" />
+    <ClInclude Include="include\Glue\Glue.h" />
+    <ClInclude Include="internal\GlueImplementation.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Glue.cpp" />
     <ClCompile Include="pch.cpp" />
+    <ClCompile Include="include\Glue\Glue.cpp" />
+    <ClCompile Include="internal\Elements\Box.cpp" />
   </ItemGroup>
 </Project>

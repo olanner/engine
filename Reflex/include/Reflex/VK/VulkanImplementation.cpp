@@ -31,8 +31,6 @@ VulkanImplementation::VulkanImplementation()
 
 VulkanImplementation::~VulkanImplementation()
 {
-	//SAFE_DELETE( myBaseShader );
-
 	while (vkQueueWaitIdle(myPresentationQueue))
 	{
 	}

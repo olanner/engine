@@ -1,8 +1,6 @@
 
 #pragma once
 
-#include "neat/Misc/IDKeeper.h"
-
 typedef uint32_t	QueueFamilyIndex;
 typedef uint32_t	MemTypeIndex;
 

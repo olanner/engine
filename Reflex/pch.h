@@ -58,6 +58,7 @@ using Mat4nv = glm::mat3x4;
 // NEAT
 #include "neat/Containers/static_vector.h"
 #include "neat/Image/ImageReader.h"
+#include "neat/Misc/IDKeeper.h"
 
 // rapidjson
 #include "rapidjson/document.h"

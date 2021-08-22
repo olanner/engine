@@ -86,15 +86,15 @@ namespace neat
 		}
 
 	private:
-		t* _buffer;
+		t* _buffer = nullptr;
 		int _size = 0;
 
 	};
 
 	template<typename t, int width>
-	inline static_vector<t, width>::static_vector() :
-		_buffer( new t[width]{} )
+	inline static_vector<t, width>::static_vector()
 	{
+		_buffer = (t*)malloc(width * sizeof t);
 	}
 
 	template<typename t, int width>

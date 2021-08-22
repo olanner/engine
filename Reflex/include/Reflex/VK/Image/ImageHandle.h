@@ -1,25 +1,27 @@
 
 #pragma once
 
-
-class ImageHandle;
+class ImageHandler;
 namespace rflx
-{
-	ImageHandle CreateImage(const char* path, Vec2f tiling = {1,1});
-	ImageHandle CreateImage(std::vector<PixelValue>&& pixelData, Vec2f tiling = {1,1});
+{	
+	class ImageHandle;
+	ImageHandle CreateImage(const char* path, Vec2f tiling = { 1,1 });
+	ImageHandle CreateImage(std::vector<PixelValue>&& pixelData, Vec2f tiling = { 1,1 });
+
+	class ImageHandle
+	{
+		friend ImageHandle CreateImage(const char*, Vec2f);
+		friend ImageHandle CreateImage(std::vector<PixelValue>&&, Vec2f);
+
+	public:
+		ImageID		GetID() const;
+		Vec2f		GetDimensions() const;
+		uint32_t	GetLayers() const;
+
+	private:
+					ImageHandle(ImageID	id);
+
+		ImageID							myID;
+
+	};
 }
-
-class ImageHandle
-{
-	friend ImageHandle rflx::CreateImage(const char*, Vec2f);
-	friend ImageHandle rflx::CreateImage(std::vector<PixelValue>&&, Vec2f);
-
-public:
-	ImageID	GetID() const;
-
-private:
-			ImageHandle(ImageID id);
-
-	ImageID	myID;
-
-};

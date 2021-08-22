@@ -37,7 +37,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 
 	Window window(hInstance, nCmdShow, {L"Demo", 1920, 1080, true, OnWinProc});
-	{
+	
 #ifdef _DEVELOPMENT
 		AllocConsole();
 		freopen_s((FILE**) stdout, "CONOUT$", "w", stdout);
@@ -52,7 +52,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 						SWP_SHOWWINDOW);
 #endif
 		WindowInfo info = {window.GetWindowHandle(), uint32_t(window.GetWindowParameters().width), uint32_t(window.GetWindowParameters().height)};
-		Reflex reflex(info, _bstr_t(lpCmdLine));
+
+		rflx::Reflex reflex(info, _bstr_t(lpCmdLine));
 		if (!reflex.IsGood())
 		{
 			MessageBox(window.GetWindowHandle(), L"reflex failed to start", L"error", NULL);
@@ -60,8 +61,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		}
 
 
-		MeshHandle plane = rflx::CreateMesh("Assets/Sascha/plane.obj", {});
-		MeshHandle plane1 = rflx::CreateMesh("Assets/plane.obj", {});
+		rflx::MeshHandle plane = rflx::CreateMesh("Assets/Sascha/plane.obj", {});
+		rflx::MeshHandle plane1 = rflx::CreateMesh("Assets/plane.obj", {});
 
 		std::vector<PixelValue> red(1, {255,0,0,255});
 		std::vector<PixelValue> rndMat(8*8);
@@ -97,17 +98,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			}
 		}
 		
-		ImageHandle imgCheckers = rflx::CreateImage(std::move(checkers));
-		ImageHandle imgRND = rflx::CreateImage(std::move(rndMat));
+		rflx::ImageHandle imgCheckers = rflx::CreateImage(std::move(checkers));
+		rflx::ImageHandle imgRND = rflx::CreateImage(std::move(rndMat));
 
-		MeshHandle dragon = rflx::CreateMesh("Assets/Sascha/dragon.fbx", {});
-		MeshHandle venus = rflx::CreateMesh("Assets/Sascha/venus.fbx", {});
-		MeshHandle knot = rflx::CreateMesh("Assets/Sascha/torusknot.fbx", {});
+		rflx::MeshHandle dragon = rflx::CreateMesh("Assets/Sascha/dragon.fbx", {});
+		rflx::MeshHandle venus = rflx::CreateMesh("Assets/Sascha/venus.fbx", {});
+		rflx::MeshHandle knot = rflx::CreateMesh("Assets/Sascha/torusknot.fbx", {});
 
 
 		constexpr int gridDimX = 7;
 		constexpr int gridDimY = 2;
-		std::vector<MeshHandle> sphereGrid;
+		std::vector<rflx::MeshHandle> sphereGrid;
 		sphereGrid.reserve(gridDimY * gridDimX);
 		for (int y = 0; y < gridDimY; ++y)
 		{
@@ -115,41 +116,34 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			{
 				std::vector<PixelValue> albPixels;
 				albPixels.resize(1, {255,255,255,255});
-				ImageHandle albedo = rflx::CreateImage(std::move(albPixels));
+				rflx::ImageHandle albedo = rflx::CreateImage(std::move(albPixels));
 
 				std::vector<PixelValue> matPixels;
 				matPixels.resize(1, {uint8_t(float(x) / float(gridDimX) * 256.f),uint8_t((y > 0) * 255),0,0});
-				ImageHandle material = rflx::CreateImage(std::move(matPixels));
+				rflx::ImageHandle material = rflx::CreateImage(std::move(matPixels));
 
-				MeshHandle sphereHandle = rflx::CreateMesh("Assets/sphere.fbx", {albedo, material});
+				rflx::MeshHandle sphereHandle = rflx::CreateMesh("Assets/sphere.fbx", {albedo, material});
 
 				sphereGrid.emplace_back(sphereHandle);
 			}
 		}
 		
-		std::vector<CubeHandle> skyboxes;
+		std::vector<rflx::CubeHandle> skyboxes;
 		skyboxes.emplace_back(rflx::CreateImageCube("Assets/Cube Maps/stor_forsen.dds"));
 		skyboxes.emplace_back(rflx::CreateImageCube("Assets/Cube Maps/yokohama.dds"));
 
-		ImageHandle test = rflx::CreateImage("test2.tga", {4,4});
+		rflx::ImageHandle test = rflx::CreateImage("Assets/Textures/element.tga", {3,3});
 		
 		TickFunc render = [&] (float dt, float tt, int fnr)
 		{
-			float fps = 1.f / dt;
-			auto tFPS = std::to_string(int(fps));
-			tFPS.append(" fps");
 			reflex.BeginFrame();
-			rflx::PushRenderCommand(FontID(0),
-									tFPS.c_str(),
-									{-.99, .99, 0},
-									.08f,
-									{0,1,1,1});
 			reflex.Submit();
 			reflex.EndFrame();
 		};
 
 		TickFunc logic = [&] (float dt, float tt, int fnr)
 		{
+			Sleep(1000/120);
 			InputHandler::BeginFrame();
 
 			static float distance = 8.f;
@@ -229,7 +223,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			rflx::PushRenderCommand( dragon, {3,0,3}, { .33f,.33f,.33f }, {0,1,0}, 0 );
 			rflx::PushRenderCommand( venus, {-3,0,-3}, { .33f,.33f,.33f }, {0,1,0}, 3.14 + 3.14 / 4);
 			rflx::PushRenderCommand( knot, {0,3,0}, { .075f,.075f,.075f }, {0,1,0}, 0 );
-			rflx::PushRenderCommand(test, uint32_t(tt) % 16, {}, 1);
+			rflx::PushRenderCommand(test, uint32_t(tt) % 16, {}, {1,1});
 			
 			//for ( int i = 0; i < 16; ++i )
 			//{
@@ -247,7 +241,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			//}
 
 
-
+			float fps = 1.f / dt;
+			auto tFPS = std::to_string(int(fps));
+			tFPS.append(" fps");
+			rflx::PushRenderCommand(FontID(0),
+				tFPS.c_str(),
+				{ -.99, .99, 0 },
+				.08f,
+				{ 0,1,1,1 });
 			rflx::EndPush();
 
 			InputHandler::EndFrame();
@@ -255,14 +256,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 		TickFunc funcs[]{render, logic};
 
-		Application app
+		Application app(window, [&](float dt, float tt, int fnr)
+		{
+			logic(dt,tt,fnr);
+			render(dt,tt,fnr);
+		});
+		
+		/*MultiApplication app
 		(
 			window,
-			[&] (float dt, float tt, int fnr)
-		{
-			render(dt, tt, fnr); logic(dt, tt, fnr);
-		}
-		);
+			{render, logic}
+		);*/
 
 		/*MultiApplication app
 		(
@@ -272,11 +276,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		);*/
 
 		retVal = int(app.Loop());
-	}
+	
 #ifdef _DEBUG
 	if (std::string(_bstr_t(lpCmdLine)).find("vkdebug") != std::string::npos)
 	{
-		system("pause");
+		//system("pause");
 	}
 #endif
 	return retVal;

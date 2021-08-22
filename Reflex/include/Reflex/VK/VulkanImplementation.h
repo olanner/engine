@@ -4,9 +4,13 @@
 #include "VulkanFramework.h"
 #include "WorkerSystem/WorkerSystem.h"
 
+namespace rflx
+{
+	class Reflex;
+}
 class VulkanImplementation
 {
-	friend class Reflex;
+	friend class rflx::Reflex;
 public:
 												VulkanImplementation();
 												~VulkanImplementation();
@@ -71,7 +75,7 @@ private:
 	std::shared_ptr<class SceneGlobals>			mySceneGlobals = nullptr;
 
 	// WORKERS
-	neat::static_vector<SlottedWorkerSystem, 32>
+	std::vector<SlottedWorkerSystem>
 												myWorkerSystems;
 	std::shared_ptr<class CubeFilterer>			myCubeFilterer = nullptr;
 	std::shared_ptr<class Presenter>			myPresenter = nullptr;

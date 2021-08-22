@@ -3,7 +3,7 @@
 
 struct WindowInfo
 {
-	HWND		hWND;
+	void*		hWND;
 	uint32_t	width;
 	uint32_t	height;
 

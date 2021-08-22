@@ -4,22 +4,13 @@
 #include "Reflex/VK/RenderPass/RenderPass.h"
 #include "Reflex/VK/WorkerSystem/WorkerSystem.h"
 
-//struct TextRenderCommand
-//{
-//	std::array<char, 128>	text;
-//	Vec4f					color;
-//	Vec2f					position;
-//	float					scale;
-//	FontID					fontID;
-//	uint32_t				numCharacters;
-//};
 
 struct SpriteRenderCommand
 {
 	Vec4f			color;
 	Vec2f			position;
 	Vec2f			pivot;
-	float			scale;
+	Vec2f			scale;
 	ImageID			imgArrID;
 	uint32_t		imgArrIndex;
 };
@@ -30,10 +21,9 @@ struct SpriteInstance
 	Vec4f color;
 	Vec2f pos;
 	Vec2f pivot;
-	float scale;
+	Vec2f scale;
 	float imgArrID;
 	float imgArrIndex;
-	float padding2;
 };
 
 class SpriteRenderer : public WorkerSystem

@@ -103,6 +103,7 @@
     <ClInclude Include="include\Reflex\identities.h" />
     <ClInclude Include="include\Reflex\Reflex.h" />
     <ClInclude Include="include\Reflex\VK\Debug\DebugUtils.h" />
+    <ClInclude Include="include\Reflex\VK\HandlesInternal.h" />
     <ClInclude Include="include\Reflex\VK\Image\CubeFilterer.h" />
     <ClInclude Include="include\Reflex\VK\Image\CubeHandle.h" />
     <ClInclude Include="include\Reflex\VK\Image\ImageHandle.h" />

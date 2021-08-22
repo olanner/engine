@@ -18,7 +18,7 @@ VulkanFramework::~VulkanFramework()
 	for (auto& [queueFamilyIndex, poolBuffers] : myCmdPoolsAndBuffers)
 	{
 		auto& [pool, cmdBuffers] = poolBuffers;
-		vkFreeCommandBuffers(myDevice, pool, int(cmdBuffers.size()), cmdBuffers.data());
+		vkFreeCommandBuffers(myDevice, pool, static_cast<int>(cmdBuffers.size()), cmdBuffers.data());
 		vkDestroyCommandPool(myDevice, pool, nullptr);
 	}
 	for (auto& imageView : mySwapchainImageViews)
@@ -484,7 +484,7 @@ VulkanFramework::EnumerateQueueFamilies()
 	QueueFamilyIndex index = 0;
 	for (auto& queue : myQueueFamilyProps)
 	{
-		myQueueFlagsIndices[VkQueueFlagBits(queue.queueFlags)].emplace_back(index);
+		myQueueFlagsIndices[static_cast<VkQueueFlagBits>(queue.queueFlags)].emplace_back(index);
 		if (queue.queueFlags & VK_QUEUE_GRAPHICS_BIT)
 		{
 			myQueueFlagsIndices[VK_QUEUE_GRAPHICS_BIT].emplace_back(index);
@@ -556,7 +556,7 @@ VulkanFramework::InitDevice()
 	deviceInfo.pNext = nullptr;
 	deviceInfo.flags = NULL;
 
-	deviceInfo.queueCreateInfoCount = uint32_t(queueInfos.size());
+	deviceInfo.queueCreateInfoCount = static_cast<uint32_t>(queueInfos.size());
 	deviceInfo.pQueueCreateInfos = queueInfos.data();
 	deviceInfo.enabledExtensionCount = ARRAYSIZE(extensionNames);
 	deviceInfo.ppEnabledExtensionNames = extensionNames;
@@ -606,14 +606,14 @@ VulkanFramework::InitCmdPoolAndBuffer()
 VkResult
 VulkanFramework::InitSurface(const WindowInfo& windowInfo)
 {
-	HMODULE hModule = GetModuleHandle(nullptr);
+	const HMODULE hModule = GetModuleHandle(nullptr);
 
 	VkWin32SurfaceCreateInfoKHR surfaceInfo;
 	surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 	surfaceInfo.pNext = nullptr;
 	surfaceInfo.flags = NULL;
 
-	surfaceInfo.hwnd = windowInfo.hWND;
+	surfaceInfo.hwnd = static_cast<HWND>(windowInfo.hWND);
 	surfaceInfo.hinstance = hModule;
 
 
@@ -856,7 +856,7 @@ VulkanFramework::InitViewport(const WindowInfo& windowInfo)
 	myViewportState.pScissors = &myScissor;
 
 	myViewport.width = windowInfo.width;
-	myViewport.height = -float(windowInfo.height);
+	myViewport.height = -static_cast<float>(windowInfo.height);
 	myViewport.x = 0;
 	myViewport.y = windowInfo.height;
 	myViewport.minDepth = 0.f;

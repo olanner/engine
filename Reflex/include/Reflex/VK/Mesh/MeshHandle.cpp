@@ -1,12 +1,12 @@
 #include "pch.h"
 #include "MeshHandle.h"
 
-MeshID MeshHandle::GetID() const
+MeshID rflx::MeshHandle::GetID() const
 {
 	return myID;
 }
 
-MeshHandle::MeshHandle(MeshID id)
+rflx::MeshHandle::MeshHandle(MeshID id)
 : myID(id)
 {
 }

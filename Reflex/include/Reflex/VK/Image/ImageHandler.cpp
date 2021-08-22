@@ -139,9 +139,9 @@ ImageHandler::ImageHandler(
 	samplerInfo.magFilter = VK_FILTER_LINEAR;
 	samplerInfo.minFilter = VK_FILTER_LINEAR;
 	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
 	samplerInfo.mipLodBias = 0;
 	samplerInfo.anisotropyEnable = VK_TRUE;
 	samplerInfo.maxAnisotropy = 8.f;
@@ -379,7 +379,7 @@ ImageHandler::AddImage2D(
 	uint32_t layers = pixelData.size() / (dimension.x * dimension.y * byteDepth);
 	VkResult result{};
 	{
-		std::tie(result, myImages2D[int(imgID)]) = theirImageAllocator.RequestImageArray(
+		std::tie(result, myImages2D[uint32_t(imgID)].view) = theirImageAllocator.RequestImageArray(
 			pixelData,
 					layers,
 			dimension.x,
@@ -396,11 +396,16 @@ ImageHandler::AddImage2D(
 		return ImageID(INVALID_ID);
 	}
 
-	myImages2DDims[uint32_t(imgID)] = dimension;
+	myImages2D[uint32_t(imgID)].dim = dimension;
+	auto [sw, sh] = theirVulkanFramework.GetTargetResolution();
+	float s = std::max(dimension.x, dimension.y) / (sw / 2.f);
+	myImages2D[uint32_t(imgID)].scale = {s, s};
+	myImages2D[uint32_t(imgID)].layers = layers;
+	
 
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageInfo.imageView = myImages2D[int(imgID)];
+	imageInfo.imageView = myImages2D[uint32_t(imgID)].view;
 
 	VkWriteDescriptorSet write{};
 	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -469,7 +474,7 @@ ImageHandler::AddImageCube(const char* path)
 
 	VkResult result{};
 	{
-		std::tie(result, myImagesCube[int(cubeID)]) = 
+		std::tie(result, myImagesCube[int(cubeID)].view) = 
 			theirImageAllocator.RequestImageCube(
 			img.pixelData,
 			img.pixelData.size() / 6,
@@ -486,11 +491,11 @@ ImageHandler::AddImageCube(const char* path)
 		return CubeID(INVALID_ID);
 	}
 
-	myImagesCubeDims[uint32_t(cubeID)] = img.width;
+	myImagesCube[uint32_t(cubeID)].dim = img.width;
 
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageInfo.imageView = myImagesCube[int(cubeID)];
+	imageInfo.imageView = myImagesCube[int(cubeID)].view;
 
 	VkWriteDescriptorSet write{};
 	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -608,44 +613,24 @@ ImageHandler::BindImages(
 		nullptr);
 }
 
-VkImageView
+Image
 ImageHandler::operator[](ImageID id)
-{
-	if (BAD_ID(id))
-	{
-		return nullptr;
-	}
-	return myImages2D[int(id)];
-}
-
-VkImageView
-ImageHandler::operator[](CubeID id)
-{
-	if (BAD_ID(id))
-	{
-		return nullptr;
-	}
-	return myImagesCube[int(id)];
-}
-
-Vec2f
-ImageHandler::GetImage2DDimension(ImageID id)
 {
 	if (BAD_ID(id))
 	{
 		return {};
 	}
-	return myImages2DDims[uint32_t(id)];
+	return myImages2D[uint32_t(id)];
 }
 
-float
-ImageHandler::GetImageCubeDimension(CubeID id)
+ImageCube
+ImageHandler::operator[](CubeID id)
 {
 	if (BAD_ID(id))
 	{
-		return 0.f;
+		return {};
 	}
-	return myImagesCubeDims[uint32_t(id)];
+	return myImagesCube[uint32_t(id)];
 }
 
 ImageAllocator&

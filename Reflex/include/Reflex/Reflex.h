@@ -3,6 +3,7 @@
 
 #include "glm/glm.hpp"
 using Vec2f = glm::vec2;
+using Vec2ui = glm::vec<2, uint32_t>;
 using Vec3f = glm::vec3;
 using Vec4f = glm::vec4;
 using Mat3f = glm::mat3x3;
@@ -16,22 +17,27 @@ using Mat3f = glm::mat3x3;
 
 using Mat4f = glm::mat4x4;
 
-class Reflex
+
+class VulkanImplementation;
+namespace rflx
 {
-public:
-			Reflex(const WindowInfo& windowInformation, const char* cmdArgs = nullptr);
-			~Reflex();
+	class Reflex
+	{
+	public:
+		Reflex(const WindowInfo& windowInformation, const char* cmdArgs = nullptr);
+		~Reflex();
 
-	bool	IsGood();
-	void	BeginFrame();
-	void	Submit();
-	void	EndFrame();
+		bool	IsGood();
+		void	BeginFrame();
+		void	Submit();
+		void	EndFrame();
 
-private:
-	class	VulkanImplementation* myVKImplementation;
-	bool	myIsGood = false;
+	private:
+		VulkanImplementation*	myVKImplementation;
+		bool					myIsGood = false;
 
-};
+	};
+}
 
 namespace rflx
 {
@@ -54,7 +60,7 @@ namespace rflx
 					ImageHandle		handle,
 					uint32_t		subImg,
 					Vec2f			position,
-					float			scale,
+					Vec2f			scale,
 					Vec2f			pivot = {0,0},
 					Vec4f			color = {1,1,1,1});
 	void		EndPush();

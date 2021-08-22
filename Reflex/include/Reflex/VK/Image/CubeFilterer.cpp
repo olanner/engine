@@ -100,7 +100,7 @@ CubeFilterer::RecordSubmit(
 		{
 			uint32_t mip = dim - uint32_t(work.cubeDim);
 			RenderFiltering(work.id, CubeDimension(dim), mip, swapchainImageIndex);
-			TransferFilteredCubeMip(theirImageHandler[work.id], mip, CubeDimension(dim), swapchainImageIndex);
+			TransferFilteredCubeMip(theirImageHandler[work.id].view, mip, CubeDimension(dim), swapchainImageIndex);
 		}
 	}
 

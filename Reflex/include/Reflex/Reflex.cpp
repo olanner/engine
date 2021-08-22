@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Reflex.h"
+#include "Reflex/VK/HandlesInternal.h"
 #include "Reflex/VK/VulkanImplementation.h"
 #include "Reflex/VK/Mesh/MeshRenderer.h"
 #include "Reflex/VK/Scene/SceneGlobals.h"
@@ -14,29 +15,26 @@
 #include "VK/Image/CubeHandle.h"
 #include "VK/Image/ImageHandle.h"
 
-bool*							gUseRayTracing;
+bool* gUseRayTracing;
 
-//CORE
-std::shared_ptr<SceneGlobals>					gSceneGlobals;
-std::shared_ptr<MeshHandler>					gMeshHandler;
-std::shared_ptr<ImageHandler>					gImageHandler;
-std::shared_ptr<FontHandler>					gFontHandler;
-std::shared_ptr<CubeFilterer>					gCubeFilterer;
-std::shared_ptr<AccelerationStructureHandler>	gAccStructHandler;
 
 // FEATURES
-std::shared_ptr<MeshRenderer>					gMeshRenderer;
-std::shared_ptr<RTMeshRenderer>					gRTMeshRenderer;
-std::shared_ptr<SpriteRenderer>					gSpriteRenderer;
+std::shared_ptr<MeshRenderer>						gMeshRenderer;
+std::shared_ptr<RTMeshRenderer>						gRTMeshRenderer;
+std::shared_ptr<SpriteRenderer>						gSpriteRenderer;
 
-VulkanFramework*								gVulkanFramework;
+VulkanFramework* gVulkanFramework;
 
-Reflex::Reflex(
-	const WindowInfo&	windowInformation,
-	const char*			cmdArgs)
+rflx::Reflex::Reflex(
+	const WindowInfo& windowInformation,
+	const char* cmdArgs)
 	: myVKImplementation(nullptr)
 	, myIsGood(true)
 {
+	assert(IsWindow((HWND)windowInformation.hWND) && "invalid window handle passed");
+
+
+	
 	bool useDebugLayers = false;
 	if (cmdArgs)
 	{
@@ -49,37 +47,37 @@ Reflex::Reflex(
 
 
 	auto mr = std::make_shared<MeshRenderer>(myVKImplementation->myVulkanFramework,
-											*myVKImplementation->myUniformHandler,
-										 *myVKImplementation->myMeshHandler,
-										 *myVKImplementation->myImageHandler,
-										 *myVKImplementation->mySceneGlobals,
-										 *myVKImplementation->myRenderPassFactory,
-										 myVKImplementation->myPresQueueIndex);
+		*myVKImplementation->myUniformHandler,
+		*myVKImplementation->myMeshHandler,
+		*myVKImplementation->myImageHandler,
+		*myVKImplementation->mySceneGlobals,
+		*myVKImplementation->myRenderPassFactory,
+		myVKImplementation->myPresQueueIndex);
 
 	auto rtmr = std::make_shared<RTMeshRenderer>(myVKImplementation->myVulkanFramework,
-											   *myVKImplementation->myUniformHandler,
-											   *myVKImplementation->myMeshHandler,
-											   *myVKImplementation->myImageHandler,
-											   *myVKImplementation->mySceneGlobals,
-											   *myVKImplementation->myBufferAllocator,
-											   *myVKImplementation->myAccStructHandler,
-											   myVKImplementation->myCompQueueIndex,
-											   myVKImplementation->myTransQueueIndex
-	);
+		*myVKImplementation->myUniformHandler,
+		*myVKImplementation->myMeshHandler,
+		*myVKImplementation->myImageHandler,
+		*myVKImplementation->mySceneGlobals,
+		*myVKImplementation->myBufferAllocator,
+		*myVKImplementation->myAccStructHandler,
+		myVKImplementation->myCompQueueIndex,
+		myVKImplementation->myTransQueueIndex
+		);
 
-	QueueFamilyIndex indices[]{myVKImplementation->myPresQueueIndex, myVKImplementation->myTransQueueIndex};
+	QueueFamilyIndex indices[]{ myVKImplementation->myPresQueueIndex, myVKImplementation->myTransQueueIndex };
 	auto tr = std::make_shared<SpriteRenderer>(myVKImplementation->myVulkanFramework,
-										*myVKImplementation->mySceneGlobals,
-										*myVKImplementation->myImageHandler,
-										*myVKImplementation->myRenderPassFactory,
-										*myVKImplementation->myUniformHandler,
-										indices,
-										ARRAYSIZE(indices),
-										myVKImplementation->myPresQueueIndex);
+		*myVKImplementation->mySceneGlobals,
+		*myVKImplementation->myImageHandler,
+		*myVKImplementation->myRenderPassFactory,
+		*myVKImplementation->myUniformHandler,
+		indices,
+		ARRAYSIZE(indices),
+		myVKImplementation->myPresQueueIndex);
 
-	myVKImplementation->RegisterWorkerSystem(rtmr,
-	                                         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV,
-	                                         VK_QUEUE_COMPUTE_BIT);
+	//myVKImplementation->RegisterWorkerSystem(rtmr,
+	//	VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV,
+	//	VK_QUEUE_COMPUTE_BIT);
 
 	myVKImplementation->RegisterWorkerSystem(mr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
 	myVKImplementation->RegisterWorkerSystem(tr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
@@ -101,46 +99,57 @@ Reflex::Reflex(
 	gVulkanFramework = &myVKImplementation->myVulkanFramework;
 }
 
-Reflex::~Reflex()
+rflx::Reflex::~Reflex()
 {
+	gSceneGlobals = nullptr;
+	gMeshHandler = nullptr;
+	gImageHandler = nullptr;
+	gFontHandler = nullptr;
+	gCubeFilterer = nullptr;
+	gAccStructHandler = nullptr;
+
+	gSpriteRenderer = nullptr;
+	gMeshRenderer = nullptr;
+	gRTMeshRenderer = nullptr;
+
 	SAFE_DELETE(myVKImplementation);
 }
 
 bool
-Reflex::IsGood()
+rflx::Reflex::IsGood()
 {
 	return myIsGood;
 }
 
 void
-Reflex::BeginFrame()
+rflx::Reflex::BeginFrame()
 {
 	myVKImplementation->BeginFrame();
 }
 
 void
-Reflex::Submit()
+rflx::Reflex::Submit()
 {
 	myVKImplementation->Submit();
 }
 
 void
-Reflex::EndFrame()
+rflx::Reflex::EndFrame()
 {
 	myVKImplementation->EndFrame();
 }
 
-MeshHandle
+rflx::MeshHandle
 rflx::CreateMesh(
-	const char*					 path,
-	std::vector<ImageHandle>&&	 imgHandles)
+	const char* path,
+	std::vector<ImageHandle>&& imgHandles)
 {
 	std::vector<ImageID> imgIDs;
 	for (auto& handle : imgHandles)
 	{
 		imgIDs.emplace_back(handle.GetID());
 	}
-	
+
 	MeshID id = gMeshHandler->AddMesh(path, std::move(imgIDs));
 	MeshHandle ret(id);
 
@@ -153,7 +162,7 @@ rflx::CreateMesh(
 	return ret;
 }
 
-ImageHandle
+rflx::ImageHandle
 rflx::CreateImage(
 	const char* path,
 	Vec2f		tiling)
@@ -163,27 +172,26 @@ rflx::CreateImage(
 	return ImageHandle(id);
 }
 
-ImageHandle
+rflx::ImageHandle
 rflx::CreateImage(
-	std::vector<PixelValue>&&	data,
+	std::vector<PixelValue>&& data,
 	Vec2f						tiling)
 {
 	tiling = tiling; // TODO: IMPLEMENT
 	std::vector<uint8_t> dataAligned(data.size() * 4);
 	memcpy(dataAligned.data(), data.data(), data.size() * sizeof PixelValue);
 	float dim = sqrtf(float(data.size()));
-	ImageID id = gImageHandler->AddImage2D(std::move(dataAligned), { dim, dim});
+	ImageID id = gImageHandler->AddImage2D(std::move(dataAligned), { dim, dim });
 	return ImageHandle(id);
 }
 
-CubeHandle
+rflx::CubeHandle
 rflx::CreateImageCube(
 	const char* path)
 {
 	CubeHandle handle(gImageHandler->AddImageCube(path));
-	handle.theirSceneGlobals = gSceneGlobals;
 
-	const float fDim = gImageHandler->GetImageCubeDimension(handle.GetID());
+	const float fDim = handle.GetDim();
 	const CubeDimension cubeDim = fDim == 2048 ? CubeDimension::Dim2048 : fDim == 1024 ? CubeDimension::Dim1024 : CubeDimension::Dim1;
 	gCubeFilterer->PushFilterWork(handle.GetID(), cubeDim);
 
@@ -242,13 +250,13 @@ rflx::PushRenderCommand(
 void
 rflx::PushRenderCommand(
 	FontID			fontID,
-	const char*		text,
-	const Vec3f&	position,
+	const char* text,
+	const Vec3f& position,
 	float			scale,
-	const Vec4f&	color)
+	const Vec4f& color)
 {
 
-	
+
 	auto [tw, th] = gVulkanFramework->GetTargetResolution();
 	float ratio = th / tw;
 	float colOffset = 0;
@@ -259,7 +267,7 @@ rflx::PushRenderCommand(
 		{
 			break;
 		}
-		
+
 		if (text[charIndex] == '\n')
 		{
 			colOffset = 0;
@@ -279,7 +287,7 @@ rflx::PushRenderCommand(
 
 		cmd.pivot = { 0, -1 };
 		cmd.color = color;
-		cmd.scale = scale;
+		cmd.scale = { scale, scale };
 
 		colOffset += metrics.xStride;
 
@@ -291,16 +299,17 @@ void
 rflx::PushRenderCommand(
 	ImageHandle handle,
 	uint32_t    subImg,
-	Vec2f		position, 
-	float		scale, 
-	Vec2f		pivot, 
+	Vec2f		position,
+	Vec2f		scale,
+	Vec2f		pivot,
 	Vec4f		color)
 {
-	SpriteRenderCommand cmd;
+	SpriteRenderCommand cmd{};
 	cmd.imgArrID = handle.GetID();
 	cmd.imgArrIndex = subImg;
 	cmd.position = position;
-	cmd.scale = scale;
+	auto sScale = (*gImageHandler)[handle.GetID()].scale;
+	cmd.scale = scale * sScale;
 	cmd.pivot = pivot;
 	cmd.color = color;
 

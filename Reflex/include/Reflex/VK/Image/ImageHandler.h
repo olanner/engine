@@ -1,6 +1,20 @@
 
 #pragma once
 
+struct Image
+{
+	VkImageView view;
+	Vec2f		dim;
+	Vec2f		scale;
+	uint32_t	layers;
+};
+
+struct ImageCube
+{
+	VkImageView view;
+	float		dim;
+};
+
 class ImageHandler
 {
 public:
@@ -44,11 +58,9 @@ public:
 													uint32_t			setIndex,
 													VkPipelineBindPoint	bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS);
 
-	VkImageView									operator[](ImageID id);
-	VkImageView									operator[](CubeID id);
+	Image										operator[](ImageID id);
+	ImageCube									operator[](CubeID id);
 
-	Vec2f										GetImage2DDimension(ImageID id);
-	float										GetImageCubeDimension(CubeID id);
 	ImageAllocator&								GetImageAllocator() const;
 
 private:
@@ -63,12 +75,10 @@ private:
 	VkDescriptorSet								mySamplerSet;
 	VkDescriptorSetLayout						mySamplerSetLayout;
 
-	std::array<Vec2f, MaxNumImages>				myImages2DDims;
-	std::array<VkImageView, MaxNumImages>		myImages2D;
+	std::array<Image, MaxNumImages>				myImages2D;
 	IDKeeper<ImageID>							myImageIDKeeper;
 
-	std::array<float, MaxNumImagesCube>			myImagesCubeDims;
-	std::array<VkImageView, MaxNumImagesCube>	myImagesCube;
+	std::array<ImageCube, MaxNumImagesCube>		myImagesCube;
 	IDKeeper<CubeID>							myCubeIDKeeper;
 
 	neat::static_vector<QueueFamilyIndex, 16>	myOwners;

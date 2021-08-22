@@ -3,24 +3,24 @@
 #include <thread>
 #include <vector>
 
-using  TickFunc = std::function<void( float, float, int )>;
+using  TickFunc = std::function<void(float, float, int)>;
 
 class MultiApplication
 {
 public:
-	MultiApplication( class Window& window,
-					  TickFunc* tickFuncs,
-					  uint32_t  numTickFuncs );
-	~MultiApplication();
+			MultiApplication(
+				class Window& window, 
+				std::vector<TickFunc> tickFunctions);
+			~MultiApplication();
 
-	WPARAM Loop();
-	void Shutdown();
+	WPARAM	Loop();
+	void	Shutdown();
 
 private:
-	std::vector<std::thread*> myThreads;
-	std::vector<bool> myIsRunnings;
+	std::vector<std::thread*>	myThreads;
+	std::vector<bool>			myIsRunnings;
 
-	class Window& myWindow;
+	class Window&				myWindow;
 
 };
 

@@ -23,6 +23,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Demo", "Demo\Demo.vcxproj",
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Glue", "Glue\Glue.vcxproj", "{437C2118-CB58-45A4-8C21-5343E6D07259}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libneat", "libneat", "{57ECC580-1F21-4C44-B790-406C06FB1FD6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "engine", "engine", "{4E0F53A0-A33A-44E4-A9A2-179F0F41FA29}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -52,6 +56,12 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{9CE084CF-A684-48C5-8CD9-72AF569E6E9E} = {4E0F53A0-A33A-44E4-A9A2-179F0F41FA29}
+		{3F4F3176-0408-406B-A636-53249898E2DA} = {57ECC580-1F21-4C44-B790-406C06FB1FD6}
+		{6DD8E25A-4028-43C6-9010-645041FE5741} = {57ECC580-1F21-4C44-B790-406C06FB1FD6}
+		{437C2118-CB58-45A4-8C21-5343E6D07259} = {4E0F53A0-A33A-44E4-A9A2-179F0F41FA29}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {9A550033-0111-483D-94F7-4E175A49D457}
