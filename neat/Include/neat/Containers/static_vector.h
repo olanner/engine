@@ -16,11 +16,11 @@ namespace neat
 		t* rend;
 		std::reverse_iterator<t*> begin()
 		{
-			return std::reverse_iterator<t*>( rbegin );
+			return std::reverse_iterator<t*>(rbegin);
 		}
 		std::reverse_iterator<t*> end()
 		{
-			return std::reverse_iterator<t*>( rend );
+			return std::reverse_iterator<t*>(rend);
 		}
 	};
 
@@ -29,24 +29,26 @@ namespace neat
 	{
 	public:
 		static_vector();
-		static_vector( std::initializer_list<t> init_list );
-		static_vector( const static_vector<t, width> & copy_from );
+		static_vector(std::initializer_list<t> init_list);
+		static_vector(const static_vector<t, width>& copy_from);
 		~static_vector();
 
 		template< typename ... args >
-		bool emplace_back( args&& ... params );
+		bool emplace_back(args&& ... params);
 		template< typename ... args >
-		bool emplace_front( args&& ... params );
+		bool emplace_front(args&& ... params);
 
-		bool push_back( t&& item );
-		bool push_front( t&& item );
+		bool append(const static_vector<t, width>& other_vector);
 
-		bool erase( t* item );
-		bool erase( int index );
+		bool push_back(t&& item);
+		bool push_front(t&& item);
+
+		bool erase(t* item);
+		bool erase(int index);
 		void clear();
 
-		void resize( unsigned new_size );
-		void resize( unsigned new_size, t value );
+		void resize(unsigned new_size);
+		void resize(unsigned new_size, t value);
 
 		unsigned int size();
 		unsigned int size() const;
@@ -55,8 +57,8 @@ namespace neat
 
 		t* data();
 		t* data() const;
-		t& operator[]( int index );
-		const t& operator[]( int index ) const;
+		t& operator[](int index);
+		const t& operator[](int index) const;
 
 		reverse<t> reverse_iterate();
 
@@ -94,14 +96,15 @@ namespace neat
 	template<typename t, int width>
 	inline static_vector<t, width>::static_vector()
 	{
+		//static_assert(std::is_trivially_copyable<t>::value && "static_vector only supports trivially copiable types");
 		_buffer = (t*)malloc(width * sizeof t);
 	}
 
 	template<typename t, int width>
-	inline static_vector<t, width>::static_vector( std::initializer_list<t> init_list ) : static_vector()
+	inline static_vector<t, width>::static_vector(std::initializer_list<t> init_list) : static_vector()
 	{
 		int size = 0;
-		for ( int i = 0; i < init_list.size() && i < width; ++i )
+		for (int i = 0; i < init_list.size() && i < width; ++i)
 		{
 			_buffer[i] = init_list.begin()[i];
 			size++;
@@ -110,21 +113,21 @@ namespace neat
 	}
 
 	template<typename t, int width>
-	inline static_vector<t, width>::static_vector( const static_vector<t, width>& copy_from ) : static_vector()
+	inline static_vector<t, width>::static_vector(const static_vector<t, width>& copy_from) : static_vector()
 	{
-		memcpy( _buffer, copy_from._buffer, width * sizeof t );
+		memcpy(_buffer, copy_from._buffer, width * sizeof t);
 		_size = copy_from._size;
 	}
 
 	template<typename t, int width>
 	inline static_vector<t, width>::~static_vector()
 	{
-		SAFE_DELETE_ARRAY( _buffer );
+		SAFE_DELETE_ARRAY(_buffer);
 	}
 
 	template<typename t, int width>
 	template< typename ... args >
-	inline bool static_vector<t, width>::emplace_back( args&& ... params )
+	inline bool static_vector<t, width>::emplace_back(args&& ... params)
 	{
 		//t tmp(params...);
 		/*
@@ -134,12 +137,12 @@ namespace neat
 		this_back += valid_op;
 		memcpy( &this_buffer[this_back], &tmp, copy_size );*/
 
-		return push_back( t( params... ) );
+		return push_back(t(params...));
 	}
 
 	template<typename t, int width>
 	template< typename ... args >
-	inline bool static_vector<t, width>::emplace_front( args&& ... params )
+	inline bool static_vector<t, width>::emplace_front(args&& ... params)
 	{
 		//t tmp(params...);
 		/*const bool valid_op = ( this_back < width - 1 );
@@ -152,31 +155,43 @@ namespace neat
 
 		this_back += valid_op;*/
 
-		return push_front( t( params... ) );
+		return push_front(t(params...));
 	}
 
 	template<typename t, int width>
-	inline bool static_vector<t, width>::push_back( t&& item )
+	inline bool static_vector<t, width>::append(const static_vector<t, width>& other_vector)
 	{
-		const bool valid_op = ( _size < width );
+		size_t szLeft = width - _size;
+		size_t copy_size = szLeft < other_vector.size() ? szLeft : other_vector.size();
 
-		const size_t copy_size = valid_op * sizeof( t );
-		memcpy( &_buffer[_size], &item, copy_size );
+		memcpy(&_buffer[_size], &other_vector.data(), copy_size * sizeof t);
+		_size += copy_size;
+		
+		return !!copy_size;
+	}
+
+	template<typename t, int width>
+	inline bool static_vector<t, width>::push_back(t&& item)
+	{
+		const bool valid_op = (_size < width);
+
+		const size_t copy_size = valid_op * sizeof(t);
+		memcpy(&_buffer[_size], &item, copy_size);
 		_size += valid_op;
 
 		return !!copy_size;
 	}
 
 	template<typename t, int width>
-	inline bool static_vector<t, width>::push_front( t&& item )
+	inline bool static_vector<t, width>::push_front(t&& item)
 	{
-		const bool valid_op = ( _buffer < width );
+		const bool valid_op = (_buffer < width);
 
-		const size_t push_size = valid_op * sizeof( t ) * ( _size );
-		memmove( &_buffer[1], _buffer, push_size );
+		const size_t push_size = valid_op * sizeof(t) * (_size);
+		memmove(&_buffer[1], _buffer, push_size);
 
-		const size_t copy_size = valid_op * sizeof( t );
-		memcpy( &_buffer[0], &item, copy_size );
+		const size_t copy_size = valid_op * sizeof(t);
+		memcpy(&_buffer[0], &item, copy_size);
 
 		_size += valid_op;
 
@@ -184,17 +199,17 @@ namespace neat
 	}
 
 	template<typename t, int width>
-	inline bool static_vector<t, width>::erase( t* item )
+	inline bool static_vector<t, width>::erase(t* item)
 	{
 		const int index = item - _buffer;
-		return erase( index );
+		return erase(index);
 	}
 
 	template<typename t, int width>
-	inline bool static_vector<t, width>::erase( int index )
+	inline bool static_vector<t, width>::erase(int index)
 	{
-		const bool valid_op = ( index > -1 )& ( index < _size );
-		memcpy( _buffer + index, _buffer + (_size - 1), sizeof( t ) * valid_op );
+		const bool valid_op = (index > -1) & (index < _size);
+		memcpy(_buffer + index, _buffer + (_size - 1), sizeof(t) * valid_op);
 
 		_size -= valid_op;
 		return valid_op;
@@ -207,14 +222,14 @@ namespace neat
 	}
 
 	template<typename t, int width>
-	inline void static_vector<t, width>::resize( unsigned new_size )
+	inline void static_vector<t, width>::resize(unsigned new_size)
 	{
 		_size = new_size;
-		
+
 	}
 
 	template<typename t, int width>
-	inline void static_vector<t, width>::resize( unsigned new_size, t value )
+	inline void static_vector<t, width>::resize(unsigned new_size, t value)
 	{
 		int old_size = _size;
 		_size = new_size;
@@ -261,18 +276,18 @@ namespace neat
 	}
 
 	template <typename t, int width>
-	t& static_vector<t, width>::operator[]( int index )
+	t& static_vector<t, width>::operator[](int index)
 	{
 		const bool valid_op = index > -1 & index < _size;
-		assert( valid_op && "index out of range" );
+		assert(valid_op && "index out of range");
 		return _buffer[index];
 	}
 
 	template <typename t, int width>
-	const t& static_vector<t, width>::operator[]( int index ) const
+	const t& static_vector<t, width>::operator[](int index) const
 	{
 		const bool valid_op = index > -1 & index < _size;
-		assert( valid_op && "index out of range" );
+		assert(valid_op && "index out of range");
 		return _buffer[index];
 	}
 	template<typename t, int width>

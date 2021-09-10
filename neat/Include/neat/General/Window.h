@@ -5,6 +5,8 @@
 
 #include "WindowParams.h"
 
+using MSGListenCallback = std::function<void(MSG)>;
+
 class Window
 {
 	static std::function<bool(HWND, UINT, WPARAM, LPARAM)> ourOnWinProc;
@@ -18,10 +20,14 @@ public:
 
 	HWND GetWindowHandle() const;
 	WindowParams GetWindowParameters() const;
+	
+	void RegisterMSGCallback(MSGListenCallback callback);
 
 private:
 	HWND myHandle;
 	WNDCLASSEX myWindowClass;
 	WindowParams myWindowParams;
+	std::vector<MSGListenCallback> myListenCallbacks;
+	
 };
 

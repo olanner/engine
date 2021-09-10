@@ -7,13 +7,13 @@
 
 MultiApplication::MultiApplication(
 	Window&					window, 
-	std::vector<TickFunc>	tickFunctions)
+	std::vector<ThreadFunc>	threadFuncs)
 :	myWindow(window)
 {
-	myIsRunnings.resize(tickFunctions.size(), true);
+	myIsRunnings.resize(threadFuncs.size(), true);
 	
 	int threadID = 0;
-	for(const auto& tickFunc : tickFunctions)
+	for(const auto& tickFunc : threadFuncs)
 	{
 		auto funcExt = [this, tickFunc, threadID]()
 		{

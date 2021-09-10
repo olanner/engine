@@ -1,9 +1,8 @@
 
 #pragma once
 #include "Reflex/VK/Mesh/MeshRendererBase.h"
-#include "Reflex/VK/WorkerSystem/WorkerSystem.h"
 
-class RTMeshRenderer : public MeshRendererBase, public WorkerSystem
+class RTMeshRenderer final : public MeshRendererBase
 {
 public:
 									RTMeshRenderer(

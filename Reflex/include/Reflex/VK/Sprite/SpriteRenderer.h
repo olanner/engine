@@ -26,55 +26,68 @@ struct SpriteInstance
 	float imgArrIndex;
 };
 
+struct SpriteRenderSchedule
+{
+	std::array<neat::static_vector<SpriteRenderCommand, MaxNumInstances>, 3> renderCommands;
+	uint8_t pushIndex = 0;
+	uint8_t freeIndex = 1;
+	uint8_t recordIndex = 2;
+};
+
 class SpriteRenderer : public WorkerSystem
 {
 public:
-													SpriteRenderer(
-														class VulkanFramework&	vulkanFramework,
-														class SceneGlobals&		sceneGlobals,
-														class ImageHandler&		imageHandler,
-														class RenderPassFactory&	renderPassFactory,
-														class UniformHandler&		uniformHandler,
-														QueueFamilyIndex* 			firstOwner, 
-														uint32_t					numOwners,
-														uint32_t					cmdBufferFamily);
+															SpriteRenderer(
+																class VulkanFramework&	vulkanFramework,
+																class SceneGlobals&		sceneGlobals,
+																class ImageHandler&		imageHandler,
+																class RenderPassFactory&	renderPassFactory,
+																class UniformHandler&		uniformHandler,
+																QueueFamilyIndex* 			firstOwner, 
+																uint32_t					numOwners,
+																uint32_t					cmdBufferFamily);
 
-	std::tuple<VkSubmitInfo, VkFence>				RecordSubmit(
-														uint32_t					swapchainImageIndex,
-														VkSemaphore*				waitSemaphores,
-														uint32_t					numWaitSemaphores,
-														VkPipelineStageFlags*		waitPipelineStages,
-														uint32_t					numWaitStages,
-														VkSemaphore*				signalSemaphore) override;
+	std::tuple<VkSubmitInfo, VkFence>						RecordSubmit(
+																uint32_t					swapchainImageIndex,
+																VkSemaphore*				waitSemaphores,
+																uint32_t					numWaitSemaphores,
+																VkPipelineStageFlags*		waitPipelineStages,
+																uint32_t					numWaitStages,
+																VkSemaphore*				signalSemaphore) override;
 
-	void											BeginPush();
-	void											PushRenderCommand(
-														const SpriteRenderCommand &			textRenderCommand);
-	void											EndPush();
+	void													BeginPush(
+																ScheduleID scheduleID);
+	void													PushRenderCommand(
+																ScheduleID scheduleID,
+																const SpriteRenderCommand &			textRenderCommand);
+	void													EndPush(
+																ScheduleID scheduleID);
+	void													AssembleScheduledWork();
+	void													AddSchedule(
+																ScheduleID scheduleID) override;
 
 private:
-	VulkanFramework&								theirVulkanFramework;
-	SceneGlobals&									theirSceneGlobals;
-	ImageHandler&									theirImageHandler;
-	UniformHandler&									theirUniformHandler;
+	VulkanFramework&										theirVulkanFramework;
+	SceneGlobals&											theirSceneGlobals;
+	ImageHandler&											theirImageHandler;
+	UniformHandler&											theirUniformHandler;
 
-	neat::static_vector<QueueFamilyIndex, 8>		myOwners;
+	neat::static_vector<QueueFamilyIndex, 8>				myOwners;
 
-	RenderPass										myRenderPass;
+	RenderPass												myRenderPass;
 
-	class Shader*									mySpriteShader;
-	Pipeline										mySpritePipeline;
+	class Shader*											mySpriteShader;
+	Pipeline												mySpritePipeline;
 
-	std::array<VkCommandBuffer, NumSwapchainImages> myCmdBuffers;
-	std::array<VkFence, NumSwapchainImages>			myCmdBufferFences;
+	std::array<VkCommandBuffer, NumSwapchainImages>			myCmdBuffers;
+	std::array<VkFence, NumSwapchainImages>					myCmdBufferFences;
 
-	UniformID										mySpriteInstancesID;
+	UniformID												mySpriteInstancesID;
 
-	std::mutex										mySwapMutex;
-	uint8_t											myPushIndex = 0;
-	uint8_t											myFreeIndex = 1;
-	uint8_t											myRecordIndex = 2;
-	std::array<neat::static_vector<SpriteRenderCommand, MaxNumSpriteInstances>, 3>
-													myRenderCommands{};
+	std::mutex												mySwapMutex;
+	std::mutex												myScheduleMutex;
+	std::unordered_map<ScheduleID, SpriteRenderSchedule>	mySchedules;
+	neat::static_vector<SpriteRenderCommand, MaxNumSpriteInstances>
+															myAssembledRenderCommands;
 	
 };

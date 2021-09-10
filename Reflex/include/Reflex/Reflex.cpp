@@ -15,8 +15,10 @@
 #include "VK/Image/CubeHandle.h"
 #include "VK/Image/ImageHandle.h"
 
-bool* gUseRayTracing;
+bool*		gUseRayTracing;
 
+uint32_t				rflx::Reflex::ourUses = 0;
+VulkanImplementation*	rflx::Reflex::ourVKImplementation = nullptr;
 
 // FEATURES
 std::shared_ptr<MeshRenderer>						gMeshRenderer;
@@ -25,118 +27,137 @@ std::shared_ptr<SpriteRenderer>						gSpriteRenderer;
 
 VulkanFramework* gVulkanFramework;
 
-rflx::Reflex::Reflex(
-	const WindowInfo& windowInformation,
-	const char* cmdArgs)
-	: myVKImplementation(nullptr)
-	, myIsGood(true)
+rflx::Reflex::Reflex()
 {
+	if (ourVKImplementation)
+	{
+		myScheduleID = uint8_t(ourVKImplementation->RequestSchedule());
+	}
+	ourUses++;
+}
+
+rflx::Reflex::~Reflex()
+{
+	ourUses--;
+	if (ourUses <= 0)
+	{
+		gSceneGlobals = nullptr;
+		gMeshHandler = nullptr;
+		gImageHandler = nullptr;
+		gFontHandler = nullptr;
+		gCubeFilterer = nullptr;
+		gAccStructHandler = nullptr;
+
+		gSpriteRenderer = nullptr;
+		gMeshRenderer = nullptr;
+		gRTMeshRenderer = nullptr;
+
+		SAFE_DELETE(ourVKImplementation);
+	}
+}
+
+bool
+rflx::Reflex::Start(
+	const WindowInfo&	windowInformation, 
+	const char*			cmdArgs)
+{
+	if (ourVKImplementation)
+	{
+		return true;
+	}
+	
 	assert(IsWindow((HWND)windowInformation.hWND) && "invalid window handle passed");
 
-
-	
 	bool useDebugLayers = false;
 	if (cmdArgs)
 	{
 		useDebugLayers = std::string(cmdArgs).find("vkdebug") != std::string::npos;
 	}
 
-	myVKImplementation = new VulkanImplementation;
-	myIsGood = !myVKImplementation->Init(windowInformation, useDebugLayers);
+	ourVKImplementation = new VulkanImplementation;
+	const auto result = ourVKImplementation->Init(windowInformation, useDebugLayers);
+	if (result)
+	{
+		return false;
+	}
+	
+	myScheduleID = uint8_t(ourVKImplementation->RequestSchedule());
+	if (BAD_ID(myScheduleID))
+	{
+		return false;
+	}
 
+	auto mr = std::make_shared<MeshRenderer>(ourVKImplementation->myVulkanFramework,
+		*ourVKImplementation->myUniformHandler,
+		*ourVKImplementation->myMeshHandler,
+		*ourVKImplementation->myImageHandler,
+		*ourVKImplementation->mySceneGlobals,
+		*ourVKImplementation->myRenderPassFactory,
+		ourVKImplementation->myPresQueueIndex);
 
-
-	auto mr = std::make_shared<MeshRenderer>(myVKImplementation->myVulkanFramework,
-		*myVKImplementation->myUniformHandler,
-		*myVKImplementation->myMeshHandler,
-		*myVKImplementation->myImageHandler,
-		*myVKImplementation->mySceneGlobals,
-		*myVKImplementation->myRenderPassFactory,
-		myVKImplementation->myPresQueueIndex);
-
-	auto rtmr = std::make_shared<RTMeshRenderer>(myVKImplementation->myVulkanFramework,
-		*myVKImplementation->myUniformHandler,
-		*myVKImplementation->myMeshHandler,
-		*myVKImplementation->myImageHandler,
-		*myVKImplementation->mySceneGlobals,
-		*myVKImplementation->myBufferAllocator,
-		*myVKImplementation->myAccStructHandler,
-		myVKImplementation->myCompQueueIndex,
-		myVKImplementation->myTransQueueIndex
+	auto rtmr = std::make_shared<RTMeshRenderer>(ourVKImplementation->myVulkanFramework,
+		*ourVKImplementation->myUniformHandler,
+		*ourVKImplementation->myMeshHandler,
+		*ourVKImplementation->myImageHandler,
+		*ourVKImplementation->mySceneGlobals,
+		*ourVKImplementation->myBufferAllocator,
+		*ourVKImplementation->myAccStructHandler,
+		ourVKImplementation->myCompQueueIndex,
+		ourVKImplementation->myTransQueueIndex
 		);
 
-	QueueFamilyIndex indices[]{ myVKImplementation->myPresQueueIndex, myVKImplementation->myTransQueueIndex };
-	auto tr = std::make_shared<SpriteRenderer>(myVKImplementation->myVulkanFramework,
-		*myVKImplementation->mySceneGlobals,
-		*myVKImplementation->myImageHandler,
-		*myVKImplementation->myRenderPassFactory,
-		*myVKImplementation->myUniformHandler,
+	QueueFamilyIndex indices[]{ ourVKImplementation->myPresQueueIndex, ourVKImplementation->myTransQueueIndex };
+	auto tr = std::make_shared<SpriteRenderer>(ourVKImplementation->myVulkanFramework,
+		*ourVKImplementation->mySceneGlobals,
+		*ourVKImplementation->myImageHandler,
+		*ourVKImplementation->myRenderPassFactory,
+		*ourVKImplementation->myUniformHandler,
 		indices,
 		ARRAYSIZE(indices),
-		myVKImplementation->myPresQueueIndex);
+		ourVKImplementation->myPresQueueIndex);
 
 	//myVKImplementation->RegisterWorkerSystem(rtmr,
 	//	VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV,
 	//	VK_QUEUE_COMPUTE_BIT);
 
-	myVKImplementation->RegisterWorkerSystem(mr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
-	myVKImplementation->RegisterWorkerSystem(tr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
+	ourVKImplementation->RegisterWorkerSystem(mr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
+	ourVKImplementation->RegisterWorkerSystem(tr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
 
-	myVKImplementation->LockWorkerSystems();
+	ourVKImplementation->LockWorkerSystems();
 
 	gMeshRenderer = mr;
-	gSceneGlobals = myVKImplementation->mySceneGlobals;
-	gMeshHandler = myVKImplementation->myMeshHandler;
-	gAccStructHandler = myVKImplementation->myAccStructHandler;
+	gSceneGlobals = ourVKImplementation->mySceneGlobals;
+	gMeshHandler = ourVKImplementation->myMeshHandler;
+	gAccStructHandler = ourVKImplementation->myAccStructHandler;
 	gRTMeshRenderer = rtmr;
-	gImageHandler = myVKImplementation->myImageHandler;
-	gCubeFilterer = myVKImplementation->myCubeFilterer;
+	gImageHandler = ourVKImplementation->myImageHandler;
+	gCubeFilterer = ourVKImplementation->myCubeFilterer;
 	gSpriteRenderer = tr;
-	gFontHandler = myVKImplementation->myFontHandler;
+	gFontHandler = ourVKImplementation->myFontHandler;
 
-	gUseRayTracing = &myVKImplementation->myUseRayTracing;
+	gUseRayTracing = &ourVKImplementation->myUseRayTracing;
 
-	gVulkanFramework = &myVKImplementation->myVulkanFramework;
-}
-
-rflx::Reflex::~Reflex()
-{
-	gSceneGlobals = nullptr;
-	gMeshHandler = nullptr;
-	gImageHandler = nullptr;
-	gFontHandler = nullptr;
-	gCubeFilterer = nullptr;
-	gAccStructHandler = nullptr;
-
-	gSpriteRenderer = nullptr;
-	gMeshRenderer = nullptr;
-	gRTMeshRenderer = nullptr;
-
-	SAFE_DELETE(myVKImplementation);
-}
-
-bool
-rflx::Reflex::IsGood()
-{
-	return myIsGood;
+	gVulkanFramework = &ourVKImplementation->myVulkanFramework;
+	
+	return true;
 }
 
 void
 rflx::Reflex::BeginFrame()
 {
-	myVKImplementation->BeginFrame();
+	ourVKImplementation->BeginFrame();
 }
 
 void
 rflx::Reflex::Submit()
 {
-	myVKImplementation->Submit();
+	ourVKImplementation->Submit();
 }
 
 void
 rflx::Reflex::EndFrame()
 {
-	myVKImplementation->EndFrame();
+	ourVKImplementation->EndFrame();
 }
 
 rflx::MeshHandle
@@ -199,29 +220,29 @@ rflx::CreateImageCube(
 }
 
 void
-rflx::SetUseRayTracing(
+rflx::Reflex::SetUseRayTracing(
 	bool useFlag)
 {
 	*gUseRayTracing = useFlag;
 }
 
 void
-rflx::BeginPush()
+rflx::Reflex::BeginPush()
 {
 	if (*gUseRayTracing)
 	{
-		gRTMeshRenderer->BeginPush();
+		gRTMeshRenderer->BeginPush(ScheduleID(myScheduleID));
 	}
 	else
 	{
-		gMeshRenderer->BeginPush();
+		gMeshRenderer->BeginPush(ScheduleID(myScheduleID));
 	}
 
-	gSpriteRenderer->BeginPush();
+	gSpriteRenderer->BeginPush(ScheduleID(myScheduleID));
 }
 
 void
-rflx::PushRenderCommand(
+rflx::Reflex::PushRenderCommand(
 	const MeshHandle& handle,
 	const Vec3f& position,
 	const Vec3f& scale,
@@ -238,17 +259,17 @@ rflx::PushRenderCommand(
 
 	if (*gUseRayTracing)
 	{
-		gRTMeshRenderer->PushRenderCommand(cmd);
+		gRTMeshRenderer->PushRenderCommand(ScheduleID(myScheduleID), cmd);
 	}
 	else
 	{
-		gMeshRenderer->PushRenderCommand(cmd);
+		gMeshRenderer->PushRenderCommand(ScheduleID(myScheduleID), cmd);
 	}
 
 }
 
 void
-rflx::PushRenderCommand(
+rflx::Reflex::PushRenderCommand(
 	FontID			fontID,
 	const char* text,
 	const Vec3f& position,
@@ -291,12 +312,12 @@ rflx::PushRenderCommand(
 
 		colOffset += metrics.xStride;
 
-		gSpriteRenderer->PushRenderCommand(cmd);
+		gSpriteRenderer->PushRenderCommand(ScheduleID(myScheduleID), cmd);
 	}
 }
 
 void
-rflx::PushRenderCommand(
+rflx::Reflex::PushRenderCommand(
 	ImageHandle handle,
 	uint32_t    subImg,
 	Vec2f		position,
@@ -313,26 +334,26 @@ rflx::PushRenderCommand(
 	cmd.pivot = pivot;
 	cmd.color = color;
 
-	gSpriteRenderer->PushRenderCommand(cmd);
+	gSpriteRenderer->PushRenderCommand(ScheduleID(myScheduleID), cmd);
 }
 
 void
-rflx::EndPush()
+rflx::Reflex::EndPush()
 {
 	if (*gUseRayTracing)
 	{
-		gRTMeshRenderer->EndPush();
+		gRTMeshRenderer->EndPush(ScheduleID(myScheduleID));
 	}
 	else
 	{
-		gMeshRenderer->EndPush();
+		gMeshRenderer->EndPush(ScheduleID(myScheduleID));
 	}
 
-	gSpriteRenderer->EndPush();
+	gSpriteRenderer->EndPush(ScheduleID(myScheduleID));
 }
 
 void
-rflx::SetView(
+rflx::Reflex::SetView(
 	const Vec3f& position,
 	const Vec2f& rotation,
 	float			distance)

@@ -45,22 +45,56 @@ MeshRendererBase::~MeshRendererBase()
 }
 
 void
-MeshRendererBase::BeginPush()
+MeshRendererBase::BeginPush(
+	ScheduleID scheduleID)
 {
+	auto& schedule = mySchedules[scheduleID];
 	{
-		std::scoped_lock<std::mutex> lock(mySwapMutex);
-		std::swap(myPushIndex, myFreeIndex);
+		std::scoped_lock lock(mySwapMutex);
+		std::swap(schedule.pushIndex, schedule.freeIndex);
 	}
-	myRenderCommands[myPushIndex].clear();
+	schedule.renderCommands[schedule.pushIndex].clear();
 }
 
 void
-MeshRendererBase::PushRenderCommand(const MeshRenderCommand& command)
+MeshRendererBase::PushRenderCommand(
+	ScheduleID scheduleID,
+	const MeshRenderCommand& command)
 {
-	myRenderCommands[myPushIndex].emplace_back(command);
+	auto& schedule = mySchedules[scheduleID];
+	schedule.renderCommands[schedule.pushIndex].emplace_back(command);
 }
 
 void
-MeshRendererBase::EndPush()
+MeshRendererBase::EndPush(
+	ScheduleID scheduleID)
 {
+}
+
+void MeshRendererBase::AssembleScheduledWork()
+{
+	std::scoped_lock lock(mySwapMutex);
+	
+	myAssembledRenderCommands.clear();
+	for (auto& [id, schedule] : mySchedules)
+	{
+		std::swap(schedule.recordIndex, schedule.freeIndex);
+
+		for (auto& cmd : schedule.renderCommands[schedule.recordIndex])
+		{
+			myAssembledRenderCommands.emplace_back(cmd);
+		}
+	}
+	if (myAssembledRenderCommands.empty())
+	{
+		int val = 0;
+	}
+}
+
+void
+MeshRendererBase::AddSchedule(
+	ScheduleID scheduleID)
+{
+	std::scoped_lock lock(mySwapMutex);
+	mySchedules[scheduleID] = {};
 }

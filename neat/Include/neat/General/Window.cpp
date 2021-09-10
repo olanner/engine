@@ -86,13 +86,17 @@ LRESULT Window::WinProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
 MSG Window::HandleMessages()
 {
 	MSG msg = { 0 };
-	if ( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) )
+	while ( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) )
 	{
 		TranslateMessage( &msg );
 		DispatchMessage( &msg );
 		if ( msg.message == WM_QUIT )
 		{
 			return msg;
+		}
+		for (auto& callback : myListenCallbacks)
+		{
+			callback(msg);
 		}
 	}
 	return msg;
@@ -106,4 +110,9 @@ HWND Window::GetWindowHandle() const
 WindowParams Window::GetWindowParameters() const
 {
 	return myWindowParams;
+}
+
+void Window::RegisterMSGCallback(MSGListenCallback callback)
+{
+	myListenCallbacks.emplace_back(std::move(callback));
 }

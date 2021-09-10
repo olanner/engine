@@ -23,50 +23,50 @@ namespace rflx
 {
 	class Reflex
 	{
+		static uint32_t					ourUses;
+		static VulkanImplementation*	ourVKImplementation;
 	public:
-		Reflex(const WindowInfo& windowInformation, const char* cmdArgs = nullptr);
-		~Reflex();
+										Reflex();
+										~Reflex();
 
-		bool	IsGood();
-		void	BeginFrame();
-		void	Submit();
-		void	EndFrame();
+		bool							Start(
+											const WindowInfo&	windowInformation, 
+											const char*			cmdArgs = nullptr);
+		void							BeginFrame();
+		void							Submit();
+		void							EndFrame();
 
+		void							SetUseRayTracing(bool useFlag);
+
+		void							BeginPush();
+		void							PushRenderCommand(
+											const MeshHandle& handle,
+											const Vec3f& position = { 0,0,0 },
+											const Vec3f& scale = { 1,1,1 },
+											const Vec3f& forward = { 0,0,1 },
+											float				rotation = 0);
+		void							PushRenderCommand(
+											FontID			fontID,
+											const char* text,
+											const Vec3f& position,
+											float			scale,
+											const Vec4f& color);
+		void							PushRenderCommand(
+											ImageHandle		handle,
+											uint32_t		subImg,
+											Vec2f			position,
+											Vec2f			scale,
+											Vec2f			pivot = { 0,0 },
+											Vec4f			color = { 1,1,1,1 });
+		void							EndPush();
+
+		void							SetView(
+											const Vec3f& position,
+											const Vec2f& rotation,
+											float distance);
+	
 	private:
-		VulkanImplementation*	myVKImplementation;
-		bool					myIsGood = false;
+		uint8_t							myScheduleID = 0;
 
 	};
-}
-
-namespace rflx
-{
-	void		SetUseRayTracing(bool useFlag);
-
-	void		BeginPush();
-	void		PushRenderCommand(
-					const MeshHandle&	handle,
-					const Vec3f&		position = {0,0,0},
-					const Vec3f&		scale = {1,1,1},
-					const Vec3f&		forward = {0,0,1},
-					float				rotation = 0);
-	void		PushRenderCommand(
-					FontID			fontID,
-					const char*		text,
-					const Vec3f&	position,
-					float			scale,
-					const Vec4f&	color);
-	void		PushRenderCommand(
-					ImageHandle		handle,
-					uint32_t		subImg,
-					Vec2f			position,
-					Vec2f			scale,
-					Vec2f			pivot = {0,0},
-					Vec4f			color = {1,1,1,1});
-	void		EndPush();
-
-	void		SetView(
-					const Vec3f& position, 
-					const Vec2f& rotation, 
-					float distance);
 }

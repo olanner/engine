@@ -26,6 +26,7 @@
 #endif
 
 VulkanImplementation::VulkanImplementation()
+	: myScheduleIDs(16)
 {
 }
 
@@ -365,5 +366,15 @@ VulkanImplementation::LockWorkerSystems()
 	}
 	myWorkerSystems.back().signalSemaphores = myFrameDoneSemaphore;
 	myWorkerSystemsLocked = true;
+}
+
+ScheduleID VulkanImplementation::RequestSchedule()
+{
+	ScheduleID id = myScheduleIDs.FetchFreeID();
+	if (BAD_ID(id))
+	{
+		LOG("no more schedule ids");
+	}
+	return id;
 }
 

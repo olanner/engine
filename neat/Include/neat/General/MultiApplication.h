@@ -3,14 +3,14 @@
 #include <thread>
 #include <vector>
 
-using  TickFunc = std::function<void(float, float, int)>;
+using  ThreadFunc = std::function<void(float, float, int)>;
 
 class MultiApplication
 {
 public:
 			MultiApplication(
 				class Window& window, 
-				std::vector<TickFunc> tickFunctions);
+				std::vector<ThreadFunc> tickFunctions);
 			~MultiApplication();
 
 	WPARAM	Loop();

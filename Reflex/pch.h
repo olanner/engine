@@ -8,6 +8,10 @@
 
 #include <concurrent_queue.h>
 #include <concurrent_priority_queue.h>
+#include <concurrent_unordered_map.h>
+
+template<typename key, typename value>
+using conc_map = concurrency::concurrent_unordered_map<key, value>;
 
 // STL
 #include <functional>

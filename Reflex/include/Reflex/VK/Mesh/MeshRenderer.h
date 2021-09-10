@@ -17,7 +17,7 @@ struct UniformInstances
 	Instance instances[MaxNumInstances];
 };
 
-class MeshRenderer : public MeshRendererBase, public WorkerSystem
+class MeshRenderer final : public MeshRendererBase
 {
 public:
 										MeshRenderer(

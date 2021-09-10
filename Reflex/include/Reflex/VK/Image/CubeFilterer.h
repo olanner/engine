@@ -66,7 +66,8 @@ public:
 	void											PushFilterWork(
 														CubeID			id, 
 														CubeDimension	cubeDim);
-
+	void											AddSchedule(
+														ScheduleID scheduleID) override {};
 private:
 	void											CreateCubeFilterPass(CubeDimension cubeDim);
 

@@ -28,7 +28,7 @@ public:
 		VkPipelineStageFlags			waitStage,
 		VkQueueFlagBits					subQueueType);
 	void										LockWorkerSystems();
-
+	ScheduleID									RequestSchedule();
 private:
 	VkResult									InitSync();
 
@@ -82,5 +82,6 @@ private:
 	bool										myWorkerSystemsLocked = false;
 
 	bool										myUseRayTracing = false;
+	IDKeeper<ScheduleID>						myScheduleIDs;
 
 };
