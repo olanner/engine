@@ -24,9 +24,9 @@ public:
 	void										EndFrame();
 
 	void										RegisterWorkerSystem(
-		std::shared_ptr<WorkerSystem>	system,
-		VkPipelineStageFlags			waitStage,
-		VkQueueFlagBits					subQueueType);
+													std::shared_ptr<WorkerSystem>	system,
+													VkPipelineStageFlags			waitStage,
+													VkQueueFlagBits					subQueueType);
 	void										LockWorkerSystems();
 	ScheduleID									RequestSchedule();
 private:

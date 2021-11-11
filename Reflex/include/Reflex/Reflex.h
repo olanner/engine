@@ -61,12 +61,16 @@ namespace rflx
 		void							EndPush();
 
 		void							SetView(
-											const Vec3f& position,
-											const Vec2f& rotation,
-											float distance);
+											const Vec3f&	position,
+											const Vec2f&	rotation,
+											float			distance);
+		void							SetScaleReference(
+											ImageHandle		handle,
+											Vec2f			coefficient);
 	
 	private:
 		uint8_t							myScheduleID = 0;
+		Vec2f							my2DScaleRef = {};
 
 	};
 }

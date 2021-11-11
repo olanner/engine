@@ -27,13 +27,6 @@ bool OnWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	return InputHandler::TakeMessages(msg, wParam, lParam);
 }
 
-enum Mouse
-{
-	LMB,
-	RMB,
-	MDX,
-	MDY
-};
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					   _In_opt_ HINSTANCE hPrevInstance,
@@ -60,15 +53,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 		rflx::Reflex reflexA;
 		rflx::Reflex reflexB;
-		if (!reflexA.Start(info, _bstr_t(lpCmdLine)))
+		if (!reflexB.Start(info, _bstr_t(lpCmdLine)) || !reflexA.Start(info, _bstr_t(lpCmdLine)))
 		{
 			MessageBox(window.GetWindowHandle(), L"reflex failed to start", L"error", NULL);
 			return 0;
 		}
+	
 		std::random_device rd;
 		std::mt19937_64 mt(rd());
 		std::uniform_int_distribution<int> dist(0, 256);
 
+		auto boyHandle = rflx::CreateMesh("Assets/test_boy/test_boy.fbx");
+	
 		constexpr int gridDimX = 7;
 		constexpr int gridDimY = 2;
 		std::vector<rflx::MeshHandle> sphereGrid;
@@ -100,6 +96,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		ThreadFunc render = [&] (float dt, float tt, int fnr)
 		{
 			reflexA.BeginFrame();
+			float fps = 1.f / dt;
+			auto tFPS = std::to_string(int(fps));
+			tFPS.append(" fps");
+			reflexB.PushRenderCommand(FontID(0),
+				tFPS.c_str(),
+				{ -.99, .89, 0 },
+				.08f,
+				{ 0,1,1,1 });
 			reflexA.Submit();
 			reflexA.EndFrame();
 		};
@@ -109,6 +113,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			Sleep(1000/120);
 			
 			InputHandler::BeginFrame();
+			reflexB.BeginPush();
 
 			static float distance = 8.f;
 			static float xRot = 0.f;
@@ -128,12 +133,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			distance += InputHandler::IsHeld(VK_UP) * 128.f * dt;
 			distance -= InputHandler::IsHeld(VK_DOWN) * 128.f * dt;
 
-			if (InputHandler::IsPressed(VK_F1))
-			{
-				static bool flag = true;
-				reflexB.SetUseRayTracing(flag = !flag);
-			}
-
 			for (int skyboxIndex = 0; skyboxIndex < skyboxes.size(); ++skyboxIndex)
 			{
 				if (InputHandler::IsPressed('1' + skyboxIndex))
@@ -143,10 +142,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			}
 
 			reflexB.SetView({0, y,0}, {xRot, yRot}, distance);
-
-			reflexB.BeginPush();
-
-
+			
 			for (int y = 0; y < gridDimY; ++y)
 			{
 				for (int x = 0; x < gridDimX; ++x)
@@ -156,10 +152,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					pos.y -= gridDimY / 2.25f;
 					pos.x *= 2;
 					pos.y *= -2;
-					reflexB.PushRenderCommand(sphereGrid[y * gridDimX + x], pos);
+					//reflexB.PushRenderCommand(sphereGrid[y * gridDimX + x], pos);
 				}
 			}
-			reflexB.PushRenderCommand(test, uint32_t(tt) % 16, {}, {1,1});
+
+			reflexB.PushRenderCommand(boyHandle, {}, {1,1,1}, {0,1,0}, tt / 2);
+
+			auto [mx, my] = InputHandler::GetMousePos();
+			reflexB.SetScaleReference(test, { 1,-1 });
+			reflexB.PushRenderCommand(test, uint32_t(tt) % 16, {0,0}, {1,1});
 
 			float fps = 1.f / dt;
 			auto tFPS = std::to_string(int(fps));
@@ -169,8 +170,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				{ -.99, .99, 0 },
 				.08f,
 				{ 0,1,1,1 });
-			reflexB.EndPush();
 
+			reflexB.EndPush();
 			InputHandler::EndFrame();
 		};
 

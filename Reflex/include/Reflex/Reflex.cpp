@@ -61,6 +61,9 @@ rflx::Reflex::Start(
 	const WindowInfo&	windowInformation, 
 	const char*			cmdArgs)
 {
+	my2DScaleRef.x = 1.f / float(windowInformation.width);
+	my2DScaleRef.y = 1.f / float(windowInformation.height);
+	
 	if (ourVKImplementation)
 	{
 		return true;
@@ -138,7 +141,6 @@ rflx::Reflex::Start(
 	gUseRayTracing = &ourVKImplementation->myUseRayTracing;
 
 	gVulkanFramework = &ourVKImplementation->myVulkanFramework;
-	
 	return true;
 }
 
@@ -328,7 +330,7 @@ rflx::Reflex::PushRenderCommand(
 	SpriteRenderCommand cmd{};
 	cmd.imgArrID = handle.GetID();
 	cmd.imgArrIndex = subImg;
-	cmd.position = position;
+	cmd.position = { position.x * my2DScaleRef.x, position.y * my2DScaleRef.y };
 	auto sScale = (*gImageHandler)[handle.GetID()].scale;
 	cmd.scale = scale * sScale;
 	cmd.pivot = pivot;
@@ -359,4 +361,16 @@ rflx::Reflex::SetView(
 	float			distance)
 {
 	gSceneGlobals->SetView(position, rotation, distance);
+}
+
+void
+rflx::Reflex::SetScaleReference(
+	ImageHandle	handle,
+	Vec2f		coefficient)
+{
+	const Vec2f dim = handle.GetDimensions();
+	my2DScaleRef.x = 1.f / dim.x;
+	my2DScaleRef.y = 1.f / dim.y;
+
+	my2DScaleRef *= coefficient;
 }

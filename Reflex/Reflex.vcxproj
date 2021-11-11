@@ -107,6 +107,7 @@
     <ClInclude Include="include\Reflex\VK\Image\CubeFilterer.h" />
     <ClInclude Include="include\Reflex\VK\Image\CubeHandle.h" />
     <ClInclude Include="include\Reflex\VK\Image\ImageHandle.h" />
+    <ClInclude Include="include\Reflex\VK\Memory\Streamer.h" />
     <ClInclude Include="include\Reflex\VK\Pipelines\GenBlendStates.h" />
     <ClInclude Include="include\Reflex\VK\Pipelines\GenRasterStates.h" />
     <ClInclude Include="include\Reflex\VK\Pipelines\Pipeline.h" />

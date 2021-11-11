@@ -29,7 +29,8 @@ public:
 													VkPipelineBindPoint bindPoint);
 
 private:
-	Vec4f										LoadImagesFromDoc(const rapidjson::Document& doc) const;
+	std::vector<Vec4f>							LoadImagesFromDoc(
+													const rapidjson::Document& doc) const;
 	void										WriteMeshDescriptorData(MeshID meshID);
 
 	VulkanFramework&							theirVulkanFramework;
@@ -44,5 +45,9 @@ private:
 	VkDescriptorPool							myDescriptorPool;
 	VkDescriptorSetLayout						myMeshDataLayout;
 	VkDescriptorSet								myMeshDataSet;
+
+	ImageID										myMissingAlbedoID;
+	ImageID										myMissingMaterialID;
+	ImageID										myMissingNormalID;
 
 };

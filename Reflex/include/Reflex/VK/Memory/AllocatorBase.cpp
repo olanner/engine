@@ -219,7 +219,7 @@ AllocatorBase::CreateStagingBuffer(
 
 	// MEM ALLOC
 	auto [memReq, memTypeIndex] = GetMemReq(buffer, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-	if (memTypeIndex == -1)
+	if (memTypeIndex == UINT_MAX)
 	{
 		LOG("no appropriate memory type found");
 		return {VK_ERROR_FEATURE_NOT_PRESENT, buffer, memory};

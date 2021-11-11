@@ -14,17 +14,13 @@ namespace glui
 					float tt, 
 					int fnr);
 
+		void	Box(
+					const char* path,
+					uint32_t width,
+					uint32_t height);
+
 	private:
 		
 		
 	};
-}
-
-namespace glui
-{
-	void	Box(
-				const char* path,
-				uint32_t width,
-				uint32_t height);
-	
 }
