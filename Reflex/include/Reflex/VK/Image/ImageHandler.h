@@ -29,7 +29,7 @@ public:
 	ImageID										AddImage2D(
 													std::vector<uint8_t>&&	pixelData,
 													Vec2f				dimension,
-													VkFormat			format = VK_FORMAT_R8G8B8A8_SRGB,
+													VkFormat			format = VK_FORMAT_R8G8B8A8_UNORM,
 													uint32_t			byteDepth = 4);
 	ImageID										AddImage2DTiled(
 													const char* path,

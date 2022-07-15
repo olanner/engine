@@ -375,6 +375,10 @@ ScheduleID VulkanImplementation::RequestSchedule()
 	{
 		LOG("no more schedule ids");
 	}
+	for (auto& workerSystem : myWorkerSystems)
+	{
+		workerSystem.system->AddSchedule(id);
+	}
 	return id;
 }
 

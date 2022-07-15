@@ -83,12 +83,6 @@ rflx::Reflex::Start(
 	{
 		return false;
 	}
-	
-	myScheduleID = uint8_t(ourVKImplementation->RequestSchedule());
-	if (BAD_ID(myScheduleID))
-	{
-		return false;
-	}
 
 	auto mr = std::make_shared<MeshRenderer>(ourVKImplementation->myVulkanFramework,
 		*ourVKImplementation->myUniformHandler,
@@ -127,6 +121,12 @@ rflx::Reflex::Start(
 	ourVKImplementation->RegisterWorkerSystem(tr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
 
 	ourVKImplementation->LockWorkerSystems();
+
+	myScheduleID = uint8_t(ourVKImplementation->RequestSchedule());
+	if (BAD_ID(myScheduleID))
+	{
+		return false;
+	}
 
 	gMeshRenderer = mr;
 	gSceneGlobals = ourVKImplementation->mySceneGlobals;
@@ -233,14 +233,14 @@ rflx::Reflex::BeginPush()
 {
 	if (*gUseRayTracing)
 	{
-		gRTMeshRenderer->BeginPush(ScheduleID(myScheduleID));
+		gRTMeshRenderer->myWorkScheduler.BeginPush(ScheduleID(myScheduleID));
 	}
 	else
 	{
-		gMeshRenderer->BeginPush(ScheduleID(myScheduleID));
+		gMeshRenderer->myWorkScheduler.BeginPush(ScheduleID(myScheduleID));
 	}
 
-	gSpriteRenderer->BeginPush(ScheduleID(myScheduleID));
+	gSpriteRenderer->myWorkScheduler.BeginPush(ScheduleID(myScheduleID));
 }
 
 void
@@ -253,7 +253,7 @@ rflx::Reflex::PushRenderCommand(
 {
 	MeshRenderCommand cmd{};
 	cmd.id = handle.GetID();
-
+	
 	cmd.transform =
 		glm::translate(glm::identity<Mat4f>(), position) *
 		glm::rotate(glm::identity<Mat4f>(), rotation, forward) *
@@ -261,11 +261,11 @@ rflx::Reflex::PushRenderCommand(
 
 	if (*gUseRayTracing)
 	{
-		gRTMeshRenderer->PushRenderCommand(ScheduleID(myScheduleID), cmd);
+		gRTMeshRenderer->myWorkScheduler.PushWork(ScheduleID(myScheduleID), cmd);
 	}
 	else
 	{
-		gMeshRenderer->PushRenderCommand(ScheduleID(myScheduleID), cmd);
+		gMeshRenderer->myWorkScheduler.PushWork(ScheduleID(myScheduleID), cmd);
 	}
 
 }
@@ -314,7 +314,7 @@ rflx::Reflex::PushRenderCommand(
 
 		colOffset += metrics.xStride;
 
-		gSpriteRenderer->PushRenderCommand(ScheduleID(myScheduleID), cmd);
+		gSpriteRenderer->myWorkScheduler.PushWork(ScheduleID(myScheduleID), cmd);
 	}
 }
 
@@ -336,7 +336,7 @@ rflx::Reflex::PushRenderCommand(
 	cmd.pivot = pivot;
 	cmd.color = color;
 
-	gSpriteRenderer->PushRenderCommand(ScheduleID(myScheduleID), cmd);
+	gSpriteRenderer->myWorkScheduler.PushWork(ScheduleID(myScheduleID), cmd);
 }
 
 void
@@ -344,14 +344,14 @@ rflx::Reflex::EndPush()
 {
 	if (*gUseRayTracing)
 	{
-		gRTMeshRenderer->EndPush(ScheduleID(myScheduleID));
+		gRTMeshRenderer->myWorkScheduler.EndPush(ScheduleID(myScheduleID));
 	}
 	else
 	{
-		gMeshRenderer->EndPush(ScheduleID(myScheduleID));
+		gMeshRenderer->myWorkScheduler.EndPush(ScheduleID(myScheduleID));
 	}
 
-	gSpriteRenderer->EndPush(ScheduleID(myScheduleID));
+	gSpriteRenderer->myWorkScheduler.EndPush(ScheduleID(myScheduleID));
 }
 
 void

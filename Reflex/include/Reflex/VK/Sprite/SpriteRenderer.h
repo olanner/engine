@@ -54,17 +54,8 @@ public:
 																VkPipelineStageFlags*		waitPipelineStages,
 																uint32_t					numWaitStages,
 																VkSemaphore*				signalSemaphore) override;
-
-	void													BeginPush(
-																ScheduleID scheduleID);
-	void													PushRenderCommand(
-																ScheduleID scheduleID,
-																const SpriteRenderCommand &			textRenderCommand);
-	void													EndPush(
-																ScheduleID scheduleID);
-	void													AssembleScheduledWork();
-	void													AddSchedule(
-																ScheduleID scheduleID) override;
+	void													AddSchedule(ScheduleID scheduleID) override { myWorkScheduler.AddSchedule(scheduleID); }
+	WorkScheduler<SpriteRenderCommand, 1024, 1024>			myWorkScheduler;
 
 private:
 	VulkanFramework&										theirVulkanFramework;
@@ -84,10 +75,5 @@ private:
 
 	UniformID												mySpriteInstancesID;
 
-	std::mutex												mySwapMutex;
-	std::mutex												myScheduleMutex;
-	std::unordered_map<ScheduleID, SpriteRenderSchedule>	mySchedules;
-	neat::static_vector<SpriteRenderCommand, MaxNumSpriteInstances>
-															myAssembledRenderCommands;
 	
 };

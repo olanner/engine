@@ -23,8 +23,6 @@ public:
 														VkPipelineStageFlags*	waitPipelineStages,
 														uint32_t				numWaitStages,
 														VkSemaphore*			signalSemaphore) override;
-	void											AddSchedule(
-														ScheduleID scheduleID) override {};
 
 private:
 	VulkanFramework&								theirVulkanFramework;

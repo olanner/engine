@@ -2,15 +2,7 @@
 #pragma once
 #include "MeshRenderCommand.h"
 #include "Reflex/VK/WorkerSystem/WorkerSystem.h"
-
-
-struct MeshRenderSchedule
-{
-	std::array<std::vector<MeshRenderCommand>, 3> renderCommands;
-	uint8_t pushIndex = 0;
-	uint8_t freeIndex = 1;
-	uint8_t recordIndex = 2;
-};
+#include "neat/Misc/TripleBuffer.h"
 
 class MeshRendererBase : public WorkerSystem
 {
@@ -24,16 +16,9 @@ public:
 															QueueFamilyIndex		cmdBufferFamily);
 														~MeshRendererBase();
 
-	void												BeginPush(
-															ScheduleID scheduleID);
-	void												PushRenderCommand(
-															ScheduleID scheduleID,
-															const MeshRenderCommand& command);
-	void												EndPush(
-															ScheduleID scheduleID);
-	void												AssembleScheduledWork();
-	void												AddSchedule(
-															ScheduleID scheduleID) override;
+														void AddSchedule(ScheduleID scheduleID) override;
+
+	WorkScheduler<MeshRenderCommand, 1024, 1024>		myWorkScheduler;
 
 protected:
 	VulkanFramework&									theirVulkanFramework;
@@ -42,11 +27,6 @@ protected:
 	ImageHandler&										theirImageHandler;
 	SceneGlobals&										theirSceneGlobals;
 
-	std::mutex											mySwapMutex;
-	std::mutex											myScheduleMutex;
-	std::unordered_map<ScheduleID, MeshRenderSchedule>	mySchedules;
-	neat::static_vector<MeshRenderCommand, MaxNumInstances>
-														myAssembledRenderCommands;
 
 	std::array<VkCommandBuffer, NumSwapchainImages>		myCmdBuffers;
 	std::array<VkFence, NumSwapchainImages>				myCmdBufferFences;

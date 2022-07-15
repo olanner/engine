@@ -103,6 +103,7 @@
     <ClInclude Include="Include\neat\General\Window.h" />
     <ClInclude Include="Include\neat\General\WindowParams.h" />
     <ClInclude Include="Include\neat\Misc\IDKeeper.h" />
+    <ClInclude Include="Include\neat\Misc\TripleBuffer.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>

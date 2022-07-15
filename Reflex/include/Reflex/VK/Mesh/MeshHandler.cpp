@@ -183,9 +183,8 @@ MeshHandler::MeshHandler(
 		std::vector<uint8_t> normalData;
 		normalData.resize(2 * 2 * 4);
 		memcpy(normalData.data(), normalPixels.data(), normalData.size());
-		myMissingNormalID = theirImageHandler.AddImage2D(std::move(normalData), { 2, 2 });
+		myMissingNormalID = theirImageHandler.AddImage2D(std::move(normalData), { 2, 2 }, VK_FORMAT_R8G8B8A8_UNORM);
 	}
-	int val = 0; val = 0;
 }
 
 MeshHandler::~MeshHandler()
@@ -220,10 +219,10 @@ MeshHandler::AddMesh(
 	{
 		imageIDs.resize(4);
 		imgIDs.resize(1);
-		imgIDs[0].x = BAD_ID(imageIDs[0]) ? float(myMissingAlbedoID) : float(imageIDs[0]);
-		imgIDs[0].y = BAD_ID(imageIDs[1]) ? float(myMissingMaterialID) : float(imageIDs[1]);
-		imgIDs[0].z = BAD_ID(imageIDs[2]) ? float(myMissingNormalID) : float(imageIDs[2]);
-		imgIDs[0].w = BAD_ID(imageIDs[3]) ? 0 : float(imageIDs[3]);
+		imgIDs[0].x = (BAD_ID(imageIDs[0]) || uint32_t(imageIDs[0]) == 0) ? float(myMissingAlbedoID) : float(imageIDs[0]);
+		imgIDs[0].y = (BAD_ID(imageIDs[1]) || uint32_t(imageIDs[1]) == 0) ? float(myMissingMaterialID) : float(imageIDs[1]);
+		imgIDs[0].z = (BAD_ID(imageIDs[2]) || uint32_t(imageIDs[2]) == 0) ? float(myMissingNormalID) : float(imageIDs[2]);
+		imgIDs[0].w = (BAD_ID(imageIDs[3]) || uint32_t(imageIDs[3]) == 0) ? float(myMissingAlbedoID) : float(imageIDs[3]);
 	}
 
 
@@ -372,22 +371,6 @@ MeshHandler::LoadImagesFromDoc(
 			}
 		}
 	}
-	/*if (doc.HasMember("Material"))
-	{
-		char* raw = (char*)doc["Material"].GetString();
-		char texPath[128]{};
-		strcpy_s(texPath, raw);
-		materialID = theirImageHandler.AddImage2D(texPath);
-		assert(!BAD_ID(materialID) && "failed creating image");
-	}
-	if (doc.HasMember("Normal"))
-	{
-		char* raw = (char*)doc["Normal"].GetString();
-		char texPath[128]{};
-		strcpy_s(texPath, raw);
-		normalID = theirImageHandler.AddImage2D(texPath);
-		assert(!BAD_ID(materialID) && "failed creating image");
-	}*/
 
 	return imgIDs;
 }

@@ -165,18 +165,17 @@ MeshRenderer::RecordSubmit(
 )
 {
 	// ACQUIRE RENDER COMMAND BUFFER
-	AssembleScheduledWork();
+	auto& assembledWork = myWorkScheduler.AssembleScheduledWork();
 
 	// PROCESS COMMANDS
-
-	std::sort(myAssembledRenderCommands.begin(), myAssembledRenderCommands.end());
+	std::sort(assembledWork.begin(), assembledWork.end());
 
 	static std::array<std::pair<uint32_t, uint32_t>, MaxNumMeshesLoaded> instanceControl;
 	instanceControl = {};
 
 	MeshID currentID = MeshID(INVALID_ID);
 	uint32_t index = 0;
-	for (auto& cmd : myAssembledRenderCommands)
+	for (auto& cmd : assembledWork)
 	{
 		if (cmd.id != currentID)
 		{
@@ -222,11 +221,11 @@ MeshRenderer::RecordSubmit(
 	theirImageHandler.BindSamplers(cmdBuffer, myDeferredGeoPipeline.layout, 1);
 	theirImageHandler.BindImages(cmdBuffer, myDeferredGeoPipeline.layout, 2);
 	theirUniformHandler.BindUniform(myInstanceUniformID, cmdBuffer, myDeferredGeoPipeline.layout, 3);
-
+	
 	// MESHES
-	for (uint32_t i = 0; i < myAssembledRenderCommands.size();)
+	for (uint32_t i = 0; i < assembledWork.size();)
 	{
-		auto& cmd = myAssembledRenderCommands[i];
+		auto& cmd = assembledWork[i];
 		auto [first, num] = instanceControl[int(cmd.id)];
 		RecordMesh(cmdBuffer,
 					theirMeshHandler[cmd.id],

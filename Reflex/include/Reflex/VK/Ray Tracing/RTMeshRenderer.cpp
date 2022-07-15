@@ -204,15 +204,11 @@ RTMeshRenderer::RecordSubmit(
 	VkSemaphore*			signalSemaphore)
 {
 	// ACQUIRE RENDER COMMAND BUFFER
-	/*{
-		std::scoped_lock<std::mutex> lock(mySwapMutex);
-		std::swap(myRecordIndex, myFreeIndex);
-	}*/
-	AssembleScheduledWork();
+	const auto& assembledWork = myWorkScheduler.AssembleScheduledWork();
 	
 	// UPDATE INSTANCE STRUCTURE
 	RTInstances instances;
-	for (auto& cmd : myAssembledRenderCommands)
+	for (auto& cmd : assembledWork)
 	{
 		uint64_t geoHandle{};
 		auto geoStruct = theirAccStructHandler.GetGeometryStruct(cmd.id);

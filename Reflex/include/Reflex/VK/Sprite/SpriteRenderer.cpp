@@ -122,7 +122,7 @@ SpriteRenderer::RecordSubmit(
 	}
 
 	// ACQUIRE RENDER COMMAND BUFFER
-	AssembleScheduledWork();
+	const auto& assembledWork = myWorkScheduler.AssembleScheduledWork();
 
 	auto cmdBuffer = myCmdBuffers[swapchainImageIndex];
 
@@ -145,8 +145,12 @@ SpriteRenderer::RecordSubmit(
 	// UPDATE INSTANCE DATA
 	uint32_t numInstances = 0;
 	std::array<SpriteInstance, MaxNumSpriteInstances> spriteInstances{};
-	for (auto& cmd : myAssembledRenderCommands)
+	for (auto& cmd : assembledWork)
 	{
+		if (BAD_ID(cmd.imgArrID) || int(cmd.imgArrID) > MaxNumImages)
+		{
+			continue;
+		}
 		spriteInstances[numInstances] = {};
 		spriteInstances[numInstances].color = cmd.color;
 		spriteInstances[numInstances].pos = cmd.position;
@@ -196,54 +200,4 @@ SpriteRenderer::RecordSubmit(
 
 	return {submitInfo, myCmdBufferFences[swapchainImageIndex]};
 }
-
-void
-SpriteRenderer::BeginPush(
-	ScheduleID scheduleID)
-{
-	auto& schedule = mySchedules[scheduleID];
-	{
-		std::scoped_lock<std::mutex> lock(mySwapMutex);
-		std::swap(schedule.pushIndex, schedule.freeIndex);
-	}
-	schedule.renderCommands[schedule.pushIndex].clear();
-}
-
-void
-SpriteRenderer::PushRenderCommand(
-	ScheduleID scheduleID,
-	const SpriteRenderCommand& textRenderCommand)
-{
-	auto& schedule = mySchedules[scheduleID];
-	schedule.renderCommands[schedule.pushIndex].emplace_back(textRenderCommand);
-}
-
-void
-SpriteRenderer::EndPush(
-	ScheduleID scheduleID)
-{
-}
-
-void SpriteRenderer::AssembleScheduledWork()
-{
-	std::scoped_lock lock(mySwapMutex);
-
-	myAssembledRenderCommands.clear();
-	for (auto& [id, schedule] : mySchedules)
-	{
-		std::swap(schedule.recordIndex, schedule.freeIndex);
-
-		for (auto& cmd : schedule.renderCommands[schedule.recordIndex])
-		{
-			myAssembledRenderCommands.emplace_back(cmd);
-		}
-	}
-}
-
-void SpriteRenderer::AddSchedule(ScheduleID scheduleID)
-{
-	std::scoped_lock lock(myScheduleMutex);
-	mySchedules[scheduleID] = {};
-}
-
 

@@ -52,12 +52,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		WindowInfo info = {window.GetWindowHandle(), uint32_t(window.GetWindowParameters().width), uint32_t(window.GetWindowParameters().height)};
 
 		rflx::Reflex reflexA;
-		rflx::Reflex reflexB;
-		if (!reflexB.Start(info, _bstr_t(lpCmdLine)) || !reflexA.Start(info, _bstr_t(lpCmdLine)))
+		if (!reflexA.Start(info, _bstr_t(lpCmdLine)))
 		{
 			MessageBox(window.GetWindowHandle(), L"reflex failed to start", L"error", NULL);
 			return 0;
 		}
+		rflx::Reflex reflexB;
 	
 		std::random_device rd;
 		std::mt19937_64 mt(rd());
@@ -95,15 +95,30 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		
 		ThreadFunc render = [&] (float dt, float tt, int fnr)
 		{
-			reflexA.BeginFrame();
+			reflexA.BeginPush();
 			float fps = 1.f / dt;
 			auto tFPS = std::to_string(int(fps));
 			tFPS.append(" fps");
-			reflexB.PushRenderCommand(FontID(0),
+			reflexA.PushRenderCommand(FontID(0),
 				tFPS.c_str(),
 				{ -.99, .89, 0 },
 				.08f,
 				{ 0,1,1,1 });
+			for (int y = 0; y < gridDimY; ++y)
+			{
+				for (int x = 0; x < gridDimX; ++x)
+				{
+					Vec3f pos = { x,y, 0 };
+					pos.x -= gridDimX / 2.25f;
+					pos.y -= gridDimY / 2.25f;
+					pos.x *= 2;
+					pos.y *= -2;
+					reflexA.PushRenderCommand(sphereGrid[y * gridDimX + x], pos, {1,1,1}/*, {0,1,0}, tt*/);
+				}
+			}
+			reflexA.EndPush();
+
+			reflexA.BeginFrame();
 			reflexA.Submit();
 			reflexA.EndFrame();
 		};
@@ -152,11 +167,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					pos.y -= gridDimY / 2.25f;
 					pos.x *= 2;
 					pos.y *= -2;
-					//reflexB.PushRenderCommand(sphereGrid[y * gridDimX + x], pos);
+					//reflexB.PushRenderCommand(sphereGrid[y * gridDimX + x], pos, {1,1,1}/*, {0,1,0}, tt*/);
 				}
 			}
 
-			reflexB.PushRenderCommand(boyHandle, {}, {1,1,1}, {0,1,0}, tt / 2);
+			reflexB.PushRenderCommand(boyHandle, {}, {1,1,1}, {0,1,0}, tt * 10);
 
 			auto [mx, my] = InputHandler::GetMousePos();
 			reflexB.SetScaleReference(test, { 1,-1 });
@@ -176,25 +191,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		};
 
 		ThreadFunc funcs[]{render, logic};
-
-		/*Application app(window, [&](float dt, float tt, int fnr)
-		{
-			logic(dt,tt,fnr);
-			render(dt,tt,fnr);
-		});*/
+		
 		
 		MultiApplication app
 		(
 			window,
 			{render, logic}
 		);
-
-		/*MultiApplication app
-		(
-			window,
-			funcs,
-			ARRAYSIZE( funcs )
-		);*/
 
 		retVal = int(app.Loop());
 	
