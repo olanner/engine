@@ -4,16 +4,18 @@
 #include "Timer.h"
 #include "Window.h"
 #include "neat/Input/InputHandler.h"
+#include "Thread.h"
 
-MultiApplication::MultiApplication(
-	Window&					window, 
-	std::vector<ThreadFunc>	threadFuncs)
-:	myWindow(window)
-{
-	myIsRunnings.resize(threadFuncs.size(), true);
+neat::MultiApplication::MultiApplication(
+	Window&									window, 
+	std::vector<std::unique_ptr<Thread>>&&	threads)
+		:	myThreads(std::move(threads))
+		,	myWindow(window)
+{/*
+	myIsRunnings.resize(threads.size(), true);
 	
 	int threadID = 0;
-	for(const auto& tickFunc : threadFuncs)
+	for(const auto& tickFunc : threads)
 	{
 		auto funcExt = [this, tickFunc, threadID]()
 		{
@@ -29,24 +31,23 @@ MultiApplication::MultiApplication(
 
 		threadID++;
 		myThreads.emplace_back(new std::thread(funcExt));
-	}
+	}*/
 }
 
-MultiApplication::~MultiApplication()
+neat::MultiApplication::~MultiApplication()
 {
-	for (int i = 0; i < int(myThreads.size()); ++i)
+	for (auto& thread : myThreads)
 	{
-		if (myThreads[i])
-		{
-			myIsRunnings[i] = false;
-			myThreads[i]->join();
-			SAFE_DELETE(myThreads[i]);
-		}
+		while (!thread->Join());
 	}
 }
 
-WPARAM MultiApplication::Loop()
+WPARAM neat::MultiApplication::Loop()
 {
+	for (auto& thread : myThreads)
+	{
+		thread->Start();
+	}
 	while (true)
 	{
 		std::this_thread::yield();
@@ -54,11 +55,9 @@ WPARAM MultiApplication::Loop()
 		MSG msg = myWindow.HandleMessages();
 		if (msg.message == WM_QUIT)
 		{
-			for (int i = 0; i < int(myThreads.size()); ++i)
+			for (auto& thread : myThreads)
 			{
-				myIsRunnings[i] = false;
-				myThreads[i]->join();
-				SAFE_DELETE(myThreads[i]);
+				while(!thread->Join());
 			}
 			return msg.wParam;
 		}
@@ -66,7 +65,7 @@ WPARAM MultiApplication::Loop()
 	}
 }
 
-void MultiApplication::Shutdown()
+void neat::MultiApplication::Shutdown()
 {
 	PostQuitMessage(0);
 }

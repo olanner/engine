@@ -1,26 +1,24 @@
 
 #pragma once
-#include <thread>
 #include <vector>
+#include "Thread.h"
 
-using  ThreadFunc = std::function<void(float, float, int)>;
+namespace neat {
+	class MultiApplication
+	{
+	public:
+												MultiApplication(
+													class Window& window,
+													std::vector<std::unique_ptr<Thread>>&& tickFunctions);
+												~MultiApplication();
 
-class MultiApplication
-{
-public:
-			MultiApplication(
-				class Window& window, 
-				std::vector<ThreadFunc> tickFunctions);
-			~MultiApplication();
+		WPARAM									Loop();
+		void									Shutdown();
 
-	WPARAM	Loop();
-	void	Shutdown();
+	private:
+		std::vector<std::unique_ptr<Thread>>	myThreads;
+		class Window&							myWindow;
 
-private:
-	std::vector<std::thread*>	myThreads;
-	std::vector<bool>			myIsRunnings;
-
-	class Window&				myWindow;
-
-};
+	};
+}
 

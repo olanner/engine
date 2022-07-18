@@ -29,10 +29,6 @@ VulkanFramework* gVulkanFramework;
 
 rflx::Reflex::Reflex()
 {
-	if (ourVKImplementation)
-	{
-		myScheduleID = uint8_t(ourVKImplementation->RequestSchedule());
-	}
 	ourUses++;
 }
 
@@ -66,6 +62,7 @@ rflx::Reflex::Start(
 	
 	if (ourVKImplementation)
 	{
+		myScheduleID = uint8_t(ourVKImplementation->RequestSchedule());
 		return true;
 	}
 	

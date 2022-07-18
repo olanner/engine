@@ -30,7 +30,7 @@ namespace rflx
 										~Reflex();
 
 		bool							Start(
-											const WindowInfo&	windowInformation, 
+											const ::WindowInfo&	windowInformation, 
 											const char*			cmdArgs = nullptr);
 		void							BeginFrame();
 		void							Submit();

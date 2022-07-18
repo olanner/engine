@@ -7,27 +7,29 @@
 
 using MSGListenCallback = std::function<void(MSG)>;
 
-class Window
-{
-	static std::function<bool(HWND, UINT, WPARAM, LPARAM)> ourOnWinProc;
-public:
-	static LRESULT CALLBACK WinProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam );
-	
-	Window( HINSTANCE hInstance, int nCmdShow, const WindowParams & parameters );
+namespace neat {
+	class Window
+	{
+		static std::function<bool(HWND, UINT, WPARAM, LPARAM)> ourOnWinProc;
+	public:
+		static LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+		Window(HINSTANCE hInstance, int nCmdShow, const WindowParams& parameters);
 
 
-	MSG HandleMessages();
+		MSG HandleMessages();
 
-	HWND GetWindowHandle() const;
-	WindowParams GetWindowParameters() const;
-	
-	void RegisterMSGCallback(MSGListenCallback callback);
+		HWND GetWindowHandle() const;
+		WindowParams GetWindowParameters() const;
 
-private:
-	HWND myHandle;
-	WNDCLASSEX myWindowClass;
-	WindowParams myWindowParams;
-	std::vector<MSGListenCallback> myListenCallbacks;
-	
-};
+		void RegisterMSGCallback(MSGListenCallback callback);
+
+	private:
+		HWND myHandle;
+		WNDCLASSEX myWindowClass;
+		WindowParams myWindowParams;
+		std::vector<MSGListenCallback> myListenCallbacks;
+
+	};
+}
 

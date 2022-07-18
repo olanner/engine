@@ -5,9 +5,9 @@
 
 #include <cassert>
 
-std::function<bool( HWND, UINT, WPARAM, LPARAM )> Window::ourOnWinProc;
+std::function<bool( HWND, UINT, WPARAM, LPARAM )> neat::Window::ourOnWinProc;
 
-Window::Window( HINSTANCE hInstance, int nCmdShow, const WindowParams& parameters ) :
+neat::Window::Window( HINSTANCE hInstance, int nCmdShow, const WindowParams& parameters ) :
 	myHandle( nullptr ),
 	myWindowClass(),
 	myWindowParams( parameters )
@@ -66,7 +66,7 @@ Window::Window( HINSTANCE hInstance, int nCmdShow, const WindowParams& parameter
 
 }
 
-LRESULT Window::WinProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
+LRESULT neat::Window::WinProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
 {
 	switch ( message )
 	{
@@ -83,7 +83,7 @@ LRESULT Window::WinProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
 	return DefWindowProc( hwnd, message, wParam, lParam );
 }
 
-MSG Window::HandleMessages()
+MSG neat::Window::HandleMessages()
 {
 	MSG msg = { 0 };
 	while ( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) )
@@ -102,17 +102,17 @@ MSG Window::HandleMessages()
 	return msg;
 }
 
-HWND Window::GetWindowHandle() const
+HWND neat::Window::GetWindowHandle() const
 {
 	return myHandle;
 }
 
-WindowParams Window::GetWindowParameters() const
+neat::WindowParams neat::Window::GetWindowParameters() const
 {
 	return myWindowParams;
 }
 
-void Window::RegisterMSGCallback(MSGListenCallback callback)
+void neat::Window::RegisterMSGCallback(MSGListenCallback callback)
 {
 	myListenCallbacks.emplace_back(std::move(callback));
 }

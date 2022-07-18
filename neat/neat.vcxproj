@@ -92,6 +92,7 @@
     <ClInclude Include="Include\neat\General\Application.h" />
     <ClInclude Include="Include\neat\defines.h" />
     <ClInclude Include="Include\neat\General\MultiApplication.h" />
+    <ClInclude Include="Include\neat\General\Thread.h" />
     <ClInclude Include="Include\neat\Image\DDSReader.h" />
     <ClInclude Include="Include\neat\Image\ImageReader.h" />
     <ClInclude Include="Include\neat\Image\libtga\tga.h" />
@@ -110,6 +111,7 @@
     <ClCompile Include="Include\neat\FS\FileUtil.cpp" />
     <ClCompile Include="Include\neat\General\Application.cpp" />
     <ClCompile Include="Include\neat\General\MultiApplication.cpp" />
+    <ClCompile Include="Include\neat\General\Thread.cpp" />
     <ClCompile Include="Include\neat\General\Timer.cpp" />
     <ClCompile Include="Include\neat\General\Window.cpp" />
     <ClCompile Include="Include\neat\Image\DDSReader.cpp" />

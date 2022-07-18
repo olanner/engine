@@ -1,21 +1,23 @@
 
 #pragma once
 
-class Application
-{
-public:
-	Application( class Window& window, const std::function<void( float, float, int )>&& tickFunction );
-	~Application();
+namespace neat {
+	class Application
+	{
+	public:
+		Application(class Window& window, const std::function<void(float, float, int)>&& tickFunction);
+		~Application();
 
-	WPARAM Loop();
-	HRESULT Init();
+		WPARAM Loop();
+		HRESULT Init();
 
-	void Shutdown();
+		void Shutdown();
 
-private:
-	std::function<void( float/*DeltaTime*/, float/*TotalTime*/, int/*FrameNR*/ )> myTickFunction;
+	private:
+		std::function<void(float/*DeltaTime*/, float/*TotalTime*/, int/*FrameNR*/)> myTickFunction;
 
-	class Window& myWindow;
+		class Window& myWindow;
 
-};
+	};
+}
 

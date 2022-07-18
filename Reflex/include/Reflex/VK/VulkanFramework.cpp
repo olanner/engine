@@ -374,7 +374,7 @@ DebugCallback(
 		LOG('[', type, ']', pCallbackData->pMessage);
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 		{
-			system("pause");
+			//system("pause");
 		}
 	}
 	return VK_FALSE;
