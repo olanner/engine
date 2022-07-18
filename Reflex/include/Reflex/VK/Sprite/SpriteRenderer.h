@@ -54,7 +54,7 @@ public:
 																VkPipelineStageFlags*		waitPipelineStages,
 																uint32_t					numWaitStages,
 																VkSemaphore*				signalSemaphore) override;
-	void													AddSchedule(ScheduleID scheduleID) override { myWorkScheduler.AddSchedule(scheduleID); }
+	void													AddSchedule(neat::ThreadID threadID) override { myWorkScheduler.AddSchedule(threadID); }
 	WorkScheduler<SpriteRenderCommand, 1024, 1024>			myWorkScheduler;
 
 private:

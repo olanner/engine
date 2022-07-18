@@ -8,6 +8,7 @@ using Vec3f = glm::vec3;
 using Vec4f = glm::vec4;
 using Mat3f = glm::mat3x3;
 
+#include "neat/General/Thread.h"
 #include "Reflex/WindowInfo/WindowInfo.h"
 #include "Reflex/identities.h"
 #include "Reflex/VK/Mesh/MeshHandle.h"
@@ -26,7 +27,7 @@ namespace rflx
 		static uint32_t					ourUses;
 		static VulkanImplementation*	ourVKImplementation;
 	public:
-										Reflex();
+										Reflex(neat::ThreadID threadID);
 										~Reflex();
 
 		bool							Start(
@@ -69,7 +70,7 @@ namespace rflx
 											Vec2f			coefficient);
 	
 	private:
-		uint8_t							myScheduleID = 0;
+		neat::ThreadID					myThreadID;
 		Vec2f							my2DScaleRef = {};
 
 	};

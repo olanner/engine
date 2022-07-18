@@ -1,22 +1,22 @@
 #pragma once
 
 #include "neat/Misc/TripleBuffer.h"
+#include "neat/General/Thread.h"
 
-enum class ScheduleID;
 template<typename WorkType, int WorkPerSchedule, int WorkMax>
 class WorkScheduler
 {
 public:
-	void BeginPush(ScheduleID scheduleID)
+	void BeginPush(neat::ThreadID threadID)
 	{
 		std::scoped_lock lock(mySwapMutex);
-		mySchedules[int(scheduleID)].WriteNext();
+		mySchedules[int(threadID)].WriteNext();
 	}
-	void PushWork(ScheduleID scheduleID, const WorkType& cmd)
+	void PushWork(neat::ThreadID threadID, const WorkType& cmd)
 	{
-		mySchedules[int(scheduleID)].Push(cmd);
+		mySchedules[int(threadID)].Push(cmd);
 	}
-	void EndPush(ScheduleID scheduleID) {}
+	void EndPush(neat::ThreadID threadID) {}
 	[[nodiscard]] neat::static_vector<WorkType, WorkMax>& AssembleScheduledWork()
 	{
 		std::scoped_lock lock(mySwapMutex);
@@ -31,16 +31,16 @@ public:
 		}
 		return myAssembledWork;
 	}
-	void AddSchedule(ScheduleID scheduleID)
+	void AddSchedule(neat::ThreadID threadID)
 	{
-		assert(int(scheduleID) < mySchedules.max_size() && int(scheduleID) >= 0 && "only 8 schedules allowed also no negative values >:(");
+		assert(int(threadID) < mySchedules.max_size() && int(threadID) >= 0 && "only 8 schedules allowed also no negative values >:(");
 		std::scoped_lock lock(mySwapMutex);
-		myRegisteredSchedules.emplace_back(scheduleID);
+		myRegisteredSchedules.emplace_back(threadID);
 	}
 	
 private:
 	std::mutex mySwapMutex;
-	std::vector<ScheduleID> myRegisteredSchedules;
+	std::vector<neat::ThreadID> myRegisteredSchedules;
 	std::array<neat::TripleBuffer<WorkType, WorkPerSchedule>, 8> mySchedules;
 	neat::static_vector<WorkType, WorkMax> myAssembledWork;
 	

@@ -11,27 +11,7 @@ neat::MultiApplication::MultiApplication(
 	std::vector<std::unique_ptr<Thread>>&&	threads)
 		:	myThreads(std::move(threads))
 		,	myWindow(window)
-{/*
-	myIsRunnings.resize(threads.size(), true);
-	
-	int threadID = 0;
-	for(const auto& tickFunc : threads)
-	{
-		auto funcExt = [this, tickFunc, threadID]()
-		{
-			Timer timer;
-			timer.Start();
-			int fnr = -1;
-			while (myIsRunnings[threadID])
-			{
-				timer.Tick();
-				tickFunc(timer.GetDeltaTime(), timer.GetTotalTime(), ++fnr);
-			}
-		};
-
-		threadID++;
-		myThreads.emplace_back(new std::thread(funcExt));
-	}*/
+{
 }
 
 neat::MultiApplication::~MultiApplication()

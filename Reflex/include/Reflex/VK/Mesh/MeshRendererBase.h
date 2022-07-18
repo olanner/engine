@@ -16,7 +16,7 @@ public:
 															QueueFamilyIndex		cmdBufferFamily);
 														~MeshRendererBase();
 
-														void AddSchedule(ScheduleID scheduleID) override;
+														void AddSchedule(neat::ThreadID threadID) override;
 
 	WorkScheduler<MeshRenderCommand, 1024, 1024>		myWorkScheduler;
 

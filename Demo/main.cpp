@@ -24,6 +24,7 @@ class RenderThread : public neat::Thread
 {
 public:
 	RenderThread(const WindowInfo& windowInfo)
+		: myReflexInterface(GetThreadID())
 	{
 		myStartFunc = [this, windowInfo]()
 		{
@@ -65,6 +66,7 @@ public:
 	LogicThread(
 		const std::shared_ptr<std::binary_semaphore>& semaphore)
 		: Thread(semaphore)
+		, myReflexInterface(GetThreadID())
 	{
 		myStartFunc = [this]()
 		{

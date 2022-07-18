@@ -3,11 +3,13 @@
 
 #include "VulkanFramework.h"
 #include "WorkerSystem/WorkerSystem.h"
+#include "neat/General/Thread.h"
 
 namespace rflx
 {
 	class Reflex;
 }
+
 class VulkanImplementation
 {
 	friend class rflx::Reflex;
@@ -28,7 +30,7 @@ public:
 													VkPipelineStageFlags			waitStage,
 													VkQueueFlagBits					subQueueType);
 	void										LockWorkerSystems();
-	ScheduleID									RequestSchedule();
+	void										RegisterThread(neat::ThreadID threadID);
 private:
 	VkResult									InitSync();
 
@@ -82,6 +84,5 @@ private:
 	bool										myWorkerSystemsLocked = false;
 
 	bool										myUseRayTracing = false;
-	IDKeeper<ScheduleID>						myScheduleIDs;
 
 };

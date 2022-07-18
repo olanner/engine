@@ -26,7 +26,6 @@
 #endif
 
 VulkanImplementation::VulkanImplementation()
-	: myScheduleIDs(16)
 {
 }
 
@@ -368,17 +367,17 @@ VulkanImplementation::LockWorkerSystems()
 	myWorkerSystemsLocked = true;
 }
 
-ScheduleID VulkanImplementation::RequestSchedule()
+void VulkanImplementation::RegisterThread(
+	neat::ThreadID threadID)
 {
-	ScheduleID id = myScheduleIDs.FetchFreeID();
-	if (BAD_ID(id))
+	if (BAD_ID(threadID))
 	{
-		LOG("no more schedule ids");
+		LOG("bad thread ID");
+		return;
 	}
 	for (auto& workerSystem : myWorkerSystems)
 	{
-		workerSystem.system->AddSchedule(id);
+		workerSystem.system->AddSchedule(threadID);
 	}
-	return id;
 }
 

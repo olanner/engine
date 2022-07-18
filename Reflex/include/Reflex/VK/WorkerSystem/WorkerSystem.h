@@ -35,7 +35,6 @@ void SubmitWorkerSystemCmds(
 		SlottedWorkerSystem&	workerSystem, 
 		VkDevice				device, 
 		uint32_t				swapchainIndex);
-enum class ScheduleID; // todo: put into struct with exclusive constructor, needs an owner VkImplementation or similar
 class WorkerSystem
 {
 public:
@@ -46,7 +45,7 @@ public:
 																VkPipelineStageFlags*	waitPipelineStages,
 																uint32_t				numWaitStages,
 																VkSemaphore*			signalSemaphore) = 0;
-	virtual void											AddSchedule(ScheduleID scheduleID) {}
+	virtual void											AddSchedule(neat::ThreadID threadID) {}
 private:
 	
 	

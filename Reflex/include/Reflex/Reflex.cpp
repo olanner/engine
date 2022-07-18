@@ -27,7 +27,8 @@ std::shared_ptr<SpriteRenderer>						gSpriteRenderer;
 
 VulkanFramework* gVulkanFramework;
 
-rflx::Reflex::Reflex()
+rflx::Reflex::Reflex(neat::ThreadID threadID)
+	: myThreadID(threadID)
 {
 	ourUses++;
 }
@@ -62,7 +63,7 @@ rflx::Reflex::Start(
 	
 	if (ourVKImplementation)
 	{
-		myScheduleID = uint8_t(ourVKImplementation->RequestSchedule());
+		ourVKImplementation->RegisterThread(myThreadID);
 		return true;
 	}
 	
@@ -119,8 +120,8 @@ rflx::Reflex::Start(
 
 	ourVKImplementation->LockWorkerSystems();
 
-	myScheduleID = uint8_t(ourVKImplementation->RequestSchedule());
-	if (BAD_ID(myScheduleID))
+	ourVKImplementation->RegisterThread(myThreadID);
+	if (BAD_ID(myThreadID))
 	{
 		return false;
 	}
@@ -230,14 +231,14 @@ rflx::Reflex::BeginPush()
 {
 	if (*gUseRayTracing)
 	{
-		gRTMeshRenderer->myWorkScheduler.BeginPush(ScheduleID(myScheduleID));
+		gRTMeshRenderer->myWorkScheduler.BeginPush(myThreadID);
 	}
 	else
 	{
-		gMeshRenderer->myWorkScheduler.BeginPush(ScheduleID(myScheduleID));
+		gMeshRenderer->myWorkScheduler.BeginPush(myThreadID);
 	}
 
-	gSpriteRenderer->myWorkScheduler.BeginPush(ScheduleID(myScheduleID));
+	gSpriteRenderer->myWorkScheduler.BeginPush(myThreadID);
 }
 
 void
@@ -258,11 +259,11 @@ rflx::Reflex::PushRenderCommand(
 
 	if (*gUseRayTracing)
 	{
-		gRTMeshRenderer->myWorkScheduler.PushWork(ScheduleID(myScheduleID), cmd);
+		gRTMeshRenderer->myWorkScheduler.PushWork(myThreadID, cmd);
 	}
 	else
 	{
-		gMeshRenderer->myWorkScheduler.PushWork(ScheduleID(myScheduleID), cmd);
+		gMeshRenderer->myWorkScheduler.PushWork(myThreadID, cmd);
 	}
 
 }
@@ -311,7 +312,7 @@ rflx::Reflex::PushRenderCommand(
 
 		colOffset += metrics.xStride;
 
-		gSpriteRenderer->myWorkScheduler.PushWork(ScheduleID(myScheduleID), cmd);
+		gSpriteRenderer->myWorkScheduler.PushWork(myThreadID, cmd);
 	}
 }
 
@@ -333,7 +334,7 @@ rflx::Reflex::PushRenderCommand(
 	cmd.pivot = pivot;
 	cmd.color = color;
 
-	gSpriteRenderer->myWorkScheduler.PushWork(ScheduleID(myScheduleID), cmd);
+	gSpriteRenderer->myWorkScheduler.PushWork(myThreadID, cmd);
 }
 
 void
@@ -341,14 +342,14 @@ rflx::Reflex::EndPush()
 {
 	if (*gUseRayTracing)
 	{
-		gRTMeshRenderer->myWorkScheduler.EndPush(ScheduleID(myScheduleID));
+		gRTMeshRenderer->myWorkScheduler.EndPush(myThreadID);
 	}
 	else
 	{
-		gMeshRenderer->myWorkScheduler.EndPush(ScheduleID(myScheduleID));
+		gMeshRenderer->myWorkScheduler.EndPush(myThreadID);
 	}
 
-	gSpriteRenderer->myWorkScheduler.EndPush(ScheduleID(myScheduleID));
+	gSpriteRenderer->myWorkScheduler.EndPush(myThreadID);
 }
 
 void

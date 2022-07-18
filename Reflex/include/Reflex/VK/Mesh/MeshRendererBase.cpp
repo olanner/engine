@@ -46,7 +46,7 @@ MeshRendererBase::~MeshRendererBase()
 
 void
 MeshRendererBase::AddSchedule(
-	ScheduleID scheduleID)
+	neat::ThreadID threadID)
 {
-	myWorkScheduler.AddSchedule(scheduleID);
+	myWorkScheduler.AddSchedule(threadID);
 }
