@@ -165,7 +165,7 @@ SpriteRenderer::RecordSubmit(
 	// DESCRIPTORS
 	theirSceneGlobals.BindGlobals(cmdBuffer, mySpritePipeline.layout, 0);
 	theirImageHandler.BindSamplers(cmdBuffer, mySpritePipeline.layout, 1);
-	theirImageHandler.BindImages(cmdBuffer, mySpritePipeline.layout, 2);
+	theirImageHandler.BindImages(swapchainImageIndex, cmdBuffer, mySpritePipeline.layout, 2);
 	theirUniformHandler.BindUniform(mySpriteInstancesID, cmdBuffer, mySpritePipeline.layout, 3);
 
 	// DRAW
@@ -199,5 +199,11 @@ SpriteRenderer::RecordSubmit(
 	submitInfo.signalSemaphoreCount = 1;
 
 	return {submitInfo, myCmdBufferFences[swapchainImageIndex]};
+}
+
+std::array<VkFence, NumSwapchainImages>
+SpriteRenderer::GetFences()
+{
+    return myCmdBufferFences;
 }
 

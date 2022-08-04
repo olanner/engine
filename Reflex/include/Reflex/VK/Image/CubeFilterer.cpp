@@ -23,16 +23,28 @@ CubeFilterer::CubeFilterer(
 {
 	QueueFamilyIndex qIndices[]{myPresentationQueueIndex = cmdBufferFamily, transferFamily};
 
+	auto allocSub = theirImageAllocator.Start();
 	size_t sizes[6]{};
 	VkResult result;
+
+	ImageRequestInfo requestInfo;
+	requestInfo.width = 2048;
+	requestInfo.height = 2048;
+	requestInfo.mips = NUM_MIPS(2048);
+	requestInfo.owners = {cmdBufferFamily, transferFamily};
+	requestInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	requestInfo.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	requestInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	requestInfo.targetPipelineStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	std::tie(result, myCube) =
-		theirImageAllocator.RequestImageCube({}, 0,
-											  2048, 2048, NUM_MIPS(2048),
-											  qIndices, 2,
-											  VK_FORMAT_R8G8B8A8_UNORM,
-											  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-											  VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-											  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		theirImageAllocator.RequestImageCube(
+		allocSub,
+		{},
+		0,
+		requestInfo);
+
+	theirImageAllocator.Queue(std::move(allocSub));
+	
 	assert(!result && "failed creating cube");
 
 	char shaderPaths[][128]
@@ -131,6 +143,11 @@ CubeFilterer::RecordSubmit(
 	submitInfo.signalSemaphoreCount = signalSemaphore != nullptr;
 
 	return {submitInfo, myCmdBufferFences[swapchainImageIndex]};
+}
+
+std::array<VkFence, NumSwapchainImages> CubeFilterer::GetFences()
+{
+    return myCmdBufferFences;
 }
 
 void
@@ -239,7 +256,7 @@ CubeFilterer::RenderFiltering(
 
 	// DESCRIPTORS
 	theirImageHandler.BindSamplers(myCmdBuffers[swapchainIndex], myFilteringPipeline[uint32_t(filterDim)].layout, 0);
-	theirImageHandler.BindImages(myCmdBuffers[swapchainIndex], myFilteringPipeline[uint32_t(filterDim)].layout, 1);
+	theirImageHandler.BindImages(swapchainIndex, myCmdBuffers[swapchainIndex], myFilteringPipeline[uint32_t(filterDim)].layout, 1);
 
 	// DRAW
 	{

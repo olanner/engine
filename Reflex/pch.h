@@ -12,6 +12,8 @@
 
 template<typename key, typename value>
 using conc_map = concurrency::concurrent_unordered_map<key, value>;
+template<typename type>
+using conc_queue = concurrency::concurrent_queue<type>;
 
 // STL
 #include <functional>
@@ -59,10 +61,15 @@ using Mat3f = glm::mat3x3;
 using Mat4f = glm::mat4x4;
 using Mat4nv = glm::mat3x4;
 
+using Vec2uc = glm::u8vec2;
+using Vec3uc = glm::u8vec3;
+using Vec4uc = glm::u8vec4;
+
 // NEAT
 #include "neat/Containers/static_vector.h"
 #include "neat/Image/ImageReader.h"
 #include "neat/Misc/IDKeeper.h"
+#include "neat/General/Thread.h"
 
 // rapidjson
 #include "rapidjson/document.h"

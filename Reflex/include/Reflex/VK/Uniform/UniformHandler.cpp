@@ -62,12 +62,15 @@ UniformHandler::RequestUniformBuffer(
 	size_t		size)
 {
 	// BUFFER
-	auto [resultUB, buffer] = theirBufferAllocator.RequestUniformBuffer(startData,
-																		 size,
-																		 myOwners.data(),
-																		 myOwners.size(),
-																		 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	auto allocSub = theirBufferAllocator.Start();
+	auto [resultUB, buffer] = theirBufferAllocator.RequestUniformBuffer(
+		allocSub,
+		startData,
+		size,
+		myOwners,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
+	theirBufferAllocator.Queue(std::move(allocSub));
 	if (resultUB)
 	{
 		LOG("failed to get uniform buffer");
@@ -124,7 +127,7 @@ UniformHandler::RequestUniformBuffer(
 
 	myUniformSets[buffer] = set;
 	myUniformLayouts[buffer] = layout;
-
+	
 	// UPDATE DESCRIPTOR
 	VkDescriptorBufferInfo bufferInfo{};
 	bufferInfo.buffer = buffer;
@@ -161,8 +164,6 @@ UniformHandler::UpdateUniformData(
 		return;
 	}
 	theirBufferAllocator.UpdateBufferData(myUniforms[int(id)], data);
-
-
 }
 
 std::tuple<VkDescriptorSetLayout, VkDescriptorSet>

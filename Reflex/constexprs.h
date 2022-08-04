@@ -1,39 +1,39 @@
 #pragma once
 
 // NUMBERS
-constexpr uint32_t	NumSwapchainImages = 3;
-constexpr char		FirstFontGlyph = ' ';
-constexpr char		LastFontGlyph = '~';
+constexpr int	NumSwapchainImages = 3;
+constexpr char	FirstFontGlyph = ' ';
+constexpr char	LastFontGlyph = '~';
 static_assert(FirstFontGlyph < LastFontGlyph);
-constexpr uint32_t	NumGlyphsPerFont = LastFontGlyph + 1 - FirstFontGlyph;
+constexpr int	NumGlyphsPerFont = LastFontGlyph + 1 - FirstFontGlyph;
 
 // INDICES
 //	SHADER SET BINDINGS
-constexpr uint32_t SamplerSetSamplersBinding = 0;
+constexpr int SamplerSetSamplersBinding = 0;
 
-constexpr uint32_t ImageSetImages2DBinding = 0;
-constexpr uint32_t ImageSetImagesCubeBinding = 1;
-constexpr uint32_t ImageSetImagesStorageBinding = 2;
+constexpr int ImageSetImages2DBinding = 0;
+constexpr int ImageSetImagesCubeBinding = 1;
+constexpr int ImageSetImagesStorageBinding = 2;
 
-constexpr uint32_t GlobalsSetBinding = 0;
+constexpr int GlobalsSetBinding = 0;
 
 // LIMITS
 //	OBJECTS
-constexpr uint32_t	MaxNumMeshesLoaded = 512;
-constexpr uint32_t	MaxNumImages = 1024;
-constexpr uint32_t	MaxNumImagesCube = 128;
-constexpr uint32_t	MaxNumStorageImages = 8;
-constexpr uint32_t	MaxNumSamplers = 1;
-constexpr uint32_t	MaxNumUniforms = 128;
-constexpr uint32_t	MaxNumFonts = 128;
+constexpr int	MaxNumMeshesLoaded = 512;
+constexpr int	MaxNumImages = 1024;
+constexpr int	MaxNumImagesCube = 128;
+constexpr int	MaxNumStorageImages = 8;
+constexpr int	MaxNumSamplers = 1;
+constexpr int	MaxNumUniforms = 128;
+constexpr int	MaxNumFonts = 128;
 
-constexpr uint32_t	MaxNumShaderModulesPerShader = 8;
+constexpr int	MaxNumShaderModulesPerShader = 8;
 
 //	FRAME VALID
-constexpr uint32_t	MaxNumInstances = 512;
-constexpr uint32_t	MaxNumInstanceStructures = 8;
-constexpr uint32_t	MaxNumSpriteInstances = 1024;
+constexpr int	MaxNumInstances = 512;
+constexpr int	MaxNumInstanceStructures = 8;
+constexpr int	MaxNumSpriteInstances = 1024;
 
-constexpr uint32_t	MaxNumTransfers = 128;
-constexpr uint32_t	MaxNumImmediateTransfers = 32;
+constexpr int	MaxNumTransfers = 128;
+constexpr int	MaxNumImmediateTransfers = 32;
 

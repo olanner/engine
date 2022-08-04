@@ -12,15 +12,16 @@
 
 AccelerationStructureAllocator::AccelerationStructureAllocator(
 	VulkanFramework&		vulkanFramework,
+	AllocationSubmitter&	allocationSubmitter,
 	BufferAllocator&		bufferAllocator,
 	ImmediateTransferrer&	immediateTransferrer,
 	QueueFamilyIndex		transferFamilyIndex,
 	QueueFamilyIndex		presentationFamilyIndex)
-	: AllocatorBase(vulkanFramework, immediateTransferrer, transferFamilyIndex)
+	: AllocatorBase(vulkanFramework, allocationSubmitter, immediateTransferrer, transferFamilyIndex)
 	, theirImmediateTransferrer(immediateTransferrer)
 	, theirBufferAllocator(bufferAllocator)
-	, myTransferFamilyIndex(transferFamilyIndex)
 	, myOwners{transferFamilyIndex, presentationFamilyIndex, theirImmediateTransferrer.GetOwner()}
+	, myTransferFamilyIndex(transferFamilyIndex)
 	, myPresentationFamilyIndex(presentationFamilyIndex)
 {
 	// INSTANCE STRUCTURE LIMIT CALCULATIONS
@@ -49,6 +50,8 @@ AccelerationStructureAllocator::AccelerationStructureAllocator(
 	assert(!failure && "failed creating instance structure");
 
 	// SCRATCH AND OBJ BUFFERS
+	auto allocSub = theirBufferAllocator.Start();
+	
 	auto [memReqObj, memIndexObj] =
 		GetMemReq(instStructure,
 				   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -60,23 +63,27 @@ AccelerationStructureAllocator::AccelerationStructureAllocator(
 				   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				   VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_NV);
 	myInstanceScratchSize = memReqScratch.memoryRequirements.size;
-	std::tie(failure, myInstanceScratchBuffer, myInstanceScratchMemory) = theirBufferAllocator.CreateBuffer(VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
-																											   nullptr,
-																											   memReqScratch.memoryRequirements.size,
-																											   myOwners.data(),
-																											   myOwners.size(),
-																											   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	std::tie(failure, myInstanceScratchBuffer, myInstanceScratchMemory) = theirBufferAllocator.CreateBuffer(	
+																										allocSub,
+																										VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
+																										nullptr,
+																										memReqScratch.memoryRequirements.size,
+																										myOwners,
+																										VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 	assert(!failure && "failed creating scratch buffer");
 
-	std::tie(failure, myInstanceDescBuffer, myInstanceDescMemory) = theirBufferAllocator.CreateBuffer(VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
-																										 nullptr,
-																										 MaxNumInstances * sizeof GeometryInstance,
-																										 myOwners.data(),
-																										 myOwners.size(),
-																										 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+	std::tie(failure, myInstanceDescBuffer, myInstanceDescMemory) = theirBufferAllocator.CreateBuffer(
+																										allocSub,
+																										VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
+																										nullptr,
+																										MaxNumInstances * sizeof GeometryInstance,
+																										myOwners,
+																										VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 	myInstanceDescSize = MaxNumInstances * sizeof GeometryInstance;
 	assert(!failure && "failed creating instance desc buffer");
+
+	theirBufferAllocator.Queue(std::move(allocSub));
 }
 
 AccelerationStructureAllocator::~AccelerationStructureAllocator()
@@ -107,8 +114,9 @@ AccelerationStructureAllocator::~AccelerationStructureAllocator()
 
 std::tuple<VkResult, VkAccelerationStructureNV>
 AccelerationStructureAllocator::RequestGeometryStructure(
-	const Mesh* firstMesh,
-	uint32_t	numMeshes)
+	AllocationSubmission&	allocSub,
+	const Mesh*				firstMesh, 
+	uint32_t				numMeshes)
 {
 	// ACCELERATION STRUCTURE 
 	VkAccelerationStructureNV geoStructure{};
@@ -183,24 +191,26 @@ AccelerationStructureAllocator::RequestGeometryStructure(
 				   VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_NV);
 
 	auto [resultScratch, scratchBuffer, scratchMem] =
-		theirBufferAllocator.CreateBuffer(VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
-										   nullptr,
-										   memReqScratch.memoryRequirements.size,
-										   myOwners.data(),
-										   myOwners.size(),
-										   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+		theirBufferAllocator.CreateBuffer(
+			allocSub,
+			VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
+			nullptr,
+			memReqScratch.memoryRequirements.size,
+			myOwners,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		);
 	if (resultScratch)
 	{
 		return {resultScratch, geoStructure};
 	}
 	auto [resultObj, objBuffer, objMem] =
-		theirBufferAllocator.CreateBuffer(VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
-										   nullptr,
-										   memReqObj.memoryRequirements.size,
-										   myOwners.data(),
-										   myOwners.size(),
-										   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+		theirBufferAllocator.CreateBuffer(
+			allocSub,
+			VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
+			nullptr,
+			memReqObj.memoryRequirements.size,
+			myOwners,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		);;
 	if (resultObj)
 	{
@@ -265,7 +275,9 @@ AccelerationStructureAllocator::RequestGeometryStructure(
 }
 
 std::tuple<VkResult, VkAccelerationStructureNV>
-AccelerationStructureAllocator::RequestInstanceStructure(const RTInstances& instanceDesc)
+AccelerationStructureAllocator::RequestInstanceStructure(
+	AllocationSubmission&	allocSub,
+	const RTInstances&		instanceDesc)
 {
 	// ACCELERATION STRUCTURES
 	VkAccelerationStructureNV instStructure;
@@ -303,11 +315,12 @@ AccelerationStructureAllocator::RequestInstanceStructure(const RTInstances& inst
 				   VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_NV);
 	assert(memReqScratch.memoryRequirements.size <= myInstanceScratchSize && "scratch mem req size larger than initially calculated max size");
 	
-	auto [resultObj, objBuffer, objMem] = theirBufferAllocator.CreateBuffer(VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
+	auto [resultObj, objBuffer, objMem] = theirBufferAllocator.CreateBuffer(
+																				allocSub,
+																				VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
 																			 nullptr,
 																			 myInstanceObjMaxSize,
-																			 myOwners.data(),
-																			 myOwners.size(),
+																			 myOwners,
 																			 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);;
 	if (resultObj)
@@ -410,14 +423,15 @@ AccelerationStructureAllocator::UpdateInstanceStructure(
 	memcpy(mappedData, instanceDesc.data(), instanceDesc.size() * sizeof GeometryInstance);
 	vkUnmapMemory(theirVulkanFramework.GetDevice(), myInstanceDescMemory);
 
-	vkCmdBuildAccelerationStructure(myTransferBuffers[myTransferIndex],
-									 &accStructInfo,
-									 myInstanceDescBuffer, 0,
-									 false,
-									 instanceStructure,
-									 nullptr,
-									 myInstanceScratchBuffer, 0);
-
+	//TODO:
+	//vkCmdBuildAccelerationStructure(myTransferBuffers[myTransferIndex],
+	//								 &accStructInfo,
+	//								 myInstanceDescBuffer, 0,
+	//								 false,
+	//								 instanceStructure,
+	//								 nullptr,
+	//								 myInstanceScratchBuffer, 0);
+	//
 }
 
 std::tuple<VkMemoryRequirements2, MemTypeIndex>

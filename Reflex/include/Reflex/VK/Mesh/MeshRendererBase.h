@@ -17,7 +17,8 @@ public:
 														~MeshRendererBase();
 
 														void AddSchedule(neat::ThreadID threadID) override;
-
+	std::array<VkFence, NumSwapchainImages>				GetFences() override;
+	
 	WorkScheduler<MeshRenderCommand, 1024, 1024>		myWorkScheduler;
 
 protected:

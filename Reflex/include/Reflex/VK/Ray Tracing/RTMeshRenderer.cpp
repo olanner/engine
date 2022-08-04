@@ -164,15 +164,16 @@ RTMeshRenderer::RTMeshRenderer(
 	}
 
 
-
+	auto allocSub = theirBufferAllocator.Start();
 	std::tie(failure, myShaderBindingTable, mySBTMemory) =
-		theirBufferAllocator.CreateBuffer(VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-										   shaderGrpHandles.data(),
-										   sbtSize,
-										   myOwners.data(),
-										   myOwners.size(),
-										   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-										   true);
+		theirBufferAllocator.CreateBuffer(
+			allocSub,
+			VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			shaderGrpHandles.data(),
+			sbtSize,
+			myOwners,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			true);
 
 	// STORE IMAGE
 	auto [w, h] = theirVulkanFramework.GetTargetResolution();
@@ -181,7 +182,9 @@ RTMeshRenderer::RTMeshRenderer(
 	// INSTANCE STRUCT
 	RTInstances instances;
 	instances.resize(MaxNumInstances);
-	myInstancesID = theirAccStructHandler.AddInstanceStructure(instances);
+	myInstancesID = theirAccStructHandler.AddInstanceStructure(allocSub, instances);
+
+	theirBufferAllocator.Queue(std::move(allocSub));
 }
 
 RTMeshRenderer::~RTMeshRenderer()
@@ -244,9 +247,9 @@ RTMeshRenderer::RecordSubmit(
 	// DESCRIPTORS
 	theirSceneGlobals.BindGlobals(myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 0, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV);
 	theirImageHandler.BindSamplers(myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 1, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV);
-	theirImageHandler.BindImages(myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 2, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV);
+	theirImageHandler.BindImages(swapchainImageIndex, myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 2, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV);
 	theirAccStructHandler.BindInstanceStructures(myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 3);
-	theirMeshHandler.BindMeshData(myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 4, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV);
+	theirMeshHandler.BindMeshData(swapchainImageIndex, myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 4, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV);
 
 	// TRACE RAYS
 	const uint32_t missOffset = myShaderProgramSize;

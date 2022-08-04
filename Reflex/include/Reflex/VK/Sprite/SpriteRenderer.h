@@ -55,6 +55,8 @@ public:
 																uint32_t					numWaitStages,
 																VkSemaphore*				signalSemaphore) override;
 	void													AddSchedule(neat::ThreadID threadID) override { myWorkScheduler.AddSchedule(threadID); }
+	std::array<VkFence, NumSwapchainImages>					GetFences() override;
+	
 	WorkScheduler<SpriteRenderCommand, 1024, 1024>			myWorkScheduler;
 
 private:

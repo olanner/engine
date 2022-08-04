@@ -42,9 +42,7 @@ VulkanImplementation::~VulkanImplementation()
 	{
 		vkDestroySemaphore(myVulkanFramework.GetDevice(), myImageAvailableSemaphore[i], nullptr);
 		vkDestroySemaphore(myVulkanFramework.GetDevice(), myFrameDoneSemaphore[i], nullptr);
-		vkDestroySemaphore(myVulkanFramework.GetDevice(), myHasTransferredImagesSemaphore[i], nullptr);
-		vkDestroySemaphore(myVulkanFramework.GetDevice(), myHasTransferredBuffersSemaphore[i], nullptr);
-		vkDestroySemaphore(myVulkanFramework.GetDevice(), myHasTransferredAccStructsSemaphore[i], nullptr);
+		vkDestroySemaphore(myVulkanFramework.GetDevice(), myHasTransferredSemaphore[i], nullptr);
 	}
 
 	for (auto& wSys : myWorkerSystems)
@@ -57,10 +55,15 @@ VulkanImplementation::~VulkanImplementation()
 			}
 		}
 	}
+
+	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+	{
+		vkDestroyFence(myVulkanFramework.GetDevice(), myTransferFences[swapchainIndex], nullptr);
+	}
 }
 
 VkResult
-VulkanImplementation::Init(
+VulkanImplementation::Initialize(
 	const WindowInfo&	windowInfo,
 	bool				useDebugLayers)
 {
@@ -97,9 +100,11 @@ VulkanImplementation::Init(
 	// CORE, MEMORY
 	myImmediateTransferrer = std::make_unique<ImmediateTransferrer>(myVulkanFramework);
 
-	myBufferAllocator = std::make_unique<BufferAllocator>(myVulkanFramework, *myImmediateTransferrer, transQueueFamily);
-	myImageAllocator = std::make_unique<ImageAllocator>(myVulkanFramework, *myImmediateTransferrer, transQueueFamily);
+	myAllocationSubmitter = std::make_unique<AllocationSubmitter>(myVulkanFramework, myTransQueueIndex);
+	myBufferAllocator = std::make_unique<BufferAllocator>(myVulkanFramework, *myAllocationSubmitter, *myImmediateTransferrer, transQueueFamily);
+	myImageAllocator = std::make_unique<ImageAllocator>(myVulkanFramework, *myAllocationSubmitter, *myImmediateTransferrer, transQueueFamily);
 	myAccelerationStructureAllocator = std::make_unique<AccelerationStructureAllocator>(myVulkanFramework,
+																		   *myAllocationSubmitter,
 																		   *myBufferAllocator,
 																		   *myImmediateTransferrer,
 																		   transQueueFamily,
@@ -110,7 +115,19 @@ VulkanImplementation::Init(
 												 myQueueFamilyIndices.data(),
 												 myQueueFamilyIndices.size());
 
-	
+	// PRIMARY TRANSFER BUFFERS
+	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+	{
+		auto [result, cmdBuffer] = myVulkanFramework.RequestCommandBuffer(myTransQueueIndex);
+		assert(!result && "failed requesting command buffer for primary transfer buffer");
+		myTransferCmdBuffer[swapchainIndex] = cmdBuffer;
+
+		VkFenceCreateInfo fenceInfo = {};
+		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+		result = vkCreateFence(myVulkanFramework.GetDevice(), &fenceInfo, nullptr, &myTransferFences[swapchainIndex]);
+	}
 
 	// HANDLERS
 	myUniformHandler = std::make_shared<UniformHandler>(myVulkanFramework,
@@ -160,6 +177,9 @@ VulkanImplementation::Init(
 										  myTransQueueIndex
 
 	);
+	myCubeFilterer->PushFilterWork(
+		CubeID(0),
+		CubeDimension::Dim64);
 
 	RegisterWorkerSystem(myCubeFilterer, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
 
@@ -175,6 +195,10 @@ VulkanImplementation::InitSync()
 	semaphoreInfo.pNext = nullptr;
 	semaphoreInfo.flags = NULL;
 
+	VkFenceCreateInfo fenceInfo = {};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+	
 	VkResult resultSemaphore;
 	for (uint32_t i = 0; i < NumSwapchainImages; ++i)
 	{
@@ -186,16 +210,8 @@ VulkanImplementation::InitSync()
 		DebugSetObjectName(std::string("Has Rendered Sem " + std::to_string(i)).c_str(), myFrameDoneSemaphore[i], VK_OBJECT_TYPE_SEMAPHORE, myVulkanFramework.GetDevice());
 		VK_FALLTHROUGH(resultSemaphore);
 
-		resultSemaphore = vkCreateSemaphore(myVulkanFramework.GetDevice(), &semaphoreInfo, nullptr, &myHasTransferredImagesSemaphore[i]);
-		DebugSetObjectName(std::string("Has Transferred Images Sem " + std::to_string(i)).c_str(), myHasTransferredImagesSemaphore[i], VK_OBJECT_TYPE_SEMAPHORE, myVulkanFramework.GetDevice());
-		VK_FALLTHROUGH(resultSemaphore);
-
-		resultSemaphore = vkCreateSemaphore(myVulkanFramework.GetDevice(), &semaphoreInfo, nullptr, &myHasTransferredBuffersSemaphore[i]);
-		DebugSetObjectName(std::string("Has Transferred Buffers Sem " + std::to_string(i)).c_str(), myHasTransferredBuffersSemaphore[i], VK_OBJECT_TYPE_SEMAPHORE, myVulkanFramework.GetDevice());
-		VK_FALLTHROUGH(resultSemaphore);
-
-		resultSemaphore = vkCreateSemaphore(myVulkanFramework.GetDevice(), &semaphoreInfo, nullptr, &myHasTransferredAccStructsSemaphore[i]);
-		DebugSetObjectName(std::string("Has Transferred Acc Structs Sem " + std::to_string(i)).c_str(), myHasTransferredAccStructsSemaphore[i], VK_OBJECT_TYPE_SEMAPHORE, myVulkanFramework.GetDevice());
+		resultSemaphore = vkCreateSemaphore(myVulkanFramework.GetDevice(), &semaphoreInfo, nullptr, &myHasTransferredSemaphore[i]);
+		DebugSetObjectName(std::string("Has Transferred Sem " + std::to_string(i)).c_str(), myHasTransferredSemaphore[i], VK_OBJECT_TYPE_SEMAPHORE, myVulkanFramework.GetDevice());
 		VK_FALLTHROUGH(resultSemaphore);
 	}
 
@@ -205,74 +221,88 @@ VulkanImplementation::InitSync()
 void
 VulkanImplementation::SubmitTransferCmds()
 {
-	// TRANSFER IMAGES SUBMIT
-	auto [cmdBufferImages, cmdFenceImages] = myImageAllocator->AcquireNextTransferBuffer();
+	while (vkGetFenceStatus(myVulkanFramework.GetDevice(), myTransferFences[mySwapchainImageIndex]))
+	{
+	}
+	vkResetFences(myVulkanFramework.GetDevice(), 1, &myTransferFences[mySwapchainImageIndex]);
+	
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	vkBeginCommandBuffer(myTransferCmdBuffer[mySwapchainImageIndex], &beginInfo);
 
-	VkSubmitInfo transferImagesSubmitInfo{};
-	transferImagesSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	transferImagesSubmitInfo.pNext = nullptr;
-
-	transferImagesSubmitInfo.commandBufferCount = 1;
-	transferImagesSubmitInfo.pCommandBuffers = &cmdBufferImages;
-	transferImagesSubmitInfo.signalSemaphoreCount = 1;
-	transferImagesSubmitInfo.pSignalSemaphores = &myHasTransferredImagesSemaphore[mySwapchainImageIndex];
-
-	auto resultReset = vkResetFences(myVulkanFramework.GetDevice(), 1, &cmdFenceImages);
-	VkResult resultSubmit = vkQueueSubmit(myTransferQueue, 1, &transferImagesSubmitInfo, cmdFenceImages);
-	assert(!resultSubmit && "failed submission");
-
-	// TRANSFER BUFFERS SUBMIT
-
-	auto [cmdBufferTransferBuffers, cmdFenceTransferBuffers] = myBufferAllocator->AcquireNextTransferBuffer();
+	std::optional<AllocationSubmission> allocSub;
+	int count = 0;
+	constexpr int cMaxAllocPerFrame = 128;
+	while ((allocSub = myAllocationSubmitter->AcquireNextAllocSubmission(), allocSub.has_value())
+		&& count++ < cMaxAllocPerFrame)
+	{
+		auto [cmdBuffer, event] = allocSub->Submit(myTransferFences[mySwapchainImageIndex]);
+		vkCmdExecuteCommands(myTransferCmdBuffer[mySwapchainImageIndex], 1, &cmdBuffer);
+		vkCmdSetEvent(myTransferCmdBuffer[mySwapchainImageIndex], event, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		myAllocationSubmitter->QueueRelease(std::move(allocSub.value()));
+	}
+	
+	vkEndCommandBuffer(myTransferCmdBuffer[mySwapchainImageIndex]);
 
 	VkSubmitInfo transferSubmitInfo{};
 	transferSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	transferSubmitInfo.pNext = nullptr;
 
 	transferSubmitInfo.commandBufferCount = 1;
-	transferSubmitInfo.pCommandBuffers = &cmdBufferTransferBuffers;
+	transferSubmitInfo.pCommandBuffers = &myTransferCmdBuffer[mySwapchainImageIndex];
 	transferSubmitInfo.signalSemaphoreCount = 1;
-	transferSubmitInfo.pSignalSemaphores = &myHasTransferredBuffersSemaphore[mySwapchainImageIndex];
+	transferSubmitInfo.pSignalSemaphores = &myHasTransferredSemaphore[mySwapchainImageIndex];
 
-	vkResetFences(myVulkanFramework.GetDevice(), 1, &cmdFenceTransferBuffers);
-	resultSubmit = vkQueueSubmit(myTransferQueue, 1, &transferSubmitInfo, cmdFenceTransferBuffers);
-	assert(!resultSubmit && "failed submission");
-
-	// TRANSFER ACC STRUCTS SUBMIT
-	auto [cmdBufferTransferAccStructs, cmdFenceTransferAccStructs] = myAccelerationStructureAllocator->AcquireNextTransferBuffer();
-
-	VkSubmitInfo transferAccStructsSubmitInfo{};
-	transferAccStructsSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	transferAccStructsSubmitInfo.pNext = nullptr;
-
-	transferAccStructsSubmitInfo.commandBufferCount = 1;
-	transferAccStructsSubmitInfo.pCommandBuffers = &cmdBufferTransferAccStructs;
-	transferAccStructsSubmitInfo.signalSemaphoreCount = 1;
-	transferAccStructsSubmitInfo.pSignalSemaphores = &myHasTransferredAccStructsSemaphore[mySwapchainImageIndex];
-
-	vkResetFences(myVulkanFramework.GetDevice(), 1, &cmdFenceTransferAccStructs);
-	resultSubmit = vkQueueSubmit(myTransferQueue, 1, &transferAccStructsSubmitInfo, cmdFenceTransferAccStructs);
-	assert(!resultSubmit && "failed submission");
+	auto result = vkQueueSubmit(myTransferQueue, 1, &transferSubmitInfo, myTransferFences[mySwapchainImageIndex]);
+	assert(!result && "failed submission");
 }
 
 void
 VulkanImplementation::SubmitWorkerCmds()
 {
-	for (auto& wSys : myWorkerSystems)
+	//for (auto& wSys : myWorkerSystems)
+	//{
+	//	auto [submitInfo, fence] = wSys.system->RecordSubmit(mySwapchainImageIndex,
+	//														  wSys.waitSemaphores[mySwapchainImageIndex].semaphores.data(),
+	//														  wSys.numWaitSemaphores,
+	//														  wSys.waitSemaphores[mySwapchainImageIndex].stages.data(),
+	//														  wSys.numWaitSemaphores,
+	//														  &wSys.signalSemaphores[mySwapchainImageIndex]
+	//	);
+	//	vkResetFences(myVulkanFramework.GetDevice(), 1, &fence);
+	//	auto resultSubmit = vkQueueSubmit(wSys.subQueue, 1, &submitInfo, fence);
+	//	assert(!resultSubmit && "failed submission");
+	//}
+
+	for (auto iter = myWorkerSystems.begin(); iter != myWorkerSystems.end() - 1; ++iter)
 	{
+		auto& wSys = *iter;
 		auto [submitInfo, fence] = wSys.system->RecordSubmit(mySwapchainImageIndex,
-															  wSys.waitSemaphores[mySwapchainImageIndex].semaphores.data(),
-															  wSys.numWaitSemaphores,
-															  wSys.waitSemaphores[mySwapchainImageIndex].stages.data(),
-															  wSys.numWaitSemaphores,
-															  &wSys.signalSemaphores[mySwapchainImageIndex]
+			wSys.waitSemaphores[mySwapchainImageIndex].semaphores.data(),
+			wSys.numWaitSemaphores,
+			wSys.waitSemaphores[mySwapchainImageIndex].stages.data(),
+			wSys.numWaitSemaphores,
+			&wSys.signalSemaphores[mySwapchainImageIndex]
 		);
 		vkResetFences(myVulkanFramework.GetDevice(), 1, &fence);
 		auto resultSubmit = vkQueueSubmit(wSys.subQueue, 1, &submitInfo, fence);
 		assert(!resultSubmit && "failed submission");
 	}
+	{
+		auto& wSys = myWorkerSystems.back();
+		auto [submitInfo, fence] = wSys.system->RecordSubmit(mySwapchainImageIndex,
+			wSys.waitSemaphores[mySwapchainImageIndex].semaphores.data(),
+			wSys.numWaitSemaphores,
+			wSys.waitSemaphores[mySwapchainImageIndex].stages.data(),
+			wSys.numWaitSemaphores,
+			&wSys.signalSemaphores[mySwapchainImageIndex]
+		);
+		
+		vkResetFences(myVulkanFramework.GetDevice(), 1, &fence);
+		auto resultSubmit = vkQueueSubmit(wSys.subQueue, 1, &submitInfo, fence);
+		assert(!resultSubmit && "failed submission");
+	}
 }
-
 
 void
 VulkanImplementation::BeginFrame()
@@ -280,6 +310,11 @@ VulkanImplementation::BeginFrame()
 	assert(myWorkerSystemsLocked && "worker systems not locked");
 	static int fnr = -1;
 	mySwapchainImageIndex = myVulkanFramework.AcquireNextSwapchainImage(myImageAvailableSemaphore[++fnr % NumSwapchainImages]);
+
+	const int swapchainIndexToUpdate = (fnr + 1) % NumSwapchainImages;
+	myImageHandler->UpdateDescriptors(swapchainIndexToUpdate, myWorkerSystemsFences[swapchainIndexToUpdate]);
+	myMeshHandler->UpdateDescriptors(swapchainIndexToUpdate, myWorkerSystemsFences[swapchainIndexToUpdate]);
+	myAllocationSubmitter->TryReleasing();
 }
 
 void
@@ -288,7 +323,6 @@ VulkanImplementation::Submit()
 	SubmitTransferCmds();
 	SubmitWorkerCmds();
 }
-
 
 void
 VulkanImplementation::EndFrame()
@@ -340,9 +374,7 @@ VulkanImplementation::RegisterWorkerSystem(
 	// WAIT SEMAPHORES
 	if (myWorkerSystems.empty())
 	{
-		toSlot.AddWaitSemaphore(myHasTransferredImagesSemaphore, waitStage);
-		toSlot.AddWaitSemaphore(myHasTransferredBuffersSemaphore, waitStage);
-		toSlot.AddWaitSemaphore(myHasTransferredAccStructsSemaphore, waitStage);
+		toSlot.AddWaitSemaphore(myHasTransferredSemaphore, waitStage);
 	}
 	else
 	{
@@ -365,6 +397,8 @@ VulkanImplementation::LockWorkerSystems()
 	}
 	myWorkerSystems.back().signalSemaphores = myFrameDoneSemaphore;
 	myWorkerSystemsLocked = true;
+
+	myWorkerSystemsFences = myWorkerSystems.back().system->GetFences();
 }
 
 void VulkanImplementation::RegisterThread(
@@ -379,5 +413,6 @@ void VulkanImplementation::RegisterThread(
 	{
 		workerSystem.system->AddSchedule(threadID);
 	}
+	myAllocationSubmitter->RegisterThread(threadID);
 }
 

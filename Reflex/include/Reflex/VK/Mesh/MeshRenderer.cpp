@@ -219,7 +219,7 @@ MeshRenderer::RecordSubmit(
 	// DESCRIPTORS
 	theirSceneGlobals.BindGlobals(cmdBuffer, myDeferredGeoPipeline.layout, 0);
 	theirImageHandler.BindSamplers(cmdBuffer, myDeferredGeoPipeline.layout, 1);
-	theirImageHandler.BindImages(cmdBuffer, myDeferredGeoPipeline.layout, 2);
+	theirImageHandler.BindImages(swapchainImageIndex, cmdBuffer, myDeferredGeoPipeline.layout, 2);
 	theirUniformHandler.BindUniform(myInstanceUniformID, cmdBuffer, myDeferredGeoPipeline.layout, 3);
 	
 	// MESHES
@@ -240,7 +240,7 @@ MeshRenderer::RecordSubmit(
 
 	theirSceneGlobals.BindGlobals(cmdBuffer, myDeferredGeoPipeline.layout, 0);
 	theirImageHandler.BindSamplers(cmdBuffer, myDeferredGeoPipeline.layout, 1);
-	theirImageHandler.BindImages(cmdBuffer, myDeferredGeoPipeline.layout, 2);
+	theirImageHandler.BindImages(swapchainImageIndex, cmdBuffer, myDeferredGeoPipeline.layout, 2);
 
 	BindSubpassInputs(cmdBuffer, myDeferredLightPipeline.layout, 3, myDeferredRenderPass.subpasses[1], swapchainImageIndex);
 

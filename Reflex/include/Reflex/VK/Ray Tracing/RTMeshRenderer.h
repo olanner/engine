@@ -30,8 +30,7 @@ private:
 	BufferAllocator&				theirBufferAllocator;
 	AccelerationStructureHandler&	theirAccStructHandler;
 
-	neat::static_vector<QueueFamilyIndex, 8>
-									myOwners;
+	std::vector<QueueFamilyIndex>	myOwners;
 
 	VkPipelineLayout				myRTPipelineLayout;
 	VkPipeline						myRTPipeLine;

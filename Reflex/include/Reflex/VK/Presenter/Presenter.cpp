@@ -184,3 +184,9 @@ Presenter::RecordSubmit(
 
 	return {submitInfo, myCmdBufferFences[swapchainImageIndex]};
 }
+
+std::array<VkFence, NumSwapchainImages>
+Presenter::GetFences()
+{
+    return myCmdBufferFences;
+}

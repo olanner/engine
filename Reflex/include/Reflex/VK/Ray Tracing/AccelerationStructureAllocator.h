@@ -9,6 +9,7 @@ class AccelerationStructureAllocator : public AllocatorBase
 public:
 													AccelerationStructureAllocator(
 														class VulkanFramework&		vulkanFramework,
+														AllocationSubmitter&		allocationSubmitter,
 														class BufferAllocator&		bufferAllocator,
 														class ImmediateTransferrer& immediateTransferrer,
 														QueueFamilyIndex			transferFamilyIndex,
@@ -17,10 +18,12 @@ public:
 													~AccelerationStructureAllocator();
 
 	std::tuple<VkResult, VkAccelerationStructureNV> RequestGeometryStructure(
-														const struct Mesh*	firstMesh,
-														uint32_t			numMeshes);
+														AllocationSubmission&	allocSub,
+														const struct Mesh*		firstMesh,
+														uint32_t				numMeshes);
 	std::tuple<VkResult, VkAccelerationStructureNV> RequestInstanceStructure(
-														const RTInstances& instanceDesc);
+														AllocationSubmission&	allocSub,	
+														const RTInstances&		instanceDesc);
 
 	VkBuffer										GetUnderlyingBuffer(
 														VkAccelerationStructureNV accStruct);
@@ -38,7 +41,7 @@ private:
 	ImmediateTransferrer&							theirImmediateTransferrer;
 	BufferAllocator&								theirBufferAllocator;
 
-	neat::static_vector<QueueFamilyIndex, 16>		myOwners;
+	std::vector<QueueFamilyIndex>					myOwners;
 	QueueFamilyIndex								myTransferFamilyIndex,
 													myPresentationFamilyIndex;
 

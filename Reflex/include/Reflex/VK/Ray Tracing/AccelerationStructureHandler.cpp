@@ -69,7 +69,8 @@ AccelerationStructureHandler::AccelerationStructureHandler(
 	assert(!failure && "failed allocating desc set");
 
 	// FILL DEFAULT INSTANCE STRUCTS
-	auto [resultInstanceStruct, instanceStruct] = theirAccStructAllocator.RequestInstanceStructure({{}});
+	auto allocSub = theirAccStructAllocator.Start();
+	auto [resultInstanceStruct, instanceStruct] = theirAccStructAllocator.RequestInstanceStructure(allocSub, {{}});
 	assert(!resultInstanceStruct && "failed creating default instance structure");
 
 	for (uint32_t i = 0; i < MaxNumInstanceStructures; ++i)
@@ -95,6 +96,7 @@ AccelerationStructureHandler::AccelerationStructureHandler(
 
 		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
 	}
+	theirAccStructAllocator.Queue(std::move(allocSub));
 }
 
 AccelerationStructureHandler::~AccelerationStructureHandler()
@@ -105,11 +107,12 @@ AccelerationStructureHandler::~AccelerationStructureHandler()
 
 VkResult
 AccelerationStructureHandler::AddGeometryStructure(
-	MeshID		ownerID,
-	const Mesh*	firstMesh,
-	uint32_t	numMeshes)
+	AllocationSubmission&	allocSub,
+	MeshID					ownerID,
+	const struct Mesh*		firstMesh, 
+	uint32_t				numMeshes)
 {
-	auto [failure, geoStruct] = theirAccStructAllocator.RequestGeometryStructure(firstMesh, numMeshes);
+	auto [failure, geoStruct] = theirAccStructAllocator.RequestGeometryStructure(allocSub, firstMesh, numMeshes);
 	if (failure)
 	{
 		return failure;
@@ -121,14 +124,16 @@ AccelerationStructureHandler::AddGeometryStructure(
 }
 
 InstanceStructID
-	AccelerationStructureHandler::AddInstanceStructure(const RTInstances& instances)
+	AccelerationStructureHandler::AddInstanceStructure(
+		AllocationSubmission& allocSub,
+		const RTInstances& instances)
 {
-	auto [failure, instanceStruct] = theirAccStructAllocator.RequestInstanceStructure(instances);
+	auto [failure, instanceStruct] = theirAccStructAllocator.RequestInstanceStructure(allocSub, instances);
 	if (failure)
 	{
 		return InstanceStructID(INVALID_ID);
 	}
-
+	
 	InstanceStructID id;
 	bool success = myFreeIDs.try_pop(id);
 	assert(success && "failed attaining id");

@@ -35,7 +35,7 @@ private:
 	VulkanFramework&							theirVulkanFramework;
 	ImageAllocator&								theirImageAllocator;
 
-	neat::static_vector<QueueFamilyIndex, 8>	myOwners;
+	std::vector<QueueFamilyIndex>				myOwners;
 
 	VkDescriptorPool							myInputAttachmentPool;
 

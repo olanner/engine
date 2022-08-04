@@ -5,59 +5,21 @@
 #include "Reflex/VK/Memory/ImageAllocator.h"
 
 ImageHandler::ImageHandler(
-	VulkanFramework& vulkanFramework,
-	ImageAllocator& imageAllocator,
-	QueueFamilyIndex* firstOwner,
+	VulkanFramework&	vulkanFramework,
+	ImageAllocator&		imageAllocator,
+	QueueFamilyIndex*	firstOwner,
 	uint32_t			numOwners)
-	: theirVulkanFramework(vulkanFramework)
+	: HandlerBase(vulkanFramework)
 	, theirImageAllocator(imageAllocator)
-	, myDescriptorPool()
-	, myImageSet()
-	, myImageSetLayout()
-	, mySampler()
-	, mySamplerSet()
-	, mySamplerSetLayout()
-	, myImages2D{}
 	, myImageIDKeeper(MaxNumImages)
-	, myImagesCube{}
 	, myCubeIDKeeper(MaxNumImagesCube)
-	, myOwners{}
 {
 	for (uint32_t i = 0; i < numOwners; ++i)
 	{
 		myOwners.emplace_back(firstOwner[i]);
 	}
 
-	// POOL
-	VkDescriptorPoolSize sampledImageDescriptorSize;
-	sampledImageDescriptorSize.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	sampledImageDescriptorSize.descriptorCount = MaxNumImages + MaxNumImagesCube;
-	VkDescriptorPoolSize storageImageDescriptorSize;
-	storageImageDescriptorSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	storageImageDescriptorSize.descriptorCount = MaxNumStorageImages;
-	VkDescriptorPoolSize samplerDescriptorsSize;
-	samplerDescriptorsSize.type = VK_DESCRIPTOR_TYPE_SAMPLER;
-	samplerDescriptorsSize.descriptorCount = MaxNumSamplers;
-	VkDescriptorPoolSize image2DArrayDescriptorSize;
-
-	std::array<VkDescriptorPoolSize, 3> poolSizes
-	{
-		sampledImageDescriptorSize,
-		storageImageDescriptorSize,
-		samplerDescriptorsSize
-	};
-
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.pNext = nullptr;
-	poolInfo.flags = NULL;
-
-	poolInfo.poolSizeCount = poolSizes.size();
-	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = 2;
-
-	auto resultPool = vkCreateDescriptorPool(theirVulkanFramework.GetDevice(), &poolInfo, nullptr, &myDescriptorPool);
-	assert(!resultPool && "failed creating pool");
+	
 
 	// IMAGE ARRAYS DESCRIPTOR
 	//LAYOUT
@@ -105,18 +67,48 @@ ImageHandler::ImageHandler(
 	imgArrLayoutInfo.pNext = nullptr;
 	imgArrLayoutInfo.flags = NULL;
 
-	VkDescriptorSetLayoutBinding bindings[]
+	std::array bindings
 	{
 		images2DBinding,
 		cubeMapArrBinding,
 		imagesStorageBinding,
 	};
 
-	imgArrLayoutInfo.bindingCount = ARRAYSIZE(bindings);
-	imgArrLayoutInfo.pBindings = bindings;
+	imgArrLayoutInfo.bindingCount = bindings.size();
+	imgArrLayoutInfo.pBindings = bindings.data();
 
 	auto resultLayout = vkCreateDescriptorSetLayout(theirVulkanFramework.GetDevice(), &imgArrLayoutInfo, nullptr, &myImageSetLayout);
 	assert(!resultLayout && "failed creating image array descriptor set LAYOUT");
+
+	// POOL
+	VkDescriptorPoolSize sampledImageDescriptorSize;
+	sampledImageDescriptorSize.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	sampledImageDescriptorSize.descriptorCount = (MaxNumImages + MaxNumImagesCube) * NumSwapchainImages * 2;
+	VkDescriptorPoolSize storageImageDescriptorSize;
+	storageImageDescriptorSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	storageImageDescriptorSize.descriptorCount = MaxNumStorageImages * NumSwapchainImages * 2;
+	VkDescriptorPoolSize samplerDescriptorsSize;
+	samplerDescriptorsSize.type = VK_DESCRIPTOR_TYPE_SAMPLER;
+	samplerDescriptorsSize.descriptorCount = MaxNumSamplers;
+
+	std::array poolSizes
+	{
+		sampledImageDescriptorSize,
+		storageImageDescriptorSize,
+		samplerDescriptorsSize
+	};
+
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.pNext = nullptr;
+	poolInfo.flags = NULL;
+
+	poolInfo.poolSizeCount = poolSizes.size();
+	poolInfo.pPoolSizes = poolSizes.data();
+	poolInfo.maxSets = NumSwapchainImages * bindings.size() * 2; // times 2 just in case
+
+	auto resultPool = vkCreateDescriptorPool(theirVulkanFramework.GetDevice(), &poolInfo, nullptr, &myDescriptorPool);
+	assert(!resultPool && "failed creating pool");
 
 	// SET
 	VkDescriptorSetAllocateInfo imgArrAllocInfo;
@@ -127,8 +119,11 @@ ImageHandler::ImageHandler(
 	imgArrAllocInfo.pSetLayouts = &myImageSetLayout;
 	imgArrAllocInfo.descriptorPool = myDescriptorPool;
 
-	auto resultAlloc = vkAllocateDescriptorSets(theirVulkanFramework.GetDevice(), &imgArrAllocInfo, &myImageSet);
-	assert(!resultAlloc && "failed creating image array descriptor set");
+	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+	{
+		auto resultAlloc = vkAllocateDescriptorSets(theirVulkanFramework.GetDevice(), &imgArrAllocInfo, &myImageSets[swapchainIndex]);
+		assert(!resultAlloc && "failed creating image array descriptor set");
+	}
 
 	// SAMPLER
 	VkSamplerCreateInfo samplerInfo{};
@@ -210,29 +205,39 @@ ImageHandler::ImageHandler(
 	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
 
 	// DO DEFAULT TEXTURES
-	std::vector<uint8_t> checkers(64*64);
+	auto allocSub = theirImageAllocator.Start();
+
+	std::vector<Vec4uc> checkersPix(64*64);
 	for (uint32_t y = 0; y < 64; ++y)
 	{
 		for (uint32_t x = 0; x < 64; ++x)
 		{
 			uint32_t ty = y / 8;
 			uint32_t tx = x / 8;
-			checkers[y * 64 + x] = (ty + tx) % 2 * 255;
+			unsigned char value = (ty + tx) % 2 * 255;
+			checkersPix[y * 64 + x] = Vec4uc(
+				value + (tx+ty)/16.f * 255.f * !value,
+				value + (tx+ty)/16.f * 255.f * !value,
+				value + (tx+ty)/16.f * 255.f * !value,
+				255);
 		}
 	}
-
-	auto [resultAlbedo, albedoView] = theirImageAllocator.RequestImageArray(
-		checkers,
-		1,
-		64,
-		64,
-		NUM_MIPS(64),
-		myOwners.data(),
-		myOwners.size(),
-		VK_FORMAT_R8_UNORM);
+	std::vector<uint8_t> checkers(checkersPix.size() * 4);
+	memcpy_s(checkers.data(), checkers.size(), checkersPix.data(), checkersPix.size() * 4);
 
 	{
-		VkDescriptorImageInfo imageInfo{};
+		ImageRequestInfo requestInfo;
+		requestInfo.width = 64;
+		requestInfo.height = 64;
+		requestInfo.mips = NUM_MIPS(64);
+		requestInfo.owners = myOwners;
+		auto [resultAlbedo, albedoView] = theirImageAllocator.RequestImageArray(
+			allocSub,
+			checkers,
+			1,
+			requestInfo);
+		
+		VkDescriptorImageInfo imageInfo = {};
 		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		imageInfo.imageView = albedoView;
 
@@ -243,7 +248,7 @@ ImageHandler::ImageHandler(
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.pNext = nullptr;
 
-		write.dstSet = myImageSet;
+		
 		write.dstBinding = ImageSetImages2DBinding;
 		write.dstArrayElement = 0;
 		write.descriptorCount = MaxNumImages;
@@ -252,42 +257,52 @@ ImageHandler::ImageHandler(
 		write.pBufferInfo = nullptr;
 		write.pTexelBufferView = nullptr;
 
-		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+		for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+		{
+			write.dstSet = myImageSets[swapchainIndex];
+			vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+		}
 	}
-
-	auto [resultStorage, storageView] = theirImageAllocator.RequestImage2D(nullptr,
-		0,
-		16,
-		16,
-		1,
-		myOwners.data(),
-		myOwners.size(),
-		VK_FORMAT_R8_UNORM,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_IMAGE_USAGE_STORAGE_BIT
-	);
-	for (uint32_t i = 0; i < MaxNumStorageImages; ++i)
 	{
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		imageInfo.imageView = storageView;
+		ImageRequestInfo requestInfo;
+		requestInfo.width = 4;
+		requestInfo.height = 4;
+		requestInfo.mips = 1;
+		requestInfo.owners = myOwners;
+		requestInfo.layout = VK_IMAGE_LAYOUT_GENERAL;
+		requestInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT;
 
-		VkWriteDescriptorSet write{};
-		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		write.pNext = nullptr;
+		auto [resultStorage, storageView] = theirImageAllocator.RequestImage2D(
+			allocSub,
+			nullptr,
+			16,
+			requestInfo);
 
-		write.dstSet = myImageSet;
-		write.dstBinding = ImageSetImagesStorageBinding;
-		write.dstArrayElement = i;
-		write.descriptorCount = 1;
-		write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		write.pImageInfo = &imageInfo;
-		write.pBufferInfo = nullptr;
-		write.pTexelBufferView = nullptr;
+		for (uint32_t i = 0; i < MaxNumStorageImages; ++i)
+		{
+			VkDescriptorImageInfo imageInfo{};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+			imageInfo.imageView = storageView;
 
-		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+			VkWriteDescriptorSet write{};
+			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write.pNext = nullptr;
+
+			write.dstBinding = ImageSetImagesStorageBinding;
+			write.dstArrayElement = i;
+			write.descriptorCount = 1;
+			write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+			write.pImageInfo = &imageInfo;
+			write.pBufferInfo = nullptr;
+			write.pTexelBufferView = nullptr;
+
+			for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+			{
+				write.dstSet = myImageSets[swapchainIndex];
+				vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+			}
+		}
 	}
-	int val = 0;
 
 	{
 		checkers.resize(checkers.size()*6);
@@ -296,16 +311,24 @@ ImageHandler::ImageHandler(
 		{
 			checkersCube.insert(checkersCube.end(), checkers.begin(), checkers.end());
 		}
+		ImageRequestInfo requestInfo;
+		requestInfo.width = 64;
+		requestInfo.height = 64;
+		requestInfo.mips = NUM_MIPS(64);
+		requestInfo.owners = myOwners;
 		auto [resultCube, cubeView] = theirImageAllocator.RequestImageCube(
+			allocSub,
 			checkersCube,
-			checkersCube.size()/6,
-			64,
-			64,
-			NUM_MIPS(64),
-			myOwners.data(),
-			myOwners.size(),
-			VK_FORMAT_R8_UNORM);
-
+			checkersCube.size() / 6,
+			requestInfo
+		);
+		ImageCube cube;
+		cube.info.imageView = cubeView;
+		cube.info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		cube.view = cubeView;
+		cube.dim = 64;
+		myImagesCube.fill(cube);
+		
 		{
 			VkDescriptorImageInfo imageInfo{};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -318,7 +341,6 @@ ImageHandler::ImageHandler(
 			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			write.pNext = nullptr;
 
-			write.dstSet = myImageSet;
 			write.dstBinding = ImageSetImagesCubeBinding;
 			write.dstArrayElement = 0;
 			write.descriptorCount = MaxNumImagesCube;
@@ -326,8 +348,12 @@ ImageHandler::ImageHandler(
 			write.pImageInfo = cubeDescInfos.data();
 			write.pBufferInfo = nullptr;
 			write.pTexelBufferView = nullptr;
-			
-			vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+
+			for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+			{
+				write.dstSet = myImageSets[swapchainIndex];
+				vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+			}
 		}
 	}
 
@@ -340,7 +366,8 @@ ImageHandler::ImageHandler(
 	
 	myImageSwizzleToFormat[neat::ImageSwizzle::Unknown] = VK_FORMAT_UNDEFINED;
 	
-	AddImage2D("brdfFilament.dds");
+	AddImage2D(allocSub,"brdfFilament.dds");
+	theirImageAllocator.Queue(std::move(allocSub));
 }
 
 ImageHandler::~ImageHandler()
@@ -352,11 +379,14 @@ ImageHandler::~ImageHandler()
 }
 
 ImageID
-ImageHandler::AddImage2D(const char* path)
+ImageHandler::AddImage2D(
+	AllocationSubmission&	allocSub,
+	const char*				path)
 {
 	auto img = neat::ReadImage(path);
 
 	return AddImage2D(
+		allocSub,
 		std::move(img.pixelData), 
 		{img.width, img.height}, 
 		myImageSwizzleToFormat[img.swizzle],
@@ -365,10 +395,11 @@ ImageHandler::AddImage2D(const char* path)
 
 ImageID
 ImageHandler::AddImage2D(
-	std::vector<uint8_t>&& pixelData,
-	Vec2f				dimension,
-	VkFormat			format,
-	uint32_t			byteDepth)
+	AllocationSubmission&	allocSub,
+	std::vector<uint8_t>&&	pixelData,
+	Vec2f					dimension,
+	VkFormat				format,
+	uint32_t				byteDepth)
 {
 	ImageID imgID = myImageIDKeeper.FetchFreeID();
 	if (BAD_ID(imgID))
@@ -376,23 +407,27 @@ ImageHandler::AddImage2D(
 		LOG("no more free image slots");
 		return ImageID(INVALID_ID);
 	}
+	myImages2D[uint32_t(imgID)] = {};
+	
 	uint32_t layers = pixelData.size() / (dimension.x * dimension.y * byteDepth);
 	VkResult result{};
 	{
+		ImageRequestInfo requestInfo;
+		requestInfo.width = dimension.x;
+		requestInfo.height = dimension.y;
+		requestInfo.mips = NUM_MIPS(std::max(dimension.x, dimension.y));
+		requestInfo.owners = myOwners;
+		requestInfo.format = format;
 		std::tie(result, myImages2D[uint32_t(imgID)].view) = theirImageAllocator.RequestImageArray(
+			allocSub,
 			pixelData,
-					layers,
-			dimension.x,
-			dimension.y,
-			NUM_MIPS(std::max(dimension.x, dimension.y)),
-			myOwners.data(),
-			myOwners.size(),
-			format);
+			layers,
+			requestInfo);
 	}
 
 	if (result)
 	{
-		LOG("failed loading image 2D, error code :", result);
+		LOG("failed loading image 2D, error code: ", result);
 		return ImageID(INVALID_ID);
 	}
 
@@ -402,30 +437,31 @@ ImageHandler::AddImage2D(
 	myImages2D[uint32_t(imgID)].scale = {s, s};
 	myImages2D[uint32_t(imgID)].layers = layers;
 	
+	myImages2D[uint32_t(imgID)].info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	myImages2D[uint32_t(imgID)].info.imageView = myImages2D[uint32_t(imgID)].view;
 
-	VkDescriptorImageInfo imageInfo{};
-	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageInfo.imageView = myImages2D[uint32_t(imgID)].view;
-
-	VkWriteDescriptorSet write{};
-	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-
-	write.dstSet = myImageSet;
-	write.dstBinding = ImageSetImages2DBinding;
-	write.dstArrayElement = uint32_t(imgID);
-	write.descriptorCount = 1;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	write.pImageInfo = &imageInfo;
-
-	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+	auto executedEvent = allocSub.GetExecutedEvent();
+	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+	{
+		VkWriteDescriptorSet write = {};
+		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write.dstBinding = ImageSetImages2DBinding;
+		write.dstArrayElement = uint32_t(imgID);
+		write.descriptorCount = 1;
+		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+		write.pImageInfo = &myImages2D[uint32_t(imgID)].info;
+		write.dstSet = myImageSets[swapchainIndex];
+		myQueuedDescriptorWrites[swapchainIndex].push({ executedEvent, write });
+	}
 
 	return imgID;
 }
 ImageID
 ImageHandler::AddImage2DTiled(
-	const char* path,
-	uint32_t	rows,
-	uint32_t	cols)
+	AllocationSubmission&	allocSub,
+	const char*				path,
+	uint32_t				rows,
+	uint32_t				cols)
 {
 	const auto img = neat::ReadImage(path);
 	
@@ -452,11 +488,13 @@ ImageHandler::AddImage2DTiled(
 		}
 	}
 	
-	return AddImage2D(std::move(sortedData), {tileWidth, tileHeight}, myImageSwizzleToFormat[img.swizzle]);
+	return AddImage2D(allocSub, std::move(sortedData), {tileWidth, tileHeight}, myImageSwizzleToFormat[img.swizzle]);
 }
 
 CubeID
-ImageHandler::AddImageCube(const char* path)
+ImageHandler::AddImageCube(
+	AllocationSubmission& allocSub,
+	const char* path)
 {
 	CubeID cubeID = myCubeIDKeeper.FetchFreeID();
 	if (BAD_ID(cubeID))
@@ -464,6 +502,7 @@ ImageHandler::AddImageCube(const char* path)
 		LOG("no more free cube slots");
 		return CubeID(INVALID_ID);
 	}
+	myImagesCube[uint32_t(cubeID)] = {};
 
 	auto img = neat::ReadImage(path);
 	if (img.layers != 6)
@@ -474,15 +513,17 @@ ImageHandler::AddImageCube(const char* path)
 
 	VkResult result{};
 	{
+		ImageRequestInfo requestInfo;
+		requestInfo.width = img.width;
+		requestInfo.height = img.height;
+		requestInfo.mips = NUM_MIPS(std::max(img.width, img.height));
+		requestInfo.owners = myOwners;
 		std::tie(result, myImagesCube[int(cubeID)].view) = 
 			theirImageAllocator.RequestImageCube(
+			allocSub,
 			img.pixelData,
 			img.pixelData.size() / 6,
-			img.width,
-			img.height,
-			1 + std::log2(std::max(img.width, img.height)),
-			myOwners.data(),
-			myOwners.size());
+			requestInfo);
 	}
 
 	if (result)
@@ -493,24 +534,22 @@ ImageHandler::AddImageCube(const char* path)
 
 	myImagesCube[uint32_t(cubeID)].dim = img.width;
 
-	VkDescriptorImageInfo imageInfo{};
-	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageInfo.imageView = myImagesCube[int(cubeID)].view;
+	myImagesCube[uint32_t(cubeID)].info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	myImagesCube[uint32_t(cubeID)].info.imageView = myImagesCube[int(cubeID)].view;
 
-	VkWriteDescriptorSet write{};
-	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	write.pNext = nullptr;
-
-	write.dstSet = myImageSet;
-	write.dstBinding = ImageSetImagesCubeBinding;
-	write.dstArrayElement = uint32_t(cubeID);
-	write.descriptorCount = 1;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	write.pImageInfo = &imageInfo;
-	write.pBufferInfo = nullptr;
-	write.pTexelBufferView = nullptr;
-
-	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+	auto executedEvent = allocSub.GetExecutedEvent();
+	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+	{
+		VkWriteDescriptorSet write{};
+		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write.dstBinding = ImageSetImagesCubeBinding;
+		write.dstArrayElement = uint32_t(cubeID);
+		write.descriptorCount = 1;
+		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+		write.pImageInfo = &myImagesCube[uint32_t(cubeID)].info;
+		write.dstSet = myImageSets[swapchainIndex];
+		myQueuedDescriptorWrites[swapchainIndex].push({executedEvent, write});
+	}
 
 	return cubeID;
 }
@@ -522,35 +561,40 @@ ImageHandler::AddStorageImage(
 	uint32_t	width,
 	uint32_t	height)
 {
-	auto [result, view] = theirImageAllocator.RequestImage2D(nullptr,
-		0,
-		width,
-		height,
-		1,
-		myOwners.data(),
-		myOwners.size(),
-		format,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_IMAGE_USAGE_STORAGE_BIT);
+	AllocationSubmission allocSub = theirImageAllocator.Start();
 
-	VkDescriptorImageInfo imageInfo{};
+	ImageRequestInfo requestInfo;
+	requestInfo.width = width;
+	requestInfo.height = height;
+	requestInfo.format = format;
+	requestInfo.layout = VK_IMAGE_LAYOUT_GENERAL;
+	requestInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT;
+	requestInfo.owners = myOwners;
+	auto [result, view] = theirImageAllocator.RequestImage2D(
+		allocSub,
+		nullptr,
+		0,
+		requestInfo);
+
+	theirImageAllocator.Queue(std::move(allocSub));
+
+	VkDescriptorImageInfo imageInfo = {};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	imageInfo.imageView = view;
 
-	VkWriteDescriptorSet write{};
+	VkWriteDescriptorSet write = {};
 	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	write.pNext = nullptr;
-
-	write.dstSet = myImageSet;
 	write.dstBinding = ImageSetImagesStorageBinding;
 	write.dstArrayElement = index;
 	write.descriptorCount = 1;
 	write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	write.pImageInfo = &imageInfo;
-	write.pBufferInfo = nullptr;
-	write.pTexelBufferView = nullptr;
 
-	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+	{
+		write.dstSet = myImageSets[swapchainIndex];
+		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+	}
 
 	return result;
 }
@@ -561,22 +605,10 @@ ImageHandler::GetImageSetLayout() const
 	return myImageSetLayout;
 }
 
-VkDescriptorSet
-ImageHandler::GetImageSet() const
-{
-	return myImageSet;
-}
-
 VkDescriptorSetLayout
 ImageHandler::GetSamplerSetLayout() const
 {
 	return mySamplerSetLayout;
-}
-
-VkDescriptorSet
-ImageHandler::GetSamplerSet() const
-{
-	return mySamplerSet;
 }
 
 void
@@ -598,6 +630,7 @@ ImageHandler::BindSamplers(
 
 void
 ImageHandler::BindImages(
+	int					swapchainIndex,
 	VkCommandBuffer		commandBuffer,
 	VkPipelineLayout	pipelineLayout,
 	uint32_t			setIndex,
@@ -608,7 +641,7 @@ ImageHandler::BindImages(
 		pipelineLayout,
 		setIndex,
 		1,
-		&myImageSet,
+		&myImageSets[swapchainIndex],
 		0,
 		nullptr);
 }

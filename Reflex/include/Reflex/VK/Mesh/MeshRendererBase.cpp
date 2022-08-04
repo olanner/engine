@@ -50,3 +50,9 @@ MeshRendererBase::AddSchedule(
 {
 	myWorkScheduler.AddSchedule(threadID);
 }
+
+std::array<VkFence, NumSwapchainImages>
+MeshRendererBase::GetFences()
+{
+    return myCmdBufferFences;
+}

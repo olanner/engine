@@ -6,13 +6,9 @@ class SceneGlobals;
 
 namespace rflx
 {
-	class CubeHandle;
-	CubeHandle CreateImageCube(const char* path);
-
 	class CubeHandle
 	{
-		friend CubeHandle rflx::CreateImageCube(const char*);
-		
+		friend class Reflex;
 	public:
 		CubeID	GetID() const;
 		float	GetDim() const;

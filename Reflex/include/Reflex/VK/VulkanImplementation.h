@@ -17,7 +17,7 @@ public:
 												VulkanImplementation();
 												~VulkanImplementation();
 
-	VkResult									Init(
+	VkResult									Initialize(
 													const WindowInfo&	windowInfo, 
 													bool				useDebugLayers = false);
 
@@ -45,10 +45,12 @@ private:
 	QueueFamilyIndex							myPresQueueIndex = 0;
 	QueueFamilyIndex							myTransQueueIndex = 0;
 	QueueFamilyIndex							myCompQueueIndex = 0;
+	
+	std::array<VkCommandBuffer, NumSwapchainImages>
+												myTransferCmdBuffer = {};
+	std::array<VkFence, NumSwapchainImages>		myTransferFences = {};
 
-	std::array<VkSemaphore, NumSwapchainImages> myHasTransferredImagesSemaphore = {};
-	std::array<VkSemaphore, NumSwapchainImages> myHasTransferredBuffersSemaphore = {};
-	std::array<VkSemaphore, NumSwapchainImages> myHasTransferredAccStructsSemaphore = {};
+	std::array<VkSemaphore, NumSwapchainImages> myHasTransferredSemaphore = {};
 
 	std::array<VkSemaphore, NumSwapchainImages> myImageAvailableSemaphore = {};
 	std::array<VkSemaphore, NumSwapchainImages> myFrameDoneSemaphore = {};
@@ -56,9 +58,10 @@ private:
 	uint8_t										mySwapchainImageIndex = 0;
 
 	// CORE, MEMORY
-	std::unique_ptr<class ImmediateTransferrer> myImmediateTransferrer;
+	std::unique_ptr<class ImmediateTransferrer> myImmediateTransferrer = nullptr;
 
-	std::unique_ptr<class BufferAllocator>		myBufferAllocator;
+	std::unique_ptr<class AllocationSubmitter>  myAllocationSubmitter = nullptr;
+	std::unique_ptr<class BufferAllocator>		myBufferAllocator = nullptr;
 	std::unique_ptr<class ImageAllocator>		myImageAllocator = nullptr;
 	std::unique_ptr<class AccelerationStructureAllocator>
 												myAccelerationStructureAllocator = nullptr;
@@ -79,6 +82,7 @@ private:
 	// WORKERS
 	std::vector<SlottedWorkerSystem>
 												myWorkerSystems;
+	std::array<VkFence, NumSwapchainImages>		myWorkerSystemsFences = {};
 	std::shared_ptr<class CubeFilterer>			myCubeFilterer = nullptr;
 	std::shared_ptr<class Presenter>			myPresenter = nullptr;
 	bool										myWorkerSystemsLocked = false;

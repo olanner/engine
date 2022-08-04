@@ -27,19 +27,18 @@ BufferAllocator::~BufferAllocator()
 
 std::tuple<VkResult, VkBuffer>
 BufferAllocator::RequestVertexBuffer(
-	const Vertex3D*			firstVertex,
-	uint32_t				numVertices,
-	const QueueFamilyIndex* firstOwner,
-	uint32_t				numOwners)
+	AllocationSubmission& allocSub,
+	const std::vector<Vertex3D>& vertices, 
+	const std::vector<QueueFamilyIndex>& owners)
 {
-	auto [result, buffer, memory] = CreateBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-												  firstVertex,
-												  sizeof(Vertex3D) * numVertices,
-												  firstOwner,
-												  numOwners,
-												  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-												  true
-	);
+	auto [result, buffer, memory] = CreateBuffer(
+																		allocSub,
+																		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+																		vertices.data(),
+																		sizeof(Vertex3D) * vertices.size(),
+																		owners,
+																		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+																		false);
 	if (result)
 	{
 		if (buffer)
@@ -51,24 +50,24 @@ BufferAllocator::RequestVertexBuffer(
 	}
 
 	myAllocatedBuffers[buffer] = memory;
-	myBufferSizes[buffer] = sizeof(Vertex3D) * numVertices;
+	myBufferSizes[buffer] = sizeof(Vertex3D) * vertices.size();
 	return {result, buffer};
 }
 
 std::tuple<VkResult, VkBuffer>
 BufferAllocator::RequestVertexBuffer(
-	const Vertex2D*			firstVertex, 
-	uint32_t				numVertices, 
-	const QueueFamilyIndex* firstOwner, 
-	uint32_t				numOwners)
+	AllocationSubmission&					allocSub,
+	const std::vector<struct Vertex2D>&		vertices,
+	const std::vector<QueueFamilyIndex>&	owners)
 {
-	auto [result, buffer, memory] = CreateBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-												  firstVertex,
-												  sizeof(Vertex2D) * numVertices,
-												  firstOwner,
-												  numOwners,
-												  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-												  true
+	auto [result, buffer, memory] = CreateBuffer(
+													allocSub,
+													VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+													vertices.data(),
+													sizeof(Vertex2D) * vertices.size(),
+													owners,
+													VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+													false
 	);
 	if (result)
 	{
@@ -81,24 +80,24 @@ BufferAllocator::RequestVertexBuffer(
 	}
 
 	myAllocatedBuffers[buffer] = memory;
-	myBufferSizes[buffer] = sizeof(Vertex2D) * numVertices;
+	myBufferSizes[buffer] = sizeof(Vertex2D) * vertices.size();
 	return {result, buffer};
 }
 
 std::tuple<VkResult, VkBuffer>
 BufferAllocator::RequestIndexBuffer(
-	const uint32_t*				firstIndex,
-	uint32_t					numIndices,
-	const QueueFamilyIndex*		firstOwner,
-	uint32_t					numOwners)
+	AllocationSubmission&					allocSub,
+	const std::vector<uint32_t>&			indices,
+	const std::vector<QueueFamilyIndex>&	owners)
 {
-	auto [result, buffer, memory] = CreateBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-												  firstIndex,
-												  sizeof(uint32_t) * numIndices,
-												  firstOwner,
-												  numOwners,
-												  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-												  true
+	auto [result, buffer, memory] = CreateBuffer(
+										allocSub,
+										VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+										indices.data(),
+										sizeof(uint32_t) * indices.size(),
+										owners,
+										VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+										false
 	);
 	if (result)
 	{
@@ -111,24 +110,26 @@ BufferAllocator::RequestIndexBuffer(
 	}
 
 	myAllocatedBuffers[buffer] = memory;
-	myBufferSizes[buffer] = sizeof(uint32_t) * numIndices;
+	myBufferSizes[buffer] = sizeof(uint32_t) * indices.size();
 	return {result, buffer};
 }
 
 std::tuple<VkResult, VkBuffer>
 BufferAllocator::RequestUniformBuffer(
-	const void*				startData,
-	size_t					size,
-	const QueueFamilyIndex*	firstOwner,
-	uint32_t				numOwners,
-	VkMemoryPropertyFlags	memPropFlags)
+	AllocationSubmission&					allocSub,
+	const void*								startData,
+	size_t									size,
+	const std::vector<QueueFamilyIndex>&	owners,
+	VkMemoryPropertyFlags					memPropFlags)
 {
-	auto [result, buffer, memory] = CreateBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-												  startData,
-												  size,
-												  firstOwner,
-												  numOwners,
-												  memPropFlags
+	auto [result, buffer, memory] = CreateBuffer(
+									allocSub,
+									VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+									startData,
+									size,
+									owners,
+									memPropFlags,
+									false
 	);
 	if (result)
 	{
@@ -156,36 +157,40 @@ BufferAllocator::UpdateBufferData(
 	VkBuffer	buffer,	
 	const void* data)
 {
-	std::scoped_lock<std::mutex> lock(myTransferMutex);
-
-	vkCmdUpdateBuffer(myTransferBuffers[myTransferIndex], buffer, 0, myBufferSizes[buffer], data);
-
+	// TODO: maybe do this better lol
+	auto allocSub = theirAllocationSubmitter.StartAllocSubmission();
+	const auto cmdBuffer = allocSub.Record();
+	
+	vkCmdUpdateBuffer(cmdBuffer, buffer, 0, myBufferSizes[buffer], data);
+	
 	VkBufferMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-
+	
 	barrier.buffer = buffer;
 	barrier.size = myBufferSizes[buffer];
 	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-	vkCmdPipelineBarrier(myTransferBuffers[myTransferIndex],
+	
+	vkCmdPipelineBarrier(cmdBuffer,
 						  VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
 						  VK_DEPENDENCY_DEVICE_GROUP_BIT,
 						  0, nullptr,
 						  1, &barrier,
 						  0, nullptr);
+	
+	theirAllocationSubmitter.QueueAllocSubmission(std::move(allocSub));
 }
 
 
 std::tuple<VkResult, VkBuffer, VkDeviceMemory>
 BufferAllocator::CreateBuffer(
-	VkBufferUsageFlags		usage,
-	const void*				data,
-	size_t					size,
-	const QueueFamilyIndex* firstOwner,
-	uint32_t				numOwners,
-	VkMemoryPropertyFlags	memPropFlags,
-	bool					immediateTransfer)
+	AllocationSubmission&					allocSub,
+	VkBufferUsageFlags						usage,
+	const void*								data,
+	size_t									size,
+	const std::vector<QueueFamilyIndex>&	owners,
+	VkMemoryPropertyFlags					memPropFlags,
+	bool									immediateTransfer)
 {
 	VkBuffer buffer{};
 	VkDeviceMemory memory{};
@@ -198,7 +203,7 @@ BufferAllocator::CreateBuffer(
 
 	bufferInfo.usage = usage;
 
-	if (IsExclusive(firstOwner, numOwners))
+	if (IsExclusive(owners.data(), owners.size()))
 	{
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		bufferInfo.pQueueFamilyIndices = nullptr;
@@ -207,8 +212,8 @@ BufferAllocator::CreateBuffer(
 	else
 	{
 		bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
-		bufferInfo.pQueueFamilyIndices = firstOwner;
-		bufferInfo.queueFamilyIndexCount = numOwners;
+		bufferInfo.pQueueFamilyIndices = owners.data();
+		bufferInfo.queueFamilyIndexCount = owners.size();
 	}
 
 	bufferInfo.size = size;
@@ -255,17 +260,17 @@ BufferAllocator::CreateBuffer(
 	{
 		if (immediateTransfer)
 		{
-			auto [failure, stagedBuffer, stagedMem] = CreateStagingBuffer(data, size, firstOwner, numOwners, true);
+			auto [failure, stagedBuffer] = CreateStagingBuffer(data, size, owners.data(), owners.size(), true);
 			VkBufferCopy copy;
 			copy.size = size;
 			copy.srcOffset = 0;
 			copy.dstOffset = 0;
 			theirImmediateTransferrer.DoImmediateTransfer([&] (auto cmdBuffer)
 			{
-				vkCmdCopyBuffer(cmdBuffer, stagedBuffer, buffer, 1, &copy);
+				vkCmdCopyBuffer(cmdBuffer, stagedBuffer.buffer, buffer, 1, &copy);
 			});
-			vkDestroyBuffer(theirVulkanFramework.GetDevice(), stagedBuffer, nullptr);
-			vkFreeMemory(theirVulkanFramework.GetDevice(), stagedMem, nullptr);
+			vkDestroyBuffer(theirVulkanFramework.GetDevice(), stagedBuffer.buffer, nullptr);
+			vkFreeMemory(theirVulkanFramework.GetDevice(), stagedBuffer.memory, nullptr);
 		}
 		else
 		{
@@ -283,9 +288,10 @@ BufferAllocator::CreateBuffer(
 				copy.srcOffset = 0;
 				copy.dstOffset = 0;
 
-				std::scoped_lock<std::mutex> lock(myTransferMutex);
-				auto [resultStaged, stagedBuffer, stagedMemory] = CreateStagingBuffer(data, size, firstOwner, numOwners);
-				vkCmdCopyBuffer(myTransferBuffers[myTransferIndex], stagedBuffer, buffer, 1, &copy);
+				auto [resultStaged, stagedBuffer] = CreateStagingBuffer(data, size, owners.data(), owners.size());
+				vkCmdCopyBuffer(allocSub.Record() , stagedBuffer.buffer, buffer, 1, &copy);
+				
+				allocSub.AddStagingBuffer(std::move(stagedBuffer));
 			}
 		}
 

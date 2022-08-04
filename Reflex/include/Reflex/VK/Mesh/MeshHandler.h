@@ -1,8 +1,9 @@
 
 #pragma once
 #include "Mesh.h"
+#include "Reflex/VK/Misc/HandlerBase.h"
 
-class MeshHandler
+class MeshHandler : public HandlerBase
 {
 public:
 												MeshHandler(
@@ -16,35 +17,40 @@ public:
 	VkDescriptorSetLayout						GetImageArraySetLayout() const;
 
 	MeshID										AddMesh(
-													const char*				path, 
-													std::vector<ImageID>&&	imageIDs = {});
-
-	Mesh										operator[](MeshID id) const;
+													class AllocationSubmission& allocSub,
+													const char*					path,
+													std::vector<ImageID>&&		imageIDs = {});
 
 	VkDescriptorSetLayout						GetMeshDataLayout();
 	void										BindMeshData(
+													int					swapchainIndex,
 													VkCommandBuffer		cmdBuffer,
 													VkPipelineLayout	layout,
-													uint32_t			setIndex,
+													uint32_t			setIndex, 
 													VkPipelineBindPoint bindPoint);
+
+	Mesh										operator[](MeshID id) const;
 
 private:
 	std::vector<Vec4f>							LoadImagesFromDoc(
-													const rapidjson::Document& doc) const;
-	void										WriteMeshDescriptorData(MeshID meshID);
+													const rapidjson::Document& doc, 
+													AllocationSubmission& allocSub) const;
+	void										WriteMeshDescriptorData(
+													MeshID meshID, 
+													AllocationSubmission& allocSub);
 
-	VulkanFramework&							theirVulkanFramework;
 	BufferAllocator&							theirBufferAllocator;
 	ImageHandler&								theirImageHandler;
 
-	neat::static_vector<QueueFamilyIndex, 16>	myOwners;
+	std::vector<QueueFamilyIndex>				myOwners;
 
-	std::array<Mesh, MaxNumMeshesLoaded>		myMeshes;
+	std::array<Mesh, MaxNumMeshesLoaded>		myMeshes = {};
 	IDKeeper<MeshID>							myMeshIDKeeper;
 
-	VkDescriptorPool							myDescriptorPool;
-	VkDescriptorSetLayout						myMeshDataLayout;
-	VkDescriptorSet								myMeshDataSet;
+	VkDescriptorPool							myDescriptorPool = nullptr;
+	VkDescriptorSetLayout						myMeshDataLayout = nullptr;
+	std::array<VkDescriptorSet, NumSwapchainImages>
+												myMeshDataSets = {};
 
 	ImageID										myMissingAlbedoID;
 	ImageID										myMissingMaterialID;

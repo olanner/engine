@@ -11,11 +11,14 @@ public:
 									~AccelerationStructureHandler();
 
 	VkResult						AddGeometryStructure(
-										MeshID				ownerID,
-										const struct Mesh*	firstMesh,
-										uint32_t			numMeshes);
+										class AllocationSubmission& allocSub,
+										MeshID						ownerID,
+										const struct Mesh*			firstMesh, 
+										uint32_t					numMeshes);
 
-	InstanceStructID				AddInstanceStructure(const RTInstances& instances);
+	InstanceStructID				AddInstanceStructure(
+										class AllocationSubmission& allocSub,
+										const RTInstances&			instances);
 	void							UpdateInstanceStructure(
 										InstanceStructID	id, 
 										const RTInstances&	instances);

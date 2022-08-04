@@ -374,7 +374,7 @@ DebugCallback(
 		LOG('[', type, ']', pCallbackData->pMessage);
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 		{
-			//system("pause");
+			system("pause");
 		}
 	}
 	return VK_FALSE;
@@ -407,6 +407,7 @@ VulkanFramework::EnumeratePhysDevices()
 	auto resultEnumerate = vkEnumeratePhysicalDevices(myInstance, &gpuCount, nullptr);
 	VK_FALLTHROUGH(resultEnumerate);
 	myPhysicalDevices.resize(gpuCount);
+	myPhysicalDeviceProperties.resize(gpuCount);
 	resultEnumerate = vkEnumeratePhysicalDevices(myInstance, &gpuCount, myPhysicalDevices.data());
 	VK_FALLTHROUGH(resultEnumerate);
 
@@ -415,6 +416,7 @@ VulkanFramework::EnumeratePhysDevices()
 	{
 		VkPhysicalDeviceProperties pProps;
 		vkGetPhysicalDeviceProperties(myPhysicalDevices[i], &pProps);
+		myPhysicalDeviceProperties[i] = pProps;
 		switch (pProps.deviceType)
 		{
 			case VK_PHYSICAL_DEVICE_TYPE_OTHER:
@@ -440,7 +442,7 @@ VulkanFramework::EnumeratePhysDevices()
 		LOG("no dedicated GPU found");
 		return VK_ERROR_FEATURE_NOT_PRESENT;
 	}
-
+	
 	// FETCH PHYSICAL DEVICE MEM PROPS
 	vkGetPhysicalDeviceMemoryProperties(myPhysicalDevices[myChosenPhysicalDevice], &myPhysicalDeviceMemProperties);
 
@@ -466,8 +468,6 @@ VulkanFramework::EnumeratePhysDevices()
 		int val = 0;
 	}
 
-
-
 	return VK_SUCCESS;
 }
 
@@ -479,7 +479,7 @@ VulkanFramework::EnumerateQueueFamilies()
 	vkGetPhysicalDeviceQueueFamilyProperties(myPhysicalDevices[myChosenPhysicalDevice], &propCount, nullptr);
 	myQueueFamilyProps.resize(propCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(myPhysicalDevices[myChosenPhysicalDevice], &propCount, myQueueFamilyProps.data());
-
+	
 	// ENUMERATE QUEUE FAMILIES
 	QueueFamilyIndex index = 0;
 	for (auto& queue : myQueueFamilyProps)

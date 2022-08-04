@@ -63,6 +63,9 @@ private:
 	VkResult							InitFramebuffers(const WindowInfo& windowInfo);
 
 	std::vector<VkPhysicalDevice>		myPhysicalDevices;
+	std::vector<VkPhysicalDeviceProperties>
+										myPhysicalDeviceProperties;
+	
 	uint32_t							myChosenPhysicalDevice = 0;
 	std::vector<VkQueueFamilyProperties>
 										myQueueFamilyProps;

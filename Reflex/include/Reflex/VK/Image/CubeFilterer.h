@@ -62,6 +62,7 @@ public:
 														VkPipelineStageFlags* waitPipelineStages, 
 														uint32_t numWaitStages,
 														VkSemaphore* signalSemaphore) override;
+	std::array<VkFence, NumSwapchainImages>			GetFences() override;
 
 	void											PushFilterWork(
 														CubeID			id, 

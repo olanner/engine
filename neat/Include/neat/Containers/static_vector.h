@@ -31,6 +31,8 @@ namespace neat
 		static_vector();
 		static_vector(std::initializer_list<t> init_list);
 		static_vector(const static_vector<t, width>& copy_from);
+		static_vector(static_vector<t, width>&& move_from) noexcept;
+		static_vector& operator=(static_vector<t, width>&& move_from);
 		~static_vector();
 
 		template< typename ... args >
@@ -117,6 +119,21 @@ namespace neat
 	{
 		memcpy(_buffer, copy_from._buffer, width * sizeof t);
 		_size = copy_from._size;
+	}
+
+	template<typename t, int width>
+	inline static_vector<t, width>::static_vector(static_vector<t, width>&& move_from) noexcept
+		: _buffer(std::exchange(move_from._buffer, nullptr))
+		, _size(std::exchange(move_from._size, 0))
+	{
+	}
+
+	template <typename t, int width>
+	static_vector<t, width>& static_vector<t, width>::operator=(static_vector<t, width>&& move_from)
+	{
+		_buffer = std::exchange(move_from._buffer, nullptr);
+		_size = std::exchange(move_from._size, 0);
+		return *this;
 	}
 
 	template<typename t, int width>

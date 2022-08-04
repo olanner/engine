@@ -71,7 +71,7 @@ private:
 	ImageAllocator&								theirImageAllocator;
 	RenderPassFactory&							theirRenderPassFactory;
 
-	neat::static_vector<QueueFamilyIndex, 8>	myOwners;
+	std::vector<QueueFamilyIndex>				myOwners;
 
 	Vec2f										myAttachmentRes{};
 

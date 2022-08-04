@@ -8,6 +8,7 @@
 namespace neat
 {
 	enum class ThreadID;
+	inline constexpr int MaxThreadID = 16;
 	class Thread
 	{
 		static std::atomic_int			ourThreadCount;

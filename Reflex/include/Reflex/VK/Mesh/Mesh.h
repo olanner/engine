@@ -3,13 +3,13 @@
 
 struct Mesh
 {
+	VkDescriptorBufferInfo vertexInfo;
+	VkDescriptorBufferInfo indexInfo;
 	VkBuffer vertexBuffer;
 	VkBuffer indexBuffer;
 	uint32_t numVertices;
 	uint32_t numIndices;
 };
-
-static_assert(sizeof(Mesh) < 64);
 
 void RecordMesh(
 		VkCommandBuffer& cmdBuffer,

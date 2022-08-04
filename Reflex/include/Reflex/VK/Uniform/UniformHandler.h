@@ -34,7 +34,7 @@ private:
 	VulkanFramework&							theirVulkanFramework;
 	BufferAllocator&							theirBufferAllocator;
 
-	neat::static_vector<QueueFamilyIndex, 16>	myOwners;
+	std::vector<QueueFamilyIndex>				myOwners;
 
 	std::array<VkBuffer, MaxNumUniforms>		myUniforms;
 	concurrency::concurrent_priority_queue<UniformID, std::greater<>>

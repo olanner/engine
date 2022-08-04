@@ -3,14 +3,6 @@
 
 #include "AllocatorBase.h"
 
-
-struct BufferAllotment
-{
-	char key[32];
-	uint32_t size;
-	VkDeviceMemory memory;
-};
-
 class BufferAllocator : public AllocatorBase
 {
 	friend class AccelerationStructureAllocator;
@@ -20,42 +12,39 @@ public:
 	~BufferAllocator();
 
 	std::tuple<VkResult, VkBuffer>					RequestVertexBuffer(
-														const struct Vertex3D*	firstVertex,
-														uint32_t				numVertices,
-														const QueueFamilyIndex* firstOwner,
-														uint32_t				numOwners);
+														AllocationSubmission&					allocSub,
+														const std::vector<struct Vertex3D>&		vertices, 
+														const std::vector<QueueFamilyIndex>&	owners);
 	std::tuple<VkResult, VkBuffer>					RequestVertexBuffer(
-														const struct Vertex2D*	firstVertex,
-														uint32_t				numVertices,
-														const QueueFamilyIndex* firstOwner,
-														uint32_t				numOwners);
+														AllocationSubmission&					allocSub,
+														const std::vector<struct Vertex2D>&		vertices,
+														const std::vector<QueueFamilyIndex>&	owners);
 	
 	std::tuple<VkResult, VkBuffer>					RequestIndexBuffer(
-														const uint32_t*			firstIndex,
-														uint32_t				numIndices,
-														const QueueFamilyIndex* firstOwner,
-														uint32_t				numOwners);
+														AllocationSubmission&					allocSub,
+														const std::vector<uint32_t>&			indices,
+														const std::vector<QueueFamilyIndex>&	owners);
 	std::tuple<VkResult, VkBuffer>					RequestUniformBuffer(
-														const void*				startData,
-														size_t					size,
-														const QueueFamilyIndex* firstOwner,
-														uint32_t				numOwners,
-														VkMemoryPropertyFlags	memPropFlags);
+														AllocationSubmission&					allocSub,
+														const void*								startData,
+														size_t									size,
+														const std::vector<QueueFamilyIndex>&	owners,
+														VkMemoryPropertyFlags					memPropFlags);
 
 	void											RequestBufferView(VkBuffer	buffer);
 
 	void											UpdateBufferData(
-														VkBuffer	buffer, 
-														const void* data);
+														VkBuffer				buffer, 
+														const void*				data);
 	[[nodiscard]] std::tuple<VkResult, VkBuffer, VkDeviceMemory>
 													CreateBuffer(
-														VkBufferUsageFlags		usage,
-														const void*				data,
-														size_t					size,
-														const QueueFamilyIndex* firstOwner,
-														uint32_t				numOwners,
-														VkMemoryPropertyFlags	memPropFlags,
-														bool					immediateTransfer = false);
+														AllocationSubmission&					allocSub,
+														VkBufferUsageFlags						usage,
+														const void*								data,
+														size_t									size,
+														const std::vector<QueueFamilyIndex>&	owners,
+														VkMemoryPropertyFlags					memPropFlags,
+														bool									immediateTransfer = false);
 
 private:
 	std::unordered_map<VkBuffer, VkDeviceMemory>	myAllocatedBuffers;

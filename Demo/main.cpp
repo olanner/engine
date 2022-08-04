@@ -75,11 +75,14 @@ public:
 		};
 		myMainFunc = [this]() -> void
 		{
-			auto boyHandle = rflx::CreateMesh("Assets/test_boy/test_boy.fbx");
+			myReflexInterface.BeginPush();
+			auto boyHandle = myReflexInterface.CreateMesh("Assets/test_boy/test_boy.fbx");
+			myReflexInterface.EndPush();
 			while (IsRunning())
 			{
 				InputHandler::BeginFrame();
-				Sleep(1000 / 60);
+				myReflexInterface.BeginPush();
+				Sleep(1000 / 120);
 				myTimer.Tick();
 				auto dt = myTimer.GetDeltaTime();
 
@@ -103,7 +106,16 @@ public:
 				myReflexInterface.SetView({ 0, y,0 }, { xRot, yRot }, distance);
 
 				myReflexInterface.PushRenderCommand(boyHandle);
+
+				auto fps = std::to_string(int(1.f / dt));
+				myReflexInterface.PushRenderCommand(
+					FontID(0),
+					fps.c_str(),
+					{ -.99, 1, 0 },
+					.08f,
+					{ 0,1,1,1 });
 				
+				myReflexInterface.EndPush();
 				InputHandler::EndFrame();
 			}
 		};
@@ -148,7 +160,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	std::vector<std::unique_ptr<neat::Thread>> threads;
 	threads.emplace_back(std::make_unique<RenderThread>(info));
-	//threads.emplace_back(std::make_unique<LogicThread>(threads.front()->GetNextSignal()));
+	threads.emplace_back(std::make_unique<LogicThread>(threads.front()->GetNextSignal()));
 	neat::MultiApplication app(
 		window, std::move(threads)
 	);

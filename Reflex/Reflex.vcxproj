@@ -108,6 +108,7 @@
     <ClInclude Include="include\Reflex\VK\Image\CubeHandle.h" />
     <ClInclude Include="include\Reflex\VK\Image\ImageHandle.h" />
     <ClInclude Include="include\Reflex\VK\Memory\Streamer.h" />
+    <ClInclude Include="include\Reflex\VK\Misc\HandlerBase.h" />
     <ClInclude Include="include\Reflex\VK\Pipelines\GenBlendStates.h" />
     <ClInclude Include="include\Reflex\VK\Pipelines\GenRasterStates.h" />
     <ClInclude Include="include\Reflex\VK\Pipelines\Pipeline.h" />
@@ -156,6 +157,7 @@
     <ClCompile Include="include\Reflex\VK\Image\CubeFilterer.cpp" />
     <ClCompile Include="include\Reflex\VK\Image\CubeHandle.cpp" />
     <ClCompile Include="include\Reflex\VK\Image\ImageHandle.cpp" />
+    <ClCompile Include="include\Reflex\VK\Misc\HandlerBase.cpp" />
     <ClCompile Include="include\Reflex\VK\Presenter\Presenter.cpp" />
     <ClCompile Include="include\Reflex\VK\Memory\AllocatorBase.cpp" />
     <ClCompile Include="include\Reflex\VK\Memory\BufferAllocator.cpp" />

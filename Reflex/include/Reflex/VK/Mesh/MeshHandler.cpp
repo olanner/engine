@@ -1,12 +1,7 @@
 #include "pch.h"
 #include "MeshHandler.h"
 
-#include <iosfwd>
-#include <iosfwd>
 #include <vector>
-#include <vector>
-#include <glm/detail/_noise.hpp>
-#include <glm/detail/_noise.hpp>
 
 #include "LoadMesh.h"
 #include "Reflex/VK/Memory/BufferAllocator.h"
@@ -14,6 +9,7 @@
 
 #include "HelperFuncs.h"
 #include "Reflex/VK/VulkanFramework.h"
+#include "Reflex/VK/Memory/ImageAllocator.h"
 
 MeshHandler::MeshHandler(
 	VulkanFramework& vulkanFramework,
@@ -21,7 +17,7 @@ MeshHandler::MeshHandler(
 	ImageHandler& textureSetHandler,
 	const QueueFamilyIndex* firstOwner,
 	uint32_t				numOwners)
-	: theirVulkanFramework(vulkanFramework)
+	: HandlerBase(vulkanFramework)
 	, theirBufferAllocator(bufferAllocator)
 	, theirImageHandler(textureSetHandler)
 	, myMeshIDKeeper(MaxNumMeshesLoaded)
@@ -33,7 +29,7 @@ MeshHandler::MeshHandler(
 
 	VkDescriptorPoolSize poolSize;
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSize.descriptorCount = MaxNumMeshesLoaded; // Index + Vertex
+	poolSize.descriptorCount = MaxNumMeshesLoaded * 2 * NumSwapchainImages; // Index + Vertex
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -42,7 +38,7 @@ MeshHandler::MeshHandler(
 
 	poolInfo.poolSizeCount = 1;
 	poolInfo.pPoolSizes = &poolSize;
-	poolInfo.maxSets = 1;
+	poolInfo.maxSets = NumSwapchainImages;
 
 	auto failure = vkCreateDescriptorPool(theirVulkanFramework.GetDevice(), &poolInfo, nullptr, &myDescriptorPool);
 	assert(!failure && "failed creating desc pool");
@@ -96,18 +92,24 @@ MeshHandler::MeshHandler(
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = &myMeshDataLayout;
 
-	failure = vkAllocateDescriptorSets(theirVulkanFramework.GetDevice(), &allocInfo, &myMeshDataSet);
-	assert(!failure && "failed allocating mesh data set");
+	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+	{
+		failure = vkAllocateDescriptorSets(theirVulkanFramework.GetDevice(), &allocInfo, &myMeshDataSets[swapchainIndex]);
+		assert(!failure && "failed allocating mesh data set");
+	}
 
 	// FILL DEFAULT MESH DATA
 	Vertex3D vertex{};
 	uint32_t index = 0;
 
+	AllocationSubmission allocSub = theirImageHandler.GetImageAllocator().Start();
 	VkBuffer vBuffer, iBuffer;
-	std::tie(failure, vBuffer) = theirBufferAllocator.RequestVertexBuffer(&vertex, 1, myOwners.data(), myOwners.size());
+	std::tie(failure, vBuffer) = theirBufferAllocator.RequestVertexBuffer(allocSub, { vertex }, myOwners);
 	assert(!failure && "failed allocating default vertex buffer");
-	std::tie(failure, iBuffer) = theirBufferAllocator.RequestIndexBuffer(&index, 1, myOwners.data(), myOwners.size());
+	std::tie(failure, iBuffer) = theirBufferAllocator.RequestIndexBuffer(allocSub, { index }, myOwners);
 	assert(!failure && "failed allocating default index buffer");
+	
+	
 	for (uint32_t i = 0; i < MaxNumMeshesLoaded; ++i)
 	{
 		VkWriteDescriptorSet vWrite{};
@@ -118,7 +120,6 @@ MeshHandler::MeshHandler(
 		vWrite.descriptorCount = 1;
 		vWrite.dstArrayElement = i;
 		vWrite.dstBinding = 0;
-		vWrite.dstSet = myMeshDataSet;
 
 		VkDescriptorBufferInfo vBuffInfo{};
 		vBuffInfo.buffer = vBuffer;
@@ -126,7 +127,11 @@ MeshHandler::MeshHandler(
 		vBuffInfo.range = VK_WHOLE_SIZE;
 		vWrite.pBufferInfo = &vBuffInfo;
 
-		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &vWrite, 0, nullptr);
+		for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+		{
+			vWrite.dstSet = myMeshDataSets[swapchainIndex];
+			vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &vWrite, 0, nullptr);
+		}
 
 		VkWriteDescriptorSet iWrite{};
 		iWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -136,7 +141,6 @@ MeshHandler::MeshHandler(
 		iWrite.descriptorCount = 1;
 		iWrite.dstArrayElement = i;
 		iWrite.dstBinding = 1;
-		iWrite.dstSet = myMeshDataSet;
 
 		VkDescriptorBufferInfo iBuffInfo{};
 		iBuffInfo.buffer = iBuffer;
@@ -144,7 +148,11 @@ MeshHandler::MeshHandler(
 		iBuffInfo.range = VK_WHOLE_SIZE;
 		iWrite.pBufferInfo = &iBuffInfo;
 
-		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &iWrite, 0, nullptr);
+		for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+		{
+			iWrite.dstSet = myMeshDataSets[swapchainIndex];
+			vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &iWrite, 0, nullptr);
+		}
 	}
 
 	{
@@ -167,7 +175,7 @@ MeshHandler::MeshHandler(
 		std::vector<uint8_t> albedoData;
 		albedoData.resize(64 * 64 * 4);
 		memcpy(albedoData.data(), albedoPixels.data(), albedoData.size());
-		myMissingAlbedoID = theirImageHandler.AddImage2D(std::move(albedoData), { 64, 64 });
+		myMissingAlbedoID = theirImageHandler.AddImage2D(allocSub, std::move(albedoData), { 64, 64 });
 	}
 	{
 		std::vector<PixelValue> materialPixels;
@@ -175,7 +183,7 @@ MeshHandler::MeshHandler(
 		std::vector<uint8_t> materialData;
 		materialData.resize(2 * 2 * 4);
 		memcpy(materialData.data(), materialPixels.data(), materialData.size());
-		myMissingMaterialID = theirImageHandler.AddImage2D(std::move(materialData), { 2, 2 });
+		myMissingMaterialID = theirImageHandler.AddImage2D(allocSub, std::move(materialData), { 2, 2 });
 	}
 	{
 		std::vector<PixelValue> normalPixels;
@@ -183,8 +191,10 @@ MeshHandler::MeshHandler(
 		std::vector<uint8_t> normalData;
 		normalData.resize(2 * 2 * 4);
 		memcpy(normalData.data(), normalPixels.data(), normalData.size());
-		myMissingNormalID = theirImageHandler.AddImage2D(std::move(normalData), { 2, 2 }, VK_FORMAT_R8G8B8A8_UNORM);
+		myMissingNormalID = theirImageHandler.AddImage2D(allocSub, std::move(normalData), { 2, 2 }, VK_FORMAT_R8G8B8A8_UNORM);
 	}
+	
+	theirImageHandler.GetImageAllocator().Queue(std::move(allocSub));
 }
 
 MeshHandler::~MeshHandler()
@@ -199,8 +209,9 @@ MeshHandler::GetImageArraySetLayout() const
 
 MeshID
 MeshHandler::AddMesh(
-	const char* path,
-	std::vector<ImageID>&& imageIDs)
+	class AllocationSubmission& allocSub,
+	const char*					path, 
+	std::vector<ImageID>&&		imageIDs)
 {
 	MeshID meshID = myMeshIDKeeper.FetchFreeID();
 	if (BAD_ID(meshID))
@@ -208,12 +219,14 @@ MeshHandler::AddMesh(
 		LOG("no more free mesh slots");
 		return MeshID(INVALID_ID);
 	}
+	myMeshes[uint32_t(meshID)] = {};
+	
 	std::vector<Vec4f> imgIDs;
 	if (imageIDs.empty())
 	{
 		// IMAGE ALLOC
 		rapidjson::Document doc = OpenJsonDoc(std::filesystem::path(path).replace_extension("mx").string().c_str());
-		imgIDs = LoadImagesFromDoc(doc);
+		imgIDs = LoadImagesFromDoc(doc, allocSub);
 	}
 	else
 	{
@@ -237,15 +250,15 @@ MeshHandler::AddMesh(
 		v.texIDs.w = BAD_ID(texIDs.w) ? 0 : texIDs.w;
 	}*/
 
-	auto [resultV, vBuffer] = theirBufferAllocator.RequestVertexBuffer(raw.vertices.data(),
-		uint32_t(raw.vertices.size()),
-		myOwners.data(),
-		myOwners.size()
+	auto [resultV, vBuffer] = theirBufferAllocator.RequestVertexBuffer(
+		allocSub,
+		raw.vertices,
+		myOwners
 	);
-	auto [resultI, iBuffer] = theirBufferAllocator.RequestIndexBuffer(raw.indices.data(),
-		uint32_t(raw.indices.size()),
-		myOwners.data(),
-		myOwners.size()
+	auto [resultI, iBuffer] = theirBufferAllocator.RequestIndexBuffer(
+		allocSub,
+		raw.indices,
+		myOwners
 	);
 	if (resultV || resultI)
 	{
@@ -259,7 +272,7 @@ MeshHandler::AddMesh(
 	myMeshes[int(meshID)].numIndices = uint32_t(raw.indices.size());
 
 	// DESCRIPTOR WRITE
-	WriteMeshDescriptorData(meshID);
+	WriteMeshDescriptorData(meshID, allocSub);
 
 	return meshID;
 }
@@ -278,24 +291,24 @@ MeshHandler::GetMeshDataLayout()
 
 void
 MeshHandler::BindMeshData(
+	int					swapchainIndex,
 	VkCommandBuffer		cmdBuffer,
 	VkPipelineLayout	layout,
-	uint32_t			setIndex,
-	VkPipelineBindPoint bindPoint)
+	uint32_t			setIndex, VkPipelineBindPoint bindPoint)
 {
 	vkCmdBindDescriptorSets(cmdBuffer,
 		bindPoint,
 		layout,
 		setIndex,
 		1,
-		&myMeshDataSet,
+		&myMeshDataSets[swapchainIndex],
 		0,
 		nullptr);
 }
 
 std::vector<Vec4f>
 MeshHandler::LoadImagesFromDoc(
-	const rapidjson::Document& doc) const
+	const rapidjson::Document& doc, AllocationSubmission& allocSub) const
 {
 	std::vector<Vec4f> imgIDs;
 
@@ -317,7 +330,7 @@ MeshHandler::LoadImagesFromDoc(
 				else if (member.IsString())
 				{
 					const std::string& path = member.GetString();
-					const ImageID imgID = theirImageHandler.AddImage2D(path.c_str());
+					const ImageID imgID = theirImageHandler.AddImage2D(allocSub, path.c_str());
 					imgIDs[meshIndex].x = BAD_ID(imgID) ? float(myMissingAlbedoID) : float(imgID);
 				}
 			}
@@ -341,7 +354,7 @@ MeshHandler::LoadImagesFromDoc(
 				else if (member.IsString())
 				{
 					const std::string& path = member.GetString();
-					const ImageID imgID = theirImageHandler.AddImage2D(path.c_str());
+					const ImageID imgID = theirImageHandler.AddImage2D(allocSub, path.c_str());
 					imgIDs[meshIndex].y = BAD_ID(imgID) ? float(myMissingMaterialID) : float(imgID);
 				}
 			}
@@ -365,7 +378,7 @@ MeshHandler::LoadImagesFromDoc(
 				else if (member.IsString())
 				{
 					const std::string& path = member.GetString();
-					const ImageID imgID = theirImageHandler.AddImage2D(path.c_str());
+					const ImageID imgID = theirImageHandler.AddImage2D(allocSub, path.c_str());
 					imgIDs[meshIndex].z = BAD_ID(imgID) ? float(myMissingNormalID) : float(imgID);
 				}
 			}
@@ -376,44 +389,43 @@ MeshHandler::LoadImagesFromDoc(
 }
 
 void
-MeshHandler::WriteMeshDescriptorData(MeshID meshID)
+MeshHandler::WriteMeshDescriptorData(
+	MeshID meshID, 
+	AllocationSubmission& allocSub)
 {
-	auto [vBuffer, iBuffer] = std::tuple<VkBuffer, VkBuffer>{ myMeshes[int(meshID)].vertexBuffer,myMeshes[int(meshID)].indexBuffer };
+	{
+		auto [vBuffer, iBuffer] = std::tuple{ myMeshes[int(meshID)].vertexBuffer,myMeshes[int(meshID)].indexBuffer };
+		myMeshes[uint32_t(meshID)].vertexInfo.buffer = vBuffer;
+		myMeshes[uint32_t(meshID)].vertexInfo.range = VK_WHOLE_SIZE;
+		myMeshes[uint32_t(meshID)].indexInfo.buffer = iBuffer;
+		myMeshes[uint32_t(meshID)].indexInfo.range = VK_WHOLE_SIZE;
 
+		auto executedEvent = allocSub.GetExecutedEvent();
+		for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+		{
+			VkWriteDescriptorSet write = {};
+			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			write.descriptorCount = 1;
+			write.dstArrayElement = uint32_t(meshID);
+			write.dstBinding = 0;
+			write.pBufferInfo = &myMeshes[uint32_t(meshID)].vertexInfo;
+			write.dstSet = myMeshDataSets[swapchainIndex];
 
-	VkWriteDescriptorSet vWrite{};
-	vWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	vWrite.pNext = nullptr;
+			myQueuedDescriptorWrites[swapchainIndex].push({executedEvent, write});
+		}
+		for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+		{
+			VkWriteDescriptorSet write = {};
+			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			write.descriptorCount = 1;
+			write.dstArrayElement = uint32_t(meshID);
+			write.dstBinding = 1;
+			write.pBufferInfo = &myMeshes[uint32_t(meshID)].indexInfo;
+			write.dstSet = myMeshDataSets[swapchainIndex];
 
-	vWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	vWrite.descriptorCount = 1;
-	vWrite.dstArrayElement = uint32_t(meshID);
-	vWrite.dstBinding = 0;
-	vWrite.dstSet = myMeshDataSet;
-
-	VkDescriptorBufferInfo vBuffInfo{};
-	vBuffInfo.buffer = vBuffer;
-	vBuffInfo.offset = 0;
-	vBuffInfo.range = VK_WHOLE_SIZE;
-	vWrite.pBufferInfo = &vBuffInfo;
-
-	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &vWrite, 0, nullptr);
-
-	VkWriteDescriptorSet iWrite{};
-	iWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	iWrite.pNext = nullptr;
-
-	iWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	iWrite.descriptorCount = 1;
-	iWrite.dstArrayElement = uint32_t(meshID);
-	iWrite.dstBinding = 1;
-	iWrite.dstSet = myMeshDataSet;
-
-	VkDescriptorBufferInfo iBuffInfo{};
-	iBuffInfo.buffer = iBuffer;
-	iBuffInfo.offset = 0;
-	iBuffInfo.range = VK_WHOLE_SIZE;
-	iWrite.pBufferInfo = &iBuffInfo;
-
-	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &iWrite, 0, nullptr);
+			myQueuedDescriptorWrites[swapchainIndex].push({executedEvent, write});
+		}
+	}
 }

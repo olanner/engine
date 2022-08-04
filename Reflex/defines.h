@@ -8,7 +8,9 @@
 #define SAFE_DELETE_ARRAY(ptr) delete[] ptr; ptr = nullptr
 
 #define kB(num) num * 1024
-//#define nodiscard [[nodiscard]]
+#define mB(num) num * 1024 * 1024
+#define gB(num) num * 1024 * 1024 * 1024
+#define _nodiscard [[nodiscard]]
 
 #define NUM_MIPS( imgRes ) 1 + std::log2( imgRes )
 

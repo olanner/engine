@@ -6,35 +6,15 @@
 
 AllocatorBase::AllocatorBase(
 	VulkanFramework&			vulkanFramework,
+	AllocationSubmitter&		allocationSubmitter,
 	class ImmediateTransferrer& immediateTransferrer,
 	QueueFamilyIndex			transferFamilyIndex)
 	: theirVulkanFramework(vulkanFramework)
+	, theirAllocationSubmitter(allocationSubmitter)
 	, theirImmediateTransferrer(immediateTransferrer)
+	, myTransferFamily(transferFamilyIndex)
 {
-	// INTI TRANSFER BUFFERS
-	auto [result0, buffer0] = vulkanFramework.RequestCommandBuffer(transferFamilyIndex);
-	auto [result1, buffer1] = vulkanFramework.RequestCommandBuffer(transferFamilyIndex);
-	assert(!(result0 | result1) && "failed to create transfer buffers!");
-	myTransferBuffers[0] = buffer0;
-	myTransferBuffers[1] = buffer1;
 
-	VkFenceCreateInfo fenceInfo;
-	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceInfo.pNext = nullptr;
-	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-	auto resultFence0 = vkCreateFence(vulkanFramework.GetDevice(), &fenceInfo, nullptr, &myTransferFences[0]);
-	auto resultFence1 = vkCreateFence(vulkanFramework.GetDevice(), &fenceInfo, nullptr, &myTransferFences[1]);
-	assert(!(resultFence0 | resultFence1) && "failed to crete fences");
-
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.pNext = nullptr;
-	beginInfo.flags = NULL;
-	beginInfo.pInheritanceInfo = nullptr;
-
-	auto resultBegin = vkBeginCommandBuffer(myTransferBuffers[myTransferIndex], &beginInfo);
-	assert(!resultBegin && "failed to start recording");
 
 	// ENUMERATE PHYSICAL DEVICE MEMORY
 	myPhysicalDeviceMemProperties = theirVulkanFramework.GetPhysicalDeviceMemProps();
@@ -55,55 +35,127 @@ AllocatorBase::AllocatorBase(
 
 AllocatorBase::~AllocatorBase()
 {
-	vkDestroyFence(theirVulkanFramework.GetDevice(), myTransferFences[0], nullptr);
-	vkDestroyFence(theirVulkanFramework.GetDevice(), myTransferFences[1], nullptr);
-	for (auto& [buffer, mem] : myStagingBuffers[0])
+}
+
+AllocationSubmission
+AllocatorBase::Start() const
+{
+	return theirAllocationSubmitter.StartAllocSubmission();
+}
+
+AllocationSubmission
+AllocatorBase::Start(
+	neat::ThreadID threadID) const
+{
+	return theirAllocationSubmitter.StartAllocSubmission(threadID);
+}
+
+void
+AllocatorBase::Queue(
+	AllocationSubmission&& allocationSubmission) const
+{
+	return theirAllocationSubmitter.QueueAllocSubmission(std::move(allocationSubmission));
+}
+
+std::optional<AllocationSubmission>
+AllocationSubmitter::AcquireNextAllocSubmission()
+{
+	if (AllocationSubmission allocSub; myQueuedSubmissions.try_pop(allocSub))
 	{
-		vkDestroyBuffer(theirVulkanFramework.GetDevice(), buffer, nullptr);
-		vkFreeMemory(theirVulkanFramework.GetDevice(), mem, nullptr);
+		return std::optional(std::move(allocSub));
 	}
-	for (auto& [buffer, mem] : myStagingBuffers[1])
+	return std::nullopt;
+}
+
+void
+AllocationSubmitter::QueueRelease(
+	AllocationSubmission&& allocationSubmission)
+{
+	myQueuedReleases.push(std::move(allocationSubmission));
+}
+
+void AllocationSubmitter::TryReleasing()
+{
+	AllocationSubmission allocSub;
+	int count = 0;
+	constexpr int cMaxRelease = 32;
+	while (myQueuedReleases.try_pop(allocSub)
+		&& count++ < cMaxRelease)
 	{
-		vkDestroyBuffer(theirVulkanFramework.GetDevice(), buffer, nullptr);
-		vkFreeMemory(theirVulkanFramework.GetDevice(), mem, nullptr);
+		if (!allocSub.Release())
+		{
+			myQueuedReleases.push(std::move(allocSub));
+		}
 	}
 }
 
-std::tuple<VkCommandBuffer, VkFence>
-AllocatorBase::AcquireNextTransferBuffer()
+AllocationSubmission
+AllocationSubmitter::StartAllocSubmission() const
 {
-	std::scoped_lock<std::mutex> lock(myTransferMutex);
+	AllocationSubmission sub;
+	sub.Start(theirVulkanFramework.GetDevice(), myCommandPool);
+	return sub;
+}
 
-	auto result = vkEndCommandBuffer(myTransferBuffers[myTransferIndex]);
-	assert(!result);
-
-	// BEGIN RECORDING NEXT TRANSFER BUFFER
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.pNext = nullptr;
-	beginInfo.flags = NULL;
-	beginInfo.pInheritanceInfo = nullptr;
-
-	while (auto stat = vkGetFenceStatus(theirVulkanFramework.GetDevice(), myTransferFences[!myTransferIndex]))
+AllocationSubmission
+AllocationSubmitter::StartAllocSubmission(
+	neat::ThreadID threadID)
+{
+	if (myThreadCommandPools.find(threadID) == myThreadCommandPools.cend())
 	{
+		RegisterThread(threadID);
+		LOG("start called from unregistered thread!");
 	}
-	result = vkBeginCommandBuffer(myTransferBuffers[!myTransferIndex], &beginInfo);
-	assert(!result);
+	const auto cmdPool = myThreadCommandPools[threadID];
+	AllocationSubmission sub;
+	sub.Start(theirVulkanFramework.GetDevice(), cmdPool);
+	return sub;
+}
 
-	// REMOVE OLD STAGING BUFFERS
-	for (auto& [buffer, mem] : myStagingBuffers[!myTransferIndex])
-	{
-		vkDestroyBuffer(theirVulkanFramework.GetDevice(), buffer, nullptr);
-		vkFreeMemory(theirVulkanFramework.GetDevice(), mem, nullptr);
-	}
-	myStagingBuffers[!myTransferIndex].clear();
+void
+AllocationSubmitter::QueueAllocSubmission(
+	AllocationSubmission&& allocationSubmission)
+{
+	allocationSubmission.End();
+	myQueuedSubmissions.push(std::move(allocationSubmission));
+}
 
-	// WAIT, SWAP AND RETURN
-	while (vkGetFenceStatus(theirVulkanFramework.GetDevice(), myTransferFences[myTransferIndex]))
+AllocationSubmitter::AllocationSubmitter(
+	VulkanFramework& vulkanFramework, 
+	QueueFamilyIndex transferFamilyIndex)
+	: theirVulkanFramework(vulkanFramework)
+	, myTransferFamily(transferFamilyIndex)
+{
+	// COMMAND POOL
+	VkCommandPoolCreateInfo cmdPoolInfo{};
+	cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	cmdPoolInfo.queueFamilyIndex = myTransferFamily;
+
+	auto result = vkCreateCommandPool(theirVulkanFramework.GetDevice(), &cmdPoolInfo, nullptr, &myCommandPool);
+	assert(!result && "failed creating command pool");
+}
+
+AllocationSubmitter::~AllocationSubmitter()
+{
+	for (auto& [threadID, pool] : myThreadCommandPools)
 	{
+		vkDestroyCommandPool(theirVulkanFramework.GetDevice(), pool, nullptr);
 	}
-	myTransferIndex = !myTransferIndex;
-	return {myTransferBuffers[!myTransferIndex], myTransferFences[!myTransferIndex]};
+}
+
+void AllocationSubmitter::RegisterThread(neat::ThreadID threadID)
+{
+	// COMMAND POOL
+	VkCommandPoolCreateInfo cmdPoolInfo{};
+	cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	cmdPoolInfo.queueFamilyIndex = myTransferFamily;
+
+	VkCommandPool pool;
+	auto resultPool = vkCreateCommandPool(theirVulkanFramework.GetDevice(), &cmdPoolInfo, nullptr, &pool);
+	if (!resultPool)
+	{
+		myThreadCommandPools.insert({threadID, pool});
+	}
 }
 
 bool
@@ -171,9 +223,7 @@ AllocatorBase::GetMemReq(
 	return {memReq, chosenIndex};
 }
 
-
-
-std::tuple<VkResult, VkBuffer, VkDeviceMemory>
+std::tuple<VkResult, StagingBuffer>
 AllocatorBase::CreateStagingBuffer(
 	const void*				data,
 	size_t					size,
@@ -212,7 +262,7 @@ AllocatorBase::CreateStagingBuffer(
 	if (resultBuffer)
 	{
 		LOG("failed to create buffer");
-		return {resultBuffer, buffer, memory};
+		return {resultBuffer, {buffer, memory}};
 	}
 
 	DebugSetObjectName("Staging Buffer", buffer, VK_OBJECT_TYPE_BUFFER, theirVulkanFramework.GetDevice());
@@ -222,7 +272,7 @@ AllocatorBase::CreateStagingBuffer(
 	if (memTypeIndex == UINT_MAX)
 	{
 		LOG("no appropriate memory type found");
-		return {VK_ERROR_FEATURE_NOT_PRESENT, buffer, memory};
+		return {VK_ERROR_FEATURE_NOT_PRESENT, {buffer, memory}};
 	}
 
 	VkMemoryAllocateInfo allocInfo;
@@ -236,7 +286,7 @@ AllocatorBase::CreateStagingBuffer(
 	if (resultAlloc)
 	{
 		LOG("failed allocating memory");
-		return {resultAlloc, buffer, memory};
+		return {resultAlloc, {buffer, memory}};
 	}
 
 	// MEM BIND
@@ -244,7 +294,7 @@ AllocatorBase::CreateStagingBuffer(
 	if (resultBind)
 	{
 		LOG("failed to bind memory");
-		return {resultBind, buffer, memory};
+		return {resultBind, {buffer, memory}};
 	}
 
 	// MEM MAP
@@ -255,7 +305,145 @@ AllocatorBase::CreateStagingBuffer(
 
 	if (!forImmediateUse)
 	{
-		myStagingBuffers[myTransferIndex].emplace_back(buffer, memory);
+		//myStagingBuffers[myTransferIndex].emplace_back(buffer, memory);
 	}
-	return {VK_SUCCESS, buffer, memory};
+	return {VK_SUCCESS, {buffer, memory}};
+}
+
+void
+AllocationSubmission::Start(
+	VkDevice		device,
+	VkCommandPool	cmdPool)
+{
+	assert(myStatus == Status::Fresh);
+	myDevice = device;
+	myCommandPool = cmdPool;
+	
+	VkCommandBufferAllocateInfo cmdBufferAlloc{};
+	cmdBufferAlloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	cmdBufferAlloc.commandBufferCount = 1;
+	cmdBufferAlloc.commandPool = myCommandPool;
+	cmdBufferAlloc.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+
+	auto result = vkAllocateCommandBuffers(myDevice, &cmdBufferAlloc, &myCommandBuffer);
+
+	VkCommandBufferInheritanceInfo inheritInfo = {};
+	inheritInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.pInheritanceInfo = &inheritInfo;
+	vkBeginCommandBuffer(myCommandBuffer, &beginInfo);
+
+	VkEventCreateInfo eventInfo{};
+	eventInfo.sType = VK_STRUCTURE_TYPE_EVENT_CREATE_INFO;
+
+	myExecutedEvent = std::make_shared<VkEvent>();
+	result = vkCreateEvent(myDevice, &eventInfo, nullptr, &*myExecutedEvent);
+
+	myStatus = Status::Recording;
+}
+
+void
+AllocationSubmission::End()
+{
+	assert(myStatus == Status::Recording);
+	vkEndCommandBuffer(myCommandBuffer);
+	myStatus = Status::PendingSubmit;
+}
+
+AllocationSubmission::AllocationSubmission(
+	AllocationSubmission&& moveFrom) noexcept
+	: myStatus(std::exchange(moveFrom.myStatus, Status::Fresh))
+	, myDevice(std::exchange(moveFrom.myDevice, nullptr))
+	, myCommandPool(std::exchange(moveFrom.myCommandPool, nullptr))
+	, myCommandBuffer(std::exchange(moveFrom.myCommandBuffer, nullptr))
+	, myExecutedFence(std::exchange(moveFrom.myExecutedFence, nullptr))
+	, myExecutedEvent(std::move(moveFrom.myExecutedEvent))
+	, myStagingBuffers(std::move(moveFrom.myStagingBuffers))
+{
+
+}
+
+AllocationSubmission& 
+AllocationSubmission::operator=(
+	AllocationSubmission&& moveFrom) noexcept
+{
+	myStatus = std::exchange(moveFrom.myStatus, Status::Fresh);
+	myDevice = std::exchange(moveFrom.myDevice, nullptr);
+	myCommandPool = std::exchange(moveFrom.myCommandPool, nullptr);
+	myCommandBuffer = std::exchange(moveFrom.myCommandBuffer, nullptr);
+	myExecutedFence = std::exchange(moveFrom.myExecutedFence, nullptr);
+	myExecutedEvent = std::move(moveFrom.myExecutedEvent);
+	myStagingBuffers = std::move(moveFrom.myStagingBuffers);
+
+	return *this;
+}
+
+void
+AllocationSubmission::AddStagingBuffer(
+	StagingBuffer&& stagingBuffer)
+{
+	assert(myStatus == Status::Recording);
+	myStagingBuffers.emplace_back(std::move(stagingBuffer));
+}
+
+VkCommandBuffer
+AllocationSubmission::Record() const
+{
+	assert(myStatus == Status::Recording);
+	//assert(myCommandBuffer != nullptr && myExecutedEvent != nullptr && "Start() not called on allocation submission");
+	return myCommandBuffer;
+}
+
+std::tuple<VkCommandBuffer, VkEvent>
+AllocationSubmission::Submit(VkFence fence)
+{
+	assert(myStatus == Status::PendingSubmit);
+	//assert(myCommandBuffer != nullptr && myExecutedEvent != nullptr && "Start() not called on allocation submission");
+	myStatus = Status::PendingRelease;
+	myExecutedFence = fence;
+	return {myCommandBuffer, *myExecutedEvent};
+}
+
+bool
+AllocationSubmission::Release()
+{
+	assert(myCommandBuffer != nullptr && myExecutedEvent != nullptr && "Start() not called on allocation submission");
+	assert(myExecutedFence != nullptr && "Submit() not called on allocation submission");
+	assert(myStatus == Status::PendingRelease);
+	
+	if (vkGetEventStatus(myDevice, *myExecutedEvent) != VK_EVENT_SET)
+	{
+		return false;
+	}
+	
+	while (vkGetFenceStatus(myDevice, myExecutedFence))
+	{
+	}
+
+	for (auto& stagingBuffer : myStagingBuffers)
+	{
+		vkDestroyBuffer(myDevice, stagingBuffer.buffer, nullptr);
+		vkFreeMemory(myDevice, stagingBuffer.memory, nullptr);
+	}
+	myStagingBuffers.resize(myStagingBuffers.size(), StagingBuffer{nullptr, nullptr});
+	myStagingBuffers.clear();
+
+	vkFreeCommandBuffers(myDevice, myCommandPool, 1, &myCommandBuffer);
+	myCommandBuffer = nullptr;
+	myExecutedFence = nullptr;
+	vkDestroyEvent(myDevice, *myExecutedEvent, nullptr);
+	*myExecutedEvent = nullptr;
+	myExecutedEvent = nullptr;
+	
+	myCommandPool = nullptr;
+	return true;
+}
+
+std::shared_ptr<VkEvent>
+AllocationSubmission::GetExecutedEvent() const
+{
+	assert(myStatus == Status::Recording);
+	assert(myCommandBuffer != nullptr && myExecutedEvent != nullptr && "Start() not called on allocation submission");
+	return myExecutedEvent;
 }

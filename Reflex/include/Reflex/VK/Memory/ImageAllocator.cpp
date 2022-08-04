@@ -30,17 +30,10 @@ ImageAllocator::~ImageAllocator()
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImage2D(
+	AllocationSubmission& allocSub,
 	const uint8_t*			initialData,
-	size_t					initialDataNumBytes,
-	uint32_t				width,
-	uint32_t				height,
-	uint32_t				numMips,
-	const QueueFamilyIndex* firstOwner,
-	uint32_t				numOwners,
-	VkFormat				format,
-	VkImageLayout			targetLayout,
-	VkImageUsageFlags		usage,
-	VkPipelineStageFlags	targetPipelineStage)
+	size_t					initialDataNumBytes, 
+	const ImageRequestInfo& requestInfo)
 {
 	VkImage image{};
 	VkImageView view{};
@@ -55,27 +48,28 @@ ImageAllocator::RequestImage2D(
 	imageInfo.flags = NULL;
 
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.format = format;
-	imageInfo.extent.width = width;
-	imageInfo.extent.height = height;
+	imageInfo.format = requestInfo.format;
+	imageInfo.extent.width = requestInfo.width;
+	imageInfo.extent.height = requestInfo.height;
 	imageInfo.extent.depth = 1;
-	imageInfo.mipLevels = numMips;
+	imageInfo.mipLevels = requestInfo.mips;
 	imageInfo.arrayLayers = 1;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | usage;
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | requestInfo.usage;
 
-	if (IsExclusive(firstOwner, numOwners))
+	auto& owners = requestInfo.owners;
+	if (IsExclusive(owners.data(), owners.size()))
 	{
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		imageInfo.pQueueFamilyIndices = firstOwner;
+		imageInfo.pQueueFamilyIndices = owners.data();
 		imageInfo.queueFamilyIndexCount = 1;
 	}
 	else
 	{
 		imageInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
-		imageInfo.pQueueFamilyIndices = firstOwner;
-		imageInfo.queueFamilyIndexCount = numOwners;
+		imageInfo.pQueueFamilyIndices = owners.data();
+		imageInfo.queueFamilyIndexCount = owners.size();
 	}
 
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -113,16 +107,18 @@ ImageAllocator::RequestImage2D(
 	vkBindImageMemory(theirVulkanFramework.GetDevice(), image, memory, 0);
 
 	// FIRST IMAGE ALLOC
-
+	auto cmdBuffer = allocSub.Record();
 	if (initialData)
 	{
-		RecordImageAlloc(image, width, height, 0, initialData, initialDataNumBytes, firstOwner, numOwners);
-		RecordBlit(image, width, height, numMips, 0);
-		RecordImageTransition(image, numMips, 1, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, targetLayout, targetPipelineStage);
+		StagingBuffer stagingBuffer;
+		RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, 0, initialData, initialDataNumBytes,owners.data(), owners.size());
+		RecordBlit(cmdBuffer, image, requestInfo.width, requestInfo.height, requestInfo.mips, 0);
+		RecordImageTransition(cmdBuffer, image, requestInfo.mips, 1, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, requestInfo.layout, requestInfo.targetPipelineStage);
+		allocSub.AddStagingBuffer(std::move(stagingBuffer));
 	}
 	else
 	{
-		RecordImageTransition(image, numMips, 1, VK_IMAGE_LAYOUT_UNDEFINED, targetLayout, targetPipelineStage);
+		RecordImageTransition(cmdBuffer, image, requestInfo.mips, 1, VK_IMAGE_LAYOUT_UNDEFINED, requestInfo.layout, requestInfo.targetPipelineStage);
 	}
 
 	// TRANSFER TO TARGET LAYOUT
@@ -137,14 +133,14 @@ ImageAllocator::RequestImage2D(
 
 	viewInfo.image = image;
 	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	viewInfo.format = format;
+	viewInfo.format = requestInfo.format;
 	viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
 	viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
 	viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
 	viewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
-	viewInfo.subresourceRange.aspectMask = EvaluateImageAspect(targetLayout);
+	viewInfo.subresourceRange.aspectMask = EvaluateImageAspect(requestInfo.layout);
 	viewInfo.subresourceRange.baseMipLevel = 0;
-	viewInfo.subresourceRange.levelCount = numMips;
+	viewInfo.subresourceRange.levelCount = requestInfo.mips;
 	viewInfo.subresourceRange.baseArrayLayer = 0;
 	viewInfo.subresourceRange.layerCount = 1;
 
@@ -163,23 +159,16 @@ ImageAllocator::RequestImage2D(
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImageCube(
+	AllocationSubmission&	allocSub,
 	std::vector<uint8_t>	initialData,
-	size_t					inititalDataBytesPerLayer,
-	uint32_t				width,
-	uint32_t				height,
-	uint32_t				numMips,
-	const QueueFamilyIndex*	firstOwner,
-	uint32_t				numOwners,
-	VkFormat				format,
-	VkImageLayout			targetLayout,
-	VkImageUsageFlags		usage,
-	VkPipelineStageFlags	targetPipelineStage)
+	size_t					initialDataBytesPerLayer, 
+	const ImageRequestInfo& requestInfo)
 {
 	VkImage image{};
 	VkImageView view{};
 	VkDeviceMemory memory{};
 
-	assert((initialData.size() / 6 == inititalDataBytesPerLayer) && "invalid operation : requesting image with valid data with invalid number of bytes");
+	assert((initialData.size() / 6 == initialDataBytesPerLayer) && "invalid operation : requesting image with valid data with invalid number of bytes");
 
 	// IMAGE
 	VkImageCreateInfo imageInfo{};
@@ -188,27 +177,28 @@ ImageAllocator::RequestImageCube(
 	imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.format = format;
-	imageInfo.extent.width = width;
-	imageInfo.extent.height = height;
+	imageInfo.format = requestInfo.format;
+	imageInfo.extent.width = requestInfo.width;
+	imageInfo.extent.height = requestInfo.height;
 	imageInfo.extent.depth = 1;
-	imageInfo.mipLevels = numMips;
+	imageInfo.mipLevels = requestInfo.mips;
 	imageInfo.arrayLayers = 6;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | usage;
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | requestInfo.usage;
 
-	if (IsExclusive(firstOwner, numOwners))
+	auto& owners = requestInfo.owners;
+	if (IsExclusive(owners.data(), owners.size()))
 	{
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		imageInfo.pQueueFamilyIndices = firstOwner;
+		imageInfo.pQueueFamilyIndices = owners.data();
 		imageInfo.queueFamilyIndexCount = 1;
 	}
 	else
 	{
 		imageInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
-		imageInfo.pQueueFamilyIndices = firstOwner;
-		imageInfo.queueFamilyIndexCount = numOwners;
+		imageInfo.pQueueFamilyIndices = owners.data();
+		imageInfo.queueFamilyIndexCount = owners.size();
 	}
 
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -245,22 +235,24 @@ ImageAllocator::RequestImageCube(
 	vkBindImageMemory(theirVulkanFramework.GetDevice(), image, memory, 0);
 
 	// FIRST IMAGE ALLOC
-
+	auto cmdBuffer = allocSub.Record();
 	if (!initialData.empty())
 	{
 		for (int i = 0; i < 6; ++i)
 		{
-			RecordImageAlloc(image, width, height, i, &initialData[i*inititalDataBytesPerLayer], inititalDataBytesPerLayer, firstOwner, numOwners);
+			StagingBuffer stagingBuffer;
+			RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, i, &initialData[i*initialDataBytesPerLayer], initialDataBytesPerLayer,owners.data(), owners.size());
+			allocSub.AddStagingBuffer(std::move(stagingBuffer));
 		}
 		for (int i = 0; i < 6; ++i)
 		{
-			RecordBlit(image, width, height, numMips, i);
+			RecordBlit(cmdBuffer, image, requestInfo.width, requestInfo.height, requestInfo.mips, i);
 		}
-		RecordImageTransition(image, numMips, 6, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, targetLayout, targetPipelineStage);
+		RecordImageTransition(cmdBuffer, image, requestInfo.mips, 6, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, requestInfo.layout, requestInfo.targetPipelineStage);
 	}
 	else
 	{
-		RecordImageTransition(image, numMips, 6, VK_IMAGE_LAYOUT_UNDEFINED, targetLayout, targetPipelineStage);
+		RecordImageTransition(cmdBuffer, image, requestInfo.mips, 6, VK_IMAGE_LAYOUT_UNDEFINED, requestInfo.layout, requestInfo.targetPipelineStage);
 	}
 
 	// VIEW
@@ -271,14 +263,14 @@ ImageAllocator::RequestImageCube(
 
 	viewInfo.image = image;
 	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
-	viewInfo.format = format;
+	viewInfo.format = requestInfo.format;
 	viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
 	viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
 	viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
 	viewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
 	viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	viewInfo.subresourceRange.baseMipLevel = 0;
-	viewInfo.subresourceRange.levelCount = numMips;
+	viewInfo.subresourceRange.levelCount = requestInfo.mips;
 	viewInfo.subresourceRange.baseArrayLayer = 0;
 	viewInfo.subresourceRange.layerCount = 6;
 
@@ -297,17 +289,10 @@ ImageAllocator::RequestImageCube(
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImageArray(
-	std::vector<uint8_t>			initialData,
-	uint32_t						numLayers,
-	uint32_t						width,
-	uint32_t						height,
-	uint32_t						numMips,
-	const QueueFamilyIndex*			firstOwner,
-	uint32_t						numOwners,
-	VkFormat						format,
-	VkImageLayout					targetLayout,
-	VkImageUsageFlags				usage, 
-	VkPipelineStageFlags			targetPipelineStage)
+	AllocationSubmission&	allocSub,
+	std::vector<uint8_t>	initialData, 
+	uint32_t				numLayers, 
+	const ImageRequestInfo& requestInfo)
 {
 	VkImage image{};
 	VkImageView view{};
@@ -320,27 +305,28 @@ ImageAllocator::RequestImageArray(
 	imageInfo.flags = NULL;
 
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.format = format;
-	imageInfo.extent.width = width;
-	imageInfo.extent.height = height;
+	imageInfo.format = requestInfo.format;
+	imageInfo.extent.width = requestInfo.width;
+	imageInfo.extent.height = requestInfo.height;
 	imageInfo.extent.depth = 1;
-	imageInfo.mipLevels = numMips;
+	imageInfo.mipLevels = requestInfo.mips;
 	imageInfo.arrayLayers = numLayers;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | usage;
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | requestInfo.usage;
 
-	if (IsExclusive(firstOwner, numOwners))
+	auto& owners = requestInfo.owners;
+	if (IsExclusive(owners.data(), owners.size()))
 	{
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		imageInfo.pQueueFamilyIndices = firstOwner;
+		imageInfo.pQueueFamilyIndices = owners.data();
 		imageInfo.queueFamilyIndexCount = 1;
 	}
 	else
 	{
 		imageInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
-		imageInfo.pQueueFamilyIndices = firstOwner;
-		imageInfo.queueFamilyIndexCount = numOwners;
+		imageInfo.pQueueFamilyIndices = owners.data();
+		imageInfo.queueFamilyIndexCount = owners.size();
 	}
 
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -378,24 +364,28 @@ ImageAllocator::RequestImageArray(
 	vkBindImageMemory(theirVulkanFramework.GetDevice(), image, memory, 0);
 
 	// IMAGE ALLOC
+	auto cmdBuffer = allocSub.Record();
+	
 	if (!initialData.empty())
 	{
 		const uint64_t numImgBytes = initialData.size() / numLayers;
 		uint64_t byteOffset = 0;
 		for (uint32_t layer = 0; layer < numLayers; ++layer)
 		{
-			RecordImageAlloc(image, width, height, layer, initialData.data() + byteOffset, numImgBytes, firstOwner, numOwners);
+			StagingBuffer stagingBuffer;
+			RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, layer, initialData.data() + byteOffset, numImgBytes,owners.data(), owners.size());
+			allocSub.AddStagingBuffer(std::move(stagingBuffer));
 			byteOffset += numImgBytes;
 		}
 		for (uint32_t layer = 0; layer < numLayers; ++layer)
 		{
-			RecordBlit(image, width, height, numMips, layer);
+			RecordBlit(cmdBuffer, image, requestInfo.width, requestInfo.height, requestInfo.mips, layer);
 		}
-		RecordImageTransition(image, numMips, numLayers, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, targetLayout, targetPipelineStage);
+		RecordImageTransition(cmdBuffer, image, requestInfo.mips, numLayers, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, requestInfo.layout, requestInfo.targetPipelineStage);
 	}
 	else
 	{
-		RecordImageTransition(image, numMips, numLayers, VK_IMAGE_LAYOUT_UNDEFINED, targetLayout, targetPipelineStage);
+		RecordImageTransition(cmdBuffer, image, requestInfo.mips, numLayers, VK_IMAGE_LAYOUT_UNDEFINED, requestInfo.layout, requestInfo.targetPipelineStage);
 	}
 
 	// VIEW
@@ -406,14 +396,14 @@ ImageAllocator::RequestImageArray(
 
 	viewInfo.image = image;
 	viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-	viewInfo.format = format;
+	viewInfo.format = requestInfo.format;
 	viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
 	viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
 	viewInfo.components.b = VK_COMPONENT_SWIZZLE_B;
 	viewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
-	viewInfo.subresourceRange.aspectMask = EvaluateImageAspect(targetLayout);
+	viewInfo.subresourceRange.aspectMask = EvaluateImageAspect(requestInfo.layout);
 	viewInfo.subresourceRange.baseMipLevel = 0;
-	viewInfo.subresourceRange.levelCount = numMips;
+	viewInfo.subresourceRange.levelCount = requestInfo.mips;
 	viewInfo.subresourceRange.baseArrayLayer = 0;
 	viewInfo.subresourceRange.layerCount = numLayers;
 
@@ -529,14 +519,14 @@ ImageAllocator::EvaluateImageAspect(
 
 void
 ImageAllocator::RecordImageAlloc(
+	VkCommandBuffer			cmdBuffer,
+	StagingBuffer&			outStagingBuffer,
 	VkImage					image,
 	uint32_t				width,
 	uint32_t				height,
 	uint32_t				layer,
 	const uint8_t*			data,
-	uint64_t				numBytes,
-	const QueueFamilyIndex* firstOwner,
-	uint32_t				numOwners)
+	uint64_t				numBytes, const QueueFamilyIndex* firstOwner, uint32_t				numOwners)
 {
 	{
 		VkBufferImageCopy copy{};
@@ -564,8 +554,8 @@ ImageAllocator::RecordImageAlloc(
 
 		auto destToSrc = CreateTransition(image, range, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-		std::scoped_lock<std::mutex> lock(myTransferMutex);
-		vkCmdPipelineBarrier(myTransferBuffers[myTransferIndex],
+		
+		vkCmdPipelineBarrier(cmdBuffer,
 							  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 							  VK_PIPELINE_STAGE_TRANSFER_BIT,
 							  NULL,
@@ -577,14 +567,16 @@ ImageAllocator::RecordImageAlloc(
 							  &undefToDest);
 		if (data)
 		{
-			auto [resultStaged, stagedBuffer, stagedMemory] = CreateStagingBuffer(data, numBytes, firstOwner, numOwners);
-			vkCmdCopyBufferToImage(myTransferBuffers[myTransferIndex], stagedBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+			auto [resultStaged, stagedBuffer] = CreateStagingBuffer(data, numBytes, firstOwner, numOwners);
+			outStagingBuffer = stagedBuffer;
+			
+			vkCmdCopyBufferToImage(cmdBuffer, stagedBuffer.buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 		}
 		else
 		{
-			vkCmdClearColorImage(myTransferBuffers[myTransferIndex], image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &myClearColor, 1, &range);
+			vkCmdClearColorImage(cmdBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &myClearColor, 1, &range);
 		}
-		vkCmdPipelineBarrier(myTransferBuffers[myTransferIndex],
+		vkCmdPipelineBarrier(cmdBuffer,
 							  VK_PIPELINE_STAGE_TRANSFER_BIT,
 							  VK_PIPELINE_STAGE_TRANSFER_BIT,
 							  NULL,
@@ -599,11 +591,12 @@ ImageAllocator::RecordImageAlloc(
 
 void
 ImageAllocator::RecordBlit(
-	VkImage		image,
-	uint32_t	baseWidth,
-	uint32_t	baseHeight,
-	uint32_t	numMips,
-	uint32_t	layer)
+	VkCommandBuffer cmdBuffer,
+	VkImage			image,
+	uint32_t		baseWidth,
+	uint32_t		baseHeight,
+	uint32_t		numMips,
+	uint32_t		layer)
 {
 	// BLIT
 	// UNDEF -> DST -> SRC
@@ -647,8 +640,7 @@ ImageAllocator::RecordBlit(
 		blit.dstSubresource.layerCount = 1;
 
 		// TRANSFER WORK
-		std::scoped_lock<std::mutex> lock(myTransferMutex);
-		vkCmdPipelineBarrier(myTransferBuffers[myTransferIndex],
+		vkCmdPipelineBarrier(cmdBuffer,
 							  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 							  VK_PIPELINE_STAGE_TRANSFER_BIT,
 							  NULL,
@@ -658,7 +650,7 @@ ImageAllocator::RecordBlit(
 							  nullptr,
 							  1,
 							  &undefToDest);
-		vkCmdBlitImage(myTransferBuffers[myTransferIndex],
+		vkCmdBlitImage(cmdBuffer,
 						image,
 						VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 						image,
@@ -666,7 +658,7 @@ ImageAllocator::RecordBlit(
 						1,
 						&blit,
 						VK_FILTER_LINEAR);
-		vkCmdPipelineBarrier(myTransferBuffers[myTransferIndex],
+		vkCmdPipelineBarrier(cmdBuffer,
 							  VK_PIPELINE_STAGE_TRANSFER_BIT,
 							  VK_PIPELINE_STAGE_TRANSFER_BIT,
 							  NULL,
@@ -685,6 +677,7 @@ ImageAllocator::RecordBlit(
 
 void
 ImageAllocator::RecordImageTransition(
+	VkCommandBuffer			cmdBuffer,
 	VkImage					image,
 	uint32_t				numMips,
 	uint32_t				numLayers,
@@ -706,8 +699,7 @@ ImageAllocator::RecordImageTransition(
 						  prevLayout,
 						  targetLayout);
 
-	std::scoped_lock<std::mutex> lock(myTransferMutex);
-	vkCmdPipelineBarrier(myTransferBuffers[myTransferIndex],
+	vkCmdPipelineBarrier(cmdBuffer,
 						  VK_PIPELINE_STAGE_TRANSFER_BIT,
 						  targetPipelineStage,
 						  NULL,

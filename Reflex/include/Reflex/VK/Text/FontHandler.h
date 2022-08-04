@@ -29,7 +29,9 @@ public:
 													uint32_t				numOwners);
 												~FontHandler();
 
-	FontID										AddFont(const char* path);
+	FontID										AddFont(
+													class AllocationSubmission& allocSub,
+													const char* path);
 	
 	
 	GlyphMetrics								GetGlyphMetrics(

@@ -316,13 +316,22 @@ RenderPassBuilder::CreateAttachmentImages()
 		}
 
 
-		//for (uint32_t scIndex = 0; scIndex < NumSwapchainImages; ++scIndex)
 		{
-			auto [result, view] = theirImageAllocator.RequestImage2D(nullptr, 0,
-																	  myAttachmentRes.x, myAttachmentRes.y, 1,
-																	  myOwners.data(), myOwners.size(),
-																	  myAttachmentFormats[attIndex],
-																	  layout, usage, stage);
+			auto allocSub = theirImageAllocator.Start();
+			ImageRequestInfo requestInfo;
+			requestInfo.width = myAttachmentRes.x;
+			requestInfo.height = myAttachmentRes.y;
+			requestInfo.owners = myOwners;
+			requestInfo.format = myAttachmentFormats[attIndex];
+			requestInfo.layout = layout;
+			requestInfo.usage = usage;
+			requestInfo.targetPipelineStage = stage;
+			
+			auto [result, view] = theirImageAllocator.RequestImage2D(
+				allocSub, 
+				nullptr,
+	            0,
+				requestInfo);
 			if (result)
 			{
 				LOG("render pass creation error: failed creating attachment image,", attIndex, "for framebuffer");
@@ -333,6 +342,7 @@ RenderPassBuilder::CreateAttachmentImages()
 				theirImageAllocator.SetDebugName(view, myAttachmentDebugNames[attIndex].c_str());
 				myAttachmentViews[attIndex].fill(view);
 			}
+			theirImageAllocator.Queue(std::move(allocSub));
 		}
 
 

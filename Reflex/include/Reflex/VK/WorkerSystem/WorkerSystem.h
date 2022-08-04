@@ -46,6 +46,7 @@ public:
 																uint32_t				numWaitStages,
 																VkSemaphore*			signalSemaphore) = 0;
 	virtual void											AddSchedule(neat::ThreadID threadID) {}
+	virtual std::array<VkFence, NumSwapchainImages>			GetFences() = 0;
 private:
 	
 	

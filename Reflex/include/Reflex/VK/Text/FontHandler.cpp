@@ -32,8 +32,9 @@ FontHandler::FontHandler(
 	auto result = FT_Init_FreeType(&FTLibrary);
 	assert(!result && "failed initializing free type");
 
-	AddFont("open_sans_reg.ttf");
-
+	auto allocSub = theirImageHandler.GetImageAllocator().Start();
+	AddFont(allocSub, "open_sans_reg.ttf");
+	theirImageHandler.GetImageAllocator().Queue(std::move(allocSub));
 }
 
 FontHandler::~FontHandler()
@@ -42,6 +43,7 @@ FontHandler::~FontHandler()
 
 FontID
 FontHandler::AddFont(
+	AllocationSubmission& allocSub,
 	const char* path)
 {
 	const FontID id = myFontIDKeeper.FetchFreeID();
@@ -73,7 +75,12 @@ FontHandler::AddFont(
 		numLayers++;
 	}
 
-	font.imgArrID = theirImageHandler.AddImage2D(std::move(fontData), {res,res}, VK_FORMAT_R8G8B8A8_UNORM, 4);
+	font.imgArrID = theirImageHandler.AddImage2D(
+		allocSub, 
+		std::move(fontData), 
+		{res,res}, 
+		VK_FORMAT_R8G8B8A8_UNORM, 
+		4);
 	
 	return id;
 }

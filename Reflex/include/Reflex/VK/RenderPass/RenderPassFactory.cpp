@@ -20,20 +20,29 @@ RenderPassFactory::RenderPassFactory(
 	}
 
 	// INTERMEDIATE ATTACHMENT
+	auto allocSub = theirImageAllocator.Start();
+	
 	auto [w, h] = theirVulkanFramework.GetTargetResolution();
 	VkResult result;
 	for (uint32_t scIndex = 0; scIndex < NumSwapchainImages; ++scIndex)
 	{
-		std::tie(result, myIntermediateViews[scIndex]) = theirImageAllocator.RequestImage2D(nullptr, 0,
-																							   w, h, 1,
-																							   myOwners.data(), myOwners.size(),
-																							   VK_FORMAT_R8G8B8A8_UNORM,
-																							   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-																							   VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-																							   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+		ImageRequestInfo requestInfo;
+		requestInfo.width = w;
+		requestInfo.height = h;
+		requestInfo.owners = myOwners;
+		requestInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+		requestInfo.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		requestInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+		requestInfo.targetPipelineStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		std::tie(result, myIntermediateViews[scIndex]) = theirImageAllocator.RequestImage2D(
+			allocSub, 
+			nullptr,
+			0,
+			requestInfo);
 		assert(!result && "failed creating intermediate image");
 	}
 
+	theirImageAllocator.Queue(std::move(allocSub));
 
 	myIntermediateAttachmentDescription.format = VK_FORMAT_R8G8B8A8_UNORM;
 	myIntermediateAttachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
