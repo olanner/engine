@@ -79,6 +79,7 @@ Presenter::Presenter(
 	std::tie(result, myPresentPipeline) = pipelineConstructor.Construct(
 		{
 		theirSceneGlobals.GetGlobalsLayout(),
+		theirImageHandler.GetImageSetLayout(),
 		myPresentRenderPass.subpasses[0].inputAttachmentLayout
 		}, theirVulkanFramework.GetDevice());
 
@@ -141,7 +142,8 @@ Presenter::RecordSubmit(
 
 	// DESCRIPTORS
 	theirSceneGlobals.BindGlobals(myCmdBuffers[swapchainImageIndex], myPresentPipeline.layout, 0);
-	BindSubpassInputs(myCmdBuffers[swapchainImageIndex], myPresentPipeline.layout, 1, myPresentRenderPass.subpasses[0], swapchainImageIndex);
+	theirImageHandler.BindImages(swapchainImageIndex, myCmdBuffers[swapchainImageIndex], myPresentPipeline.layout, 1);
+	BindSubpassInputs(myCmdBuffers[swapchainImageIndex], myPresentPipeline.layout, 2, myPresentRenderPass.subpasses[0], swapchainImageIndex);
 
 	// DRAW 
 	vkCmdDraw(myCmdBuffers[swapchainImageIndex], 6, 1, 0, 0);
@@ -189,4 +191,9 @@ std::array<VkFence, NumSwapchainImages>
 Presenter::GetFences()
 {
     return myCmdBufferFences;
+}
+
+std::vector<rflx::Features> Presenter::GetImplementedFeatures() const
+{
+    return {rflx::Features::FEATURE_CORE};
 }

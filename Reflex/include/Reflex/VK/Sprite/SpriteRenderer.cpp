@@ -207,3 +207,8 @@ SpriteRenderer::GetFences()
     return myCmdBufferFences;
 }
 
+std::vector<rflx::Features> SpriteRenderer::GetImplementedFeatures() const
+{
+    return {rflx::Features::FEATURE_SPRITES};
+}
+

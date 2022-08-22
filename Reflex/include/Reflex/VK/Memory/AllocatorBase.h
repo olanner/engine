@@ -128,12 +128,10 @@ protected:
 											const void*				data,
 											size_t					size,
 											const QueueFamilyIndex*	firstOwner,
-											uint32_t				numOwners,
-											bool					forImmediateUse = false);
+											uint32_t				numOwners);
 
 	VulkanFramework&					theirVulkanFramework;
 	AllocationSubmitter&				theirAllocationSubmitter;
-	ImmediateTransferrer&				theirImmediateTransferrer;
 	
 	QueueFamilyIndex					myTransferFamily;
 	VkPhysicalDeviceMemoryProperties	myPhysicalDeviceMemProperties{};

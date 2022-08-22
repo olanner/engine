@@ -3,11 +3,14 @@
 
 #include "AccelerationStructureAllocator.h"
 #include "Reflex/VK/VulkanFramework.h"
+#include "Reflex/VK/Memory/BufferAllocator.h"
+#include "Reflex/VK/Mesh/LoadMesh.h"
+#include "Reflex/VK/Mesh/MeshHandler.h"
 
 AccelerationStructureHandler::AccelerationStructureHandler(
 	VulkanFramework& vulkanFramework,
 	AccelerationStructureAllocator& accStructAllocator)
-	: theirVulkanFramework(vulkanFramework)
+	: HandlerBase(vulkanFramework)
 	, theirAccStructAllocator(accStructAllocator)
 	, myGeometryStructures{}
 {
@@ -75,7 +78,6 @@ AccelerationStructureHandler::AccelerationStructureHandler(
 
 	for (uint32_t i = 0; i < MaxNumInstanceStructures; ++i)
 	{
-		myInstanceStructures[i] = instanceStruct;
 
 		VkWriteDescriptorSet write{};
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -95,7 +97,29 @@ AccelerationStructureHandler::AccelerationStructureHandler(
 		write.pNext = &accStructInfo;
 
 		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+
+		myInstanceStructures[i] = {accStructInfo, instanceStruct};
 	}
+	
+	// FILL DEFAULT GEO STRUCTS
+	const auto rawMesh = LoadRawMesh("cube.dae", {});
+
+	VkBuffer vBuffer, iBuffer;
+	std::tie(failure, vBuffer) = theirAccStructAllocator.GetBufferAllocator().RequestVertexBuffer(allocSub, rawMesh.vertices, theirAccStructAllocator.GetOwners());
+	assert(!failure && "failed allocating default vertex buffer");
+	std::tie(failure, iBuffer) = theirAccStructAllocator.GetBufferAllocator().RequestIndexBuffer(allocSub, rawMesh.indices, theirAccStructAllocator.GetOwners());
+	assert(!failure && "failed allocating default index buffer");
+
+	MeshGeometry defaultGeo = {};
+	defaultGeo.vertexBuffer = vBuffer;
+	defaultGeo.indexBuffer = iBuffer;
+	defaultGeo.numVertices = uint32_t(rawMesh.vertices.size());
+	defaultGeo.numIndices = uint32_t(rawMesh.indices.size());
+
+	const auto& meshes = { defaultGeo };
+	std::tie(failure, myDefaultGeoStructure) = theirAccStructAllocator.RequestGeometryStructure(allocSub, { meshes });
+	myGeometryStructures.fill(myDefaultGeoStructure);
+	
 	theirAccStructAllocator.Queue(std::move(allocSub));
 }
 
@@ -106,25 +130,66 @@ AccelerationStructureHandler::~AccelerationStructureHandler()
 }
 
 VkResult
-AccelerationStructureHandler::AddGeometryStructure(
+AccelerationStructureHandler::LoadGeometryStructure(
+	MeshID					meshID,
 	AllocationSubmission&	allocSub,
-	MeshID					ownerID,
-	const MeshGeometry*		firstMesh, 
-	uint32_t				numMeshes)
+	const MeshGeometry&		mesh)
 {
-	auto [failure, geoStruct] = theirAccStructAllocator.RequestGeometryStructure(allocSub, firstMesh, numMeshes);
+	const auto& meshes = { mesh };
+	auto [failure, geoStruct] = theirAccStructAllocator.RequestGeometryStructure(allocSub, {meshes});
 	if (failure)
 	{
 		return failure;
 	}
 
-	myGeometryStructures[int(ownerID)] = geoStruct;
+	myGeometryStructures[int(meshID)] = geoStruct;
 
 	return VK_SUCCESS;
 }
 
+void
+AccelerationStructureHandler::UnloadGeometryStructure(
+	MeshID meshID)
+{
+	if (myGeometryStructures[int(meshID)] == myDefaultGeoStructure
+		|| BAD_ID(meshID))
+	{
+		return;
+	}
+	auto signal = std::make_shared<std::counting_semaphore<NumSwapchainImages>>(0);
+	theirAccStructAllocator.QueueDestroy(myGeometryStructures[int(meshID)], signal);
+	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; swapchainIndex++)
+	{
+		myQueuedUnloadSignals[swapchainIndex].push(signal);
+	}
+
+	myGeometryStructures[int(meshID)] = myDefaultGeoStructure;
+}
+
+void
+AccelerationStructureHandler::SignalUnload(
+	int		swapchainIndex,
+	VkFence fence)
+{
+	if (myQueuedUnloadSignals[swapchainIndex].empty())
+	{
+		return;
+	}
+	while (vkGetFenceStatus(theirVulkanFramework.GetDevice(), fence))
+	{
+	}
+	
+	shared_semaphore<NumSwapchainImages> semaphore;
+	int count = 0;
+	while (myQueuedUnloadSignals[swapchainIndex].try_pop(semaphore)
+		&& count++ < 128)
+	{
+		semaphore->release();
+	}
+}
+
 InstanceStructID
-	AccelerationStructureHandler::AddInstanceStructure(
+AccelerationStructureHandler::AddInstanceStructure(
 		AllocationSubmission& allocSub,
 		const RTInstances& instances)
 {
@@ -137,7 +202,8 @@ InstanceStructID
 	InstanceStructID id;
 	bool success = myFreeIDs.try_pop(id);
 	assert(success && "failed attaining id");
-	myInstanceStructures[int(id)] = instanceStruct;
+
+	myInstanceStructures[int(id)].structure = instanceStruct;
 
 	VkWriteDescriptorSet write{};
 	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -148,14 +214,14 @@ InstanceStructID
 	write.dstSet = myInstanceStructDescriptorSet;
 	write.dstBinding = 0;
 
-	VkWriteDescriptorSetAccelerationStructureNV accStructInfo;
-	accStructInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_NV;
-	accStructInfo.pNext = nullptr;
-	accStructInfo.accelerationStructureCount = 1;
-	accStructInfo.pAccelerationStructures = &instanceStruct;
+	
+	myInstanceStructures[int(id)].info.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_NV;
+	myInstanceStructures[int(id)].info.pNext = nullptr;
+	myInstanceStructures[int(id)].info.accelerationStructureCount = 1;
+	myInstanceStructures[int(id)].info.pAccelerationStructures = &instanceStruct;
 
-	write.pNext = &accStructInfo;
-
+	write.pNext = &myInstanceStructures[int(id)].info;
+	
 	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
 
 	return id;
@@ -166,7 +232,7 @@ AccelerationStructureHandler::UpdateInstanceStructure(
 	InstanceStructID	id, 
 	const RTInstances&	instances)
 {
-	theirAccStructAllocator.UpdateInstanceStructure(myInstanceStructures[int(id)], instances);
+	theirAccStructAllocator.UpdateInstanceStructure(myInstanceStructures[int(id)].structure, instances);
 }
 
 VkDescriptorSetLayout

@@ -150,6 +150,11 @@ std::array<VkFence, NumSwapchainImages> CubeFilterer::GetFences()
     return myCmdBufferFences;
 }
 
+std::vector<rflx::Features> CubeFilterer::GetImplementedFeatures() const
+{
+    return {rflx::Features::FEATURE_CORE};
+}
+
 void
 CubeFilterer::PushFilterWork(
 	CubeID			id,

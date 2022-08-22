@@ -47,12 +47,12 @@ MeshRenderer::MeshRenderer(
 
 	rpBuilder.DefineAttachments(
 		{
-			VK_FORMAT_R8G8B8A8_SRGB,       //ALBEDO
-			VK_FORMAT_R32G32B32A32_SFLOAT, //NORMAL
-			VK_FORMAT_R32G32B32A32_SFLOAT, //WPOS
-			VK_FORMAT_R8G8B8A8_SRGB,	   //MATERIAL
-			VK_FORMAT_D24_UNORM_S8_UINT,   //DEPTH
-			IntermediateAttachment,   //INT
+			VK_FORMAT_R8G8B8A8_SRGB,		//ALBEDO
+			VK_FORMAT_R32G32B32A32_SFLOAT,	//NORMAL
+			VK_FORMAT_R32G32B32A32_SFLOAT,	//WPOS
+			VK_FORMAT_R8G8B8A8_SRGB,		//MATERIAL
+			VK_FORMAT_D24_UNORM_S8_UINT,	//DEPTH
+			IntermediateAttachment,			//INT
 		}
 	, {w, h});
 	rpBuilder.SetAttachmentNames({
@@ -271,4 +271,9 @@ MeshRenderer::RecordSubmit(
 	submitInfo.signalSemaphoreCount = 1;
 
 	return {submitInfo, myCmdBufferFences[swapchainImageIndex]};
+}
+
+std::vector<rflx::Features> MeshRenderer::GetImplementedFeatures() const
+{
+    return {rflx::Features::FEATURE_DEFERRED};
 }

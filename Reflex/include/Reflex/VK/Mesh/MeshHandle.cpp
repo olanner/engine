@@ -13,11 +13,13 @@ void
 rflx::MeshHandle::Load() const
 {
 	gMeshHandler->LoadMesh(myID, gAllocationSubmissions[int(theirReflex.GetThreadID())], myPath.c_str());
+	gAccStructHandler->LoadGeometryStructure(myID, gAllocationSubmissions[int(theirReflex.GetThreadID())], (*gMeshHandler)[myID].geo);
 }
 
 void rflx::MeshHandle::Unload() const
 {
 	gMeshHandler->UnloadMesh(myID);
+	gAccStructHandler->UnloadGeometryStructure(myID);
 }
 
 rflx::MeshHandle::MeshHandle(

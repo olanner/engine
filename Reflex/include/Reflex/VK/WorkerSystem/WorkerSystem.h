@@ -1,6 +1,7 @@
 
 #pragma once
 #include "WorkScheduler.h"
+#include "Reflex/Features.h"
 
 struct WaitSemaphores
 {
@@ -11,24 +12,9 @@ struct WaitSemaphores
 struct SlottedWorkerSystem
 {
 	VkQueue subQueue;
-
-	std::array<WaitSemaphores, NumSwapchainImages>	waitSemaphores;
-	uint32_t										numWaitSemaphores;
-	void											AddWaitSemaphore(
-														const std::array<VkSemaphore, NumSwapchainImages>&	semaphores, 
-														VkPipelineStageFlags								stage)
-	{
-		for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
-		{
-			waitSemaphores[swapchainIndex].semaphores[numWaitSemaphores] = semaphores[swapchainIndex];
-			waitSemaphores[swapchainIndex].stages[numWaitSemaphores] = stage;
-		}
-		numWaitSemaphores++;
-	}
-
+	VkPipelineStageFlags							waitStage;
 	std::array<VkSemaphore, NumSwapchainImages>		signalSemaphores;
 	std::shared_ptr<class WorkerSystem>				system;
-	bool											isActive;
 };
 
 void SubmitWorkerSystemCmds(
@@ -47,6 +33,7 @@ public:
 																VkSemaphore*			signalSemaphore) = 0;
 	virtual void											AddSchedule(neat::ThreadID threadID) {}
 	virtual std::array<VkFence, NumSwapchainImages>			GetFences() = 0;
+	virtual std::vector<rflx::Features> GetImplementedFeatures() const = 0;
 private:
 	
 	

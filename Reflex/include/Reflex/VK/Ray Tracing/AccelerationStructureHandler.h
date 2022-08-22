@@ -1,8 +1,15 @@
 
 #pragma once
 #include "NVRayTracing.h"
+#include "Reflex/VK/Misc/HandlerBase.h"
 
-class AccelerationStructureHandler
+struct InstanceStructure
+{
+	VkWriteDescriptorSetAccelerationStructureNV info;
+	VkAccelerationStructureNV					structure;
+};
+
+class AccelerationStructureHandler : public HandlerBase
 {
 public:
 									AccelerationStructureHandler(
@@ -10,11 +17,14 @@ public:
 										class AccelerationStructureAllocator&	accStructAllocator);
 									~AccelerationStructureHandler();
 
-	VkResult						AddGeometryStructure(
+	VkResult						LoadGeometryStructure(
+										MeshID						meshID,
 										class AllocationSubmission& allocSub,
-										MeshID						ownerID,
-										const struct MeshGeometry*	firstMesh,
-										uint32_t					numMeshes);
+										const struct MeshGeometry&	mesh);
+	void							UnloadGeometryStructure(MeshID meshID);
+	void							SignalUnload(
+										int		swapchainIndex,
+										VkFence fence);
 
 	InstanceStructID				AddInstanceStructure(
 										class AllocationSubmission& allocSub,
@@ -37,17 +47,19 @@ public:
 
 
 private:
-	VulkanFramework&				theirVulkanFramework;
 	AccelerationStructureAllocator& theirAccStructAllocator;
 
+	VkAccelerationStructureNV		myDefaultGeoStructure;
 	std::array<VkAccelerationStructureNV, MaxNumMeshesLoaded>
 									myGeometryStructures;
+	std::array<conc_queue<shared_semaphore<NumSwapchainImages>>, NumSwapchainImages>
+									myQueuedUnloadSignals;
 
 	VkDescriptorPool				myDescriptorPool;
 
 	VkDescriptorSetLayout			myInstanceStructDescriptorSetLayout;
 	VkDescriptorSet					myInstanceStructDescriptorSet;
-	std::array<VkAccelerationStructureNV, MaxNumInstanceStructures>
+	std::array<InstanceStructure, MaxNumInstanceStructures>
 									myInstanceStructures;
 	concurrency::concurrent_priority_queue<InstanceStructID, std::greater<>>
 									myFreeIDs;

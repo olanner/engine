@@ -32,6 +32,8 @@ using conc_queue = concurrency::concurrent_queue<type>;
 #include <semaphore>
 
 using shared_lock = std::shared_lock<std::shared_mutex>;
+template<std::ptrdiff_t max>
+using shared_semaphore = std::shared_ptr<std::counting_semaphore<max>>;
 
 // LOCAL
 #include "defines.h"

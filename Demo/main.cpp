@@ -48,6 +48,12 @@ public:
 					{ 0,1,1,1 });
 				myReflexInterface.EndPush();
 
+				if (InputHandler::IsReleased('Q'))
+				{
+					myReflexInterface.ToggleFeature(rflx::Features::FEATURE_DEFERRED);
+					myReflexInterface.ToggleFeature(rflx::Features::FEATURE_RAY_TRACING);
+				}
+
 				myReflexInterface.BeginFrame();
 				myReflexInterface.Submit();
 				myReflexInterface.EndFrame();
@@ -118,7 +124,9 @@ public:
 						boyHandle.Load();
 					}
 				}
-				myReflexInterface.PushRenderCommand(boyHandle);
+				
+				const auto tt = myTimer.GetTotalTime();
+				myReflexInterface.PushRenderCommand(boyHandle, {}, {1,1,1}, {0,1,0}, tt * 3.14f * 0.66f);
 
 				auto fps = std::to_string(int(1.f / dt));
 				myReflexInterface.PushRenderCommand(
@@ -185,7 +193,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 #ifdef _DEBUG
 	if (std::string(_bstr_t(lpCmdLine)).find("vkdebug") != std::string::npos)
 	{
-		system("pause");
+		//system("pause");
 	}
 #endif
 	return retVal;

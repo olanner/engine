@@ -288,3 +288,8 @@ RTMeshRenderer::RecordSubmit(
 
 	return {submitInfo, myCmdBufferFences[swapchainImageIndex]};
 }
+
+std::vector<rflx::Features> RTMeshRenderer::GetImplementedFeatures() const
+{
+    return {rflx::Features::FEATURE_RAY_TRACING};
+}

@@ -184,6 +184,7 @@ VulkanImplementation::Initialize(
 
 	RegisterWorkerSystem(myCubeFilterer, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
 
+	myActiveFeatures[rflx::Features::FEATURE_CORE] = true;
 	LOG("vulkan successfully started");
 	return VK_SUCCESS;
 }
@@ -261,44 +262,43 @@ VulkanImplementation::SubmitTransferCmds()
 void
 VulkanImplementation::SubmitWorkerCmds()
 {
-	//for (auto& wSys : myWorkerSystems)
-	//{
-	//	auto [submitInfo, fence] = wSys.system->RecordSubmit(mySwapchainImageIndex,
-	//														  wSys.waitSemaphores[mySwapchainImageIndex].semaphores.data(),
-	//														  wSys.numWaitSemaphores,
-	//														  wSys.waitSemaphores[mySwapchainImageIndex].stages.data(),
-	//														  wSys.numWaitSemaphores,
-	//														  &wSys.signalSemaphores[mySwapchainImageIndex]
-	//	);
-	//	vkResetFences(myVulkanFramework.GetDevice(), 1, &fence);
-	//	auto resultSubmit = vkQueueSubmit(wSys.subQueue, 1, &submitInfo, fence);
-	//	assert(!resultSubmit && "failed submission");
-	//}
-
-	for (auto iter = myWorkerSystems.begin(); iter != myWorkerSystems.end() - 1; ++iter)
+	VkSemaphore waitSemaphore = myHasTransferredSemaphore[mySwapchainImageIndex];
+	for (auto iter = myWorkersOrder.begin(); iter != myWorkersOrder.end() - 1; ++iter)
 	{
-		auto& wSys = *iter;
+		int index = *iter;
+		auto& wSys = myWorkerSystems[index];
 		auto [submitInfo, fence] = wSys.system->RecordSubmit(mySwapchainImageIndex,
-			wSys.waitSemaphores[mySwapchainImageIndex].semaphores.data(),
-			wSys.numWaitSemaphores,
-			wSys.waitSemaphores[mySwapchainImageIndex].stages.data(),
-			wSys.numWaitSemaphores,
+			&waitSemaphore,
+			1,
+			&wSys.waitStage,
+			1,
 			&wSys.signalSemaphores[mySwapchainImageIndex]
 		);
 		vkResetFences(myVulkanFramework.GetDevice(), 1, &fence);
 		auto resultSubmit = vkQueueSubmit(wSys.subQueue, 1, &submitInfo, fence);
 		assert(!resultSubmit && "failed submission");
+		waitSemaphore = wSys.signalSemaphores[mySwapchainImageIndex];
 	}
 	{
 		auto& wSys = myWorkerSystems.back();
+		std::array<VkSemaphore, 2> waitSemaphores
+		{
+			waitSemaphore,
+			myImageAvailableSemaphore[mySwapchainImageIndex]
+		};
+		std::array waitStages
+		{
+			wSys.waitStage,
+			VkPipelineStageFlags(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+		};
 		auto [submitInfo, fence] = wSys.system->RecordSubmit(mySwapchainImageIndex,
-			wSys.waitSemaphores[mySwapchainImageIndex].semaphores.data(),
-			wSys.numWaitSemaphores,
-			wSys.waitSemaphores[mySwapchainImageIndex].stages.data(),
-			wSys.numWaitSemaphores,
+			waitSemaphores.data(),
+			waitSemaphores.size(),
+			waitStages.data(),
+			waitStages.size(),
 			&wSys.signalSemaphores[mySwapchainImageIndex]
 		);
-		
+
 		vkResetFences(myVulkanFramework.GetDevice(), 1, &fence);
 		auto resultSubmit = vkQueueSubmit(wSys.subQueue, 1, &submitInfo, fence);
 		assert(!resultSubmit && "failed submission");
@@ -343,6 +343,7 @@ VulkanImplementation::RegisterWorkerSystem(
 {
 	SlottedWorkerSystem toSlot{};
 	toSlot.system = system;
+	toSlot.waitStage = waitStage;
 
 	switch (subQueueType)
 	{
@@ -377,15 +378,15 @@ VulkanImplementation::RegisterWorkerSystem(
 	}
 
 	// WAIT SEMAPHORES
-	if (myWorkerSystems.empty())
-	{
-		toSlot.AddWaitSemaphore(myHasTransferredSemaphore, waitStage);
-	}
-	else
-	{
-		SlottedWorkerSystem& pre = myWorkerSystems.back();
-		toSlot.AddWaitSemaphore(pre.signalSemaphores, waitStage);
-	}
+	//if (myWorkerSystems.empty())
+	//{
+	//	toSlot.AddWaitSemaphore(myHasTransferredSemaphore, waitStage);
+	//}
+	//else
+	//{
+	//	SlottedWorkerSystem& pre = myWorkerSystems.back();
+	//	toSlot.AddWaitSemaphore(pre.signalSemaphores, waitStage);
+	//}
 
 	myWorkerSystems.emplace_back(toSlot);
 }
@@ -394,7 +395,7 @@ void
 VulkanImplementation::LockWorkerSystems()
 {
 	RegisterWorkerSystem(myPresenter, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
-	myWorkerSystems.back().AddWaitSemaphore(myImageAvailableSemaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	//myWorkerSystems.back().AddWaitSemaphore(myImageAvailableSemaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
 	for (int scIndex = 0; scIndex < NumSwapchainImages; ++scIndex)
 	{
@@ -404,6 +405,17 @@ VulkanImplementation::LockWorkerSystems()
 	myWorkerSystemsLocked = true;
 
 	myWorkerSystemsFences = myWorkerSystems.back().system->GetFences();
+
+	int index = 0;
+	for (auto& worker : myWorkerSystems)
+	{
+		myWorkersOrder.emplace_back(index);
+		for (auto& feature : worker.system->GetImplementedFeatures())
+		{
+			myActiveFeatures[feature] = true;
+		}
+		index++;
+	}
 }
 
 void VulkanImplementation::RegisterThread(
@@ -419,5 +431,46 @@ void VulkanImplementation::RegisterThread(
 		workerSystem.system->AddSchedule(threadID);
 	}
 	myAllocationSubmitter->RegisterThread(threadID);
+}
+
+bool
+VulkanImplementation::CheckFeature(
+	rflx::Features feature)
+{
+	return myActiveFeatures[feature];
+}
+
+void
+VulkanImplementation::ToggleFeature(
+	rflx::Features feature)
+{
+	if (feature == rflx::Features::FEATURE_CORE)
+	{
+		LOG("cannot toggle core features!");
+		return;
+	}
+	myActiveFeatures[feature] = !myActiveFeatures[feature];
+	myWorkersOrder.clear();
+	myWorkersOrder.resize(myWorkerSystems.size());
+	int index = 0;
+	for (auto& worker : myWorkerSystems)
+	{
+		const auto implementedFeatures = worker.system->GetImplementedFeatures();
+		bool inactiveFeature = false;
+		for (auto& implemented : implementedFeatures)
+		{
+			if (!myActiveFeatures[implemented])
+			{
+				inactiveFeature = true;
+				break;
+			}
+		}
+		if (inactiveFeature)
+		{
+			index++;
+			continue;
+		}
+		myWorkersOrder.emplace_back(index++);
+	}
 }
 

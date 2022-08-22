@@ -11,7 +11,6 @@ AllocatorBase::AllocatorBase(
 	QueueFamilyIndex			transferFamilyIndex)
 	: theirVulkanFramework(vulkanFramework)
 	, theirAllocationSubmitter(allocationSubmitter)
-	, theirImmediateTransferrer(immediateTransferrer)
 	, myTransferFamily(transferFamilyIndex)
 {
 
@@ -254,8 +253,7 @@ AllocatorBase::CreateStagingBuffer(
 	const void*				data,
 	size_t					size,
 	const QueueFamilyIndex* firstOwner,
-	uint32_t				numOwners,
-	bool					forImmediateUse)
+	uint32_t				numOwners)
 {
 	VkBuffer buffer{};
 	VkDeviceMemory memory{};
@@ -329,10 +327,6 @@ AllocatorBase::CreateStagingBuffer(
 	memcpy(mappedData, data, size);
 	vkUnmapMemory(theirVulkanFramework.GetDevice(), memory);
 
-	if (!forImmediateUse)
-	{
-		//myStagingBuffers[myTransferIndex].emplace_back(buffer, memory);
-	}
 	return {VK_SUCCESS, {buffer, memory}};
 }
 

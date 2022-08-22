@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include "Features.h"
 #include "glm/glm.hpp"
 using Vec2f = glm::vec2;
 using Vec2ui = glm::vec<2, uint32_t>;
@@ -33,13 +34,14 @@ namespace rflx
 		bool							Start(
 											const ::WindowInfo&	windowInformation, 
 											const char*			cmdArgs = nullptr);
+		void							ToggleFeature(Features feature);
+		
 		void							BeginFrame();
 		void							Submit();
 		void							EndFrame();
 
-		void							SetUseRayTracing(bool useFlag);
-
 		void							BeginPush();
+		void							EndPush();
 		void							PushRenderCommand(
 											const MeshHandle& handle,
 											const Vec3f& position = { 0,0,0 },
@@ -59,7 +61,6 @@ namespace rflx
 											Vec2f			scale,
 											Vec2f			pivot = { 0,0 },
 											Vec4f			color = { 1,1,1,1 });
-		void							EndPush();
 
 		void							SetView(
 											const Vec3f&	position,

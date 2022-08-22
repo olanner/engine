@@ -3,6 +3,19 @@
 #include "NVRayTracing.h"
 #include "Reflex/VK/Memory/AllocatorBase.h"
 
+struct AllocatedAccelerationStructure
+{
+	VkAccelerationStructureNV	structure;
+	VkBuffer					buffer;
+	VkDeviceMemory				memory;
+};
+
+struct QueuedAccStructDestroy
+{
+	VkAccelerationStructureNV										structure;
+	int																tries = 0;
+	std::shared_ptr<std::counting_semaphore<NumSwapchainImages>>	waitSignal;
+};
 
 class AccelerationStructureAllocator : public AllocatorBase
 {
@@ -18,9 +31,8 @@ public:
 													~AccelerationStructureAllocator();
 
 	std::tuple<VkResult, VkAccelerationStructureNV> RequestGeometryStructure(
-														AllocationSubmission&		allocSub,
-														const struct MeshGeometry*	firstMesh,
-														uint32_t					numMeshes);
+														AllocationSubmission&					allocSub,
+														const std::vector<struct MeshGeometry>&	meshes);
 	std::tuple<VkResult, VkAccelerationStructureNV> RequestInstanceStructure(
 														AllocationSubmission&	allocSub,	
 														const RTInstances&		instanceDesc);
@@ -32,7 +44,13 @@ public:
 														VkAccelerationStructureNV	instanceStructure, 
 														const RTInstances&			instanceDesc);
 
-	void											DoCleanUp(int limit) override {}
+	void											QueueDestroy(
+														VkAccelerationStructureNV	accStruct, 
+														std::shared_ptr<std::counting_semaphore<NumSwapchainImages>>	
+																					waitSignal);
+	void											DoCleanUp(int limit) override;
+	BufferAllocator&								GetBufferAllocator() const;
+	std::vector<QueueFamilyIndex>					GetOwners() const;
 
 private:
 	std::tuple<VkMemoryRequirements2, MemTypeIndex> GetMemReq(
@@ -46,10 +64,11 @@ private:
 	QueueFamilyIndex								myTransferFamilyIndex,
 													myPresentationFamilyIndex;
 
-	std::unordered_map<VkAccelerationStructureNV, VkDeviceMemory>
-													myAccelerationStructsMemory;
-	std::unordered_map<VkAccelerationStructureNV, VkBuffer>
-													myAccelerationStructsBuffers;
+	conc_queue<AllocatedAccelerationStructure>		myQueuedRequests;
+	std::unordered_map<VkAccelerationStructureNV, AllocatedAccelerationStructure>
+													myAllocatedAccelerationStructures;
+	conc_queue<QueuedAccStructDestroy>				myQueuedDestroys;
+	std::vector<QueuedAccStructDestroy>				myFailedDestroys;
 
 	size_t											myInstanceDescSize;
 	VkBuffer										myInstanceDescBuffer;

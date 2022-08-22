@@ -271,21 +271,6 @@ BufferAllocator::CreateBuffer(
 	// MEM STAGE
 	if (data)
 	{
-		if (immediateTransfer)
-		{
-			auto [failure, stagedBuffer] = CreateStagingBuffer(data, size, owners.data(), owners.size(), true);
-			VkBufferCopy copy;
-			copy.size = size;
-			copy.srcOffset = 0;
-			copy.dstOffset = 0;
-			theirImmediateTransferrer.DoImmediateTransfer([&] (auto cmdBuffer)
-			{
-				vkCmdCopyBuffer(cmdBuffer, stagedBuffer.buffer, buffer, 1, &copy);
-			});
-			vkDestroyBuffer(theirVulkanFramework.GetDevice(), stagedBuffer.buffer, nullptr);
-			vkFreeMemory(theirVulkanFramework.GetDevice(), stagedBuffer.memory, nullptr);
-		}
-		else
 		{
 			if (usage & VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
 			{

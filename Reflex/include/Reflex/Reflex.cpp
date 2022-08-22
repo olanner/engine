@@ -16,8 +16,6 @@
 #include "VK/Image/ImageHandle.h"
 #include "VK/Memory/AllocatorBase.h"
 
-bool*		gUseRayTracing;
-
 uint32_t				rflx::Reflex::ourUses = 0;
 VulkanImplementation*	rflx::Reflex::ourVKImplementation = nullptr;
 
@@ -111,15 +109,13 @@ rflx::Reflex::Start(
 		indices,
 		ARRAYSIZE(indices),
 		ourVKImplementation->myPresQueueIndex);
-
-	//myVKImplementation->RegisterWorkerSystem(rtmr,
-	//	VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV,
-	//	VK_QUEUE_COMPUTE_BIT);
-
+	
 	ourVKImplementation->RegisterWorkerSystem(mr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
+	ourVKImplementation->RegisterWorkerSystem(rtmr, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV, VK_QUEUE_COMPUTE_BIT);
 	ourVKImplementation->RegisterWorkerSystem(tr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
 
 	ourVKImplementation->LockWorkerSystems();
+	ourVKImplementation->ToggleFeature(Features::FEATURE_DEFERRED);
 
 	ourVKImplementation->RegisterThread(myThreadID);
 	if (BAD_ID(myThreadID))
@@ -137,10 +133,15 @@ rflx::Reflex::Start(
 	gSpriteRenderer = tr;
 	gFontHandler = ourVKImplementation->myFontHandler;
 
-	gUseRayTracing = &ourVKImplementation->myUseRayTracing;
-
 	gVulkanFramework = &ourVKImplementation->myVulkanFramework;
 	return true;
+}
+
+void
+rflx::Reflex::ToggleFeature(
+	Features feature)
+{
+	ourVKImplementation->ToggleFeature(feature);
 }
 
 void
@@ -172,8 +173,12 @@ rflx::Reflex::CreateMesh(
 		imgIDs.emplace_back(handle.GetID());
 	}
 
+	auto& allocSub = gAllocationSubmissions[int(myThreadID)];
 	MeshID id = gMeshHandler->AddMesh();
-	gMeshHandler->LoadMesh(id, gAllocationSubmissions[int(myThreadID)], path, std::move(imgIDs));
+	gMeshHandler->LoadMesh(id, allocSub, path, std::move(imgIDs));
+	const auto mesh = (*gMeshHandler)[id];
+	gAccStructHandler->LoadGeometryStructure(id, allocSub, mesh.geo);
+	
 	MeshHandle ret(*this, id, path);
 
 	return ret;
@@ -222,16 +227,9 @@ rflx::Reflex::CreateImageCube(
 }
 
 void
-rflx::Reflex::SetUseRayTracing(
-	bool useFlag)
-{
-	*gUseRayTracing = useFlag;
-}
-
-void
 rflx::Reflex::BeginPush()
 {
-	if (*gUseRayTracing)
+	if (ourVKImplementation->CheckFeature(Features::FEATURE_RAY_TRACING))
 	{
 		gRTMeshRenderer->myWorkScheduler.BeginPush(myThreadID);
 	}
@@ -261,7 +259,7 @@ rflx::Reflex::PushRenderCommand(
 		glm::rotate(glm::identity<Mat4f>(), rotation, forward) *
 		glm::scale(glm::identity<Mat4f>(), scale);
 
-	if (*gUseRayTracing)
+	if (ourVKImplementation->CheckFeature(Features::FEATURE_RAY_TRACING))
 	{
 		gRTMeshRenderer->myWorkScheduler.PushWork(myThreadID, cmd);
 	}
@@ -344,7 +342,7 @@ rflx::Reflex::PushRenderCommand(
 void
 rflx::Reflex::EndPush()
 {
-	if (*gUseRayTracing)
+	if (ourVKImplementation->CheckFeature(Features::FEATURE_RAY_TRACING))
 	{
 		gRTMeshRenderer->myWorkScheduler.EndPush(myThreadID);
 	}

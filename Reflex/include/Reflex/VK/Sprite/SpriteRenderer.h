@@ -56,6 +56,7 @@ public:
 																VkSemaphore*				signalSemaphore) override;
 	void													AddSchedule(neat::ThreadID threadID) override { myWorkScheduler.AddSchedule(threadID); }
 	std::array<VkFence, NumSwapchainImages>					GetFences() override;
+	std::vector<rflx::Features>								GetImplementedFeatures() const override;
 	
 	WorkScheduler<SpriteRenderCommand, 1024, 1024>			myWorkScheduler;
 

@@ -24,6 +24,7 @@ public:
 														uint32_t				numWaitStages,
 														VkSemaphore*			signalSemaphore) override;
 	std::array<VkFence, NumSwapchainImages>			GetFences() override;
+	std::vector<rflx::Features>						GetImplementedFeatures() const override;
 
 private:
 	VulkanFramework&								theirVulkanFramework;

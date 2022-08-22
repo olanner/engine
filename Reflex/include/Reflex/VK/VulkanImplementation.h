@@ -4,6 +4,7 @@
 #include "VulkanFramework.h"
 #include "WorkerSystem/WorkerSystem.h"
 #include "neat/General/Thread.h"
+#include "Reflex/Features.h"
 
 namespace rflx
 {
@@ -32,6 +33,8 @@ public:
 													VkQueueFlagBits					subQueueType);
 	void										LockWorkerSystems();
 	void										RegisterThread(neat::ThreadID threadID);
+	bool										CheckFeature(rflx::Features feature);
+	void										ToggleFeature(rflx::Features feature);
 
 private:
 	VkResult									InitSync();
@@ -85,10 +88,12 @@ private:
 	std::vector<SlottedWorkerSystem>
 												myWorkerSystems;
 	std::array<VkFence, NumSwapchainImages>		myWorkerSystemsFences = {};
+	std::vector<int>							myWorkersOrder;
+	
 	std::shared_ptr<class CubeFilterer>			myCubeFilterer = nullptr;
 	std::shared_ptr<class Presenter>			myPresenter = nullptr;
 	bool										myWorkerSystemsLocked = false;
 
-	bool										myUseRayTracing = false;
+	conc_map<rflx::Features, bool>				myActiveFeatures;
 
 };

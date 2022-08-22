@@ -25,6 +25,7 @@ public:
 										VkPipelineStageFlags*	waitPipelineStages,
 										uint32_t				numWaitStages,
 										VkSemaphore*			signalSemaphore) override;
+	std::vector<rflx::Features>		GetImplementedFeatures() const override;
 
 private:
 	BufferAllocator&				theirBufferAllocator;

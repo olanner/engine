@@ -100,6 +100,7 @@
     <ClInclude Include="constexprs.h" />
     <ClInclude Include="defines.h" />
     <ClInclude Include="HelperFuncs.h" />
+    <ClInclude Include="include\Reflex\Features.h" />
     <ClInclude Include="include\Reflex\identities.h" />
     <ClInclude Include="include\Reflex\Reflex.h" />
     <ClInclude Include="include\Reflex\VK\Debug\DebugUtils.h" />
