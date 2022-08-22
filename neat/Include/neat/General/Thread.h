@@ -37,6 +37,7 @@ namespace neat
 	
 	private:
 		bool									myIsRunning = false;
+		bool									myIsJoined	= true;
 		std::thread								myThread;
 		ThreadID								myThreadID;
 		

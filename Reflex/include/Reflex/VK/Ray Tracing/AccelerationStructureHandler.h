@@ -13,7 +13,7 @@ public:
 	VkResult						AddGeometryStructure(
 										class AllocationSubmission& allocSub,
 										MeshID						ownerID,
-										const struct Mesh*			firstMesh, 
+										const struct MeshGeometry*	firstMesh,
 										uint32_t					numMeshes);
 
 	InstanceStructID				AddInstanceStructure(
@@ -23,15 +23,17 @@ public:
 										InstanceStructID	id, 
 										const RTInstances&	instances);
 
-	VkDescriptorSetLayout			GetInstanceStructuresLayout();
-	VkDescriptorSet					GetInstanceStructuresSet();
+	VkDescriptorSetLayout			GetInstanceStructuresLayout() const;
+	VkDescriptorSet					GetInstanceStructuresSet() const;
 
 	VkAccelerationStructureNV		GetGeometryStruct(MeshID id);
 
 	void							BindInstanceStructures(
 										VkCommandBuffer		commandBuffer,
 										VkPipelineLayout	pipelineLayout,
-										uint32_t			setIndex);
+										uint32_t			setIndex) const;
+
+	
 
 
 private:

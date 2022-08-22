@@ -25,7 +25,6 @@ VulkanImplementation*	rflx::Reflex::ourVKImplementation = nullptr;
 std::shared_ptr<MeshRenderer>						gMeshRenderer;
 std::shared_ptr<RTMeshRenderer>						gRTMeshRenderer;
 std::shared_ptr<SpriteRenderer>						gSpriteRenderer;
-std::array<AllocationSubmission, neat::MaxThreadID> gAllocationSubmissions;
 
 VulkanFramework* gVulkanFramework;
 
@@ -78,7 +77,7 @@ rflx::Reflex::Start(
 	}
 
 	ourVKImplementation = new VulkanImplementation;
-	const auto result = ourVKImplementation->Initialize(windowInformation, useDebugLayers);
+	const auto result = ourVKImplementation->Initialize(myThreadID, windowInformation, useDebugLayers);
 	if (result)
 	{
 		return false;
@@ -173,14 +172,9 @@ rflx::Reflex::CreateMesh(
 		imgIDs.emplace_back(handle.GetID());
 	}
 
-	MeshID id = gMeshHandler->AddMesh(gAllocationSubmissions[int(myThreadID)], path, std::move(imgIDs));
-	MeshHandle ret(id);
-
-	//if ( *gUseRayTracing )
-	//{
-	//Mesh mesh = (*gMeshHandler)[id];
-	//assert(!gAccStructHandler->AddGeometryStructure(gAllocationSubmissions[int(myThreadID)], id, &mesh, 1) && "failed creating geo structure");
-	//}
+	MeshID id = gMeshHandler->AddMesh();
+	gMeshHandler->LoadMesh(id, gAllocationSubmissions[int(myThreadID)], path, std::move(imgIDs));
+	MeshHandle ret(*this, id, path);
 
 	return ret;
 }
@@ -188,31 +182,37 @@ rflx::Reflex::CreateMesh(
 rflx::ImageHandle
 rflx::Reflex::CreateImage(
 	const char* path,
-	Vec2f		tiling) const
+	Vec2f		tiling)
 {
-	ImageID id = ImageID(INVALID_ID);// = 
-	id = gImageHandler->AddImage2DTiled(gAllocationSubmissions[int(myThreadID)], path, tiling.y, tiling.x);
-	return ImageHandle(id);
+	const ImageID id = gImageHandler->AddImage2D();
+	gImageHandler->LoadImage2DTiled(id, gAllocationSubmissions[int(myThreadID)], path, tiling.y, tiling.x);
+	return ImageHandle(*this, id, path);
 }
 
 rflx::ImageHandle
 rflx::Reflex::CreateImage(
-	std::vector<PixelValue>&& data,
-	Vec2f						tiling) const
+	std::vector<PixelValue>&&	data,
+	Vec2f						tiling)
 {
 	tiling = tiling; // TODO: IMPLEMENT
 	std::vector<uint8_t> dataAligned(data.size() * 4);
 	memcpy(dataAligned.data(), data.data(), data.size() * sizeof PixelValue);
 	float dim = sqrtf(float(data.size()));
-	ImageID id = gImageHandler->AddImage2D(gAllocationSubmissions[int(myThreadID)], std::move(dataAligned), { dim, dim });
-	return ImageHandle(id);
+	const ImageID id = gImageHandler->AddImage2D();
+	gImageHandler->LoadImage2D(id, gAllocationSubmissions[int(myThreadID)], std::move(dataAligned), { dim, dim });
+	return ImageHandle(*this, id, "");
+}
+
+neat::ThreadID rflx::Reflex::GetThreadID() const
+{
+	return myThreadID;
 }
 
 rflx::CubeHandle
 rflx::Reflex::CreateImageCube(
-	const char* path) const
+	const char* path)
 {
-	CubeHandle handle(gImageHandler->AddImageCube(gAllocationSubmissions[int(myThreadID)], path));
+	CubeHandle handle(gImageHandler->LoadImageCube(gAllocationSubmissions[int(myThreadID)], path));
 
 	const float fDim = handle.GetDim();
 	const CubeDimension cubeDim = fDim == 2048 ? CubeDimension::Dim2048 : fDim == 1024 ? CubeDimension::Dim1024 : CubeDimension::Dim1;
@@ -247,10 +247,10 @@ rflx::Reflex::BeginPush()
 
 void
 rflx::Reflex::PushRenderCommand(
-	const MeshHandle& handle,
-	const Vec3f& position,
-	const Vec3f& scale,
-	const Vec3f& forward,
+	const MeshHandle&	handle,
+	const Vec3f&		position,
+	const Vec3f&		scale,
+	const Vec3f&		forward,
 	float				rotation)
 {
 	MeshRenderCommand cmd{};
@@ -355,6 +355,7 @@ rflx::Reflex::EndPush()
 
 	gSpriteRenderer->myWorkScheduler.EndPush(myThreadID);
 	ourVKImplementation->myAllocationSubmitter->QueueAllocSubmission(std::move(gAllocationSubmissions[int(myThreadID)]));
+	ourVKImplementation->myAllocationSubmitter->FreeUsedCommandBuffers(myThreadID, 64);
 }
 
 void

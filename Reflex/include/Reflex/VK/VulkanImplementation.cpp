@@ -64,10 +64,11 @@ VulkanImplementation::~VulkanImplementation()
 
 VkResult
 VulkanImplementation::Initialize(
+	neat::ThreadID		threadID,
 	const WindowInfo&	windowInfo,
 	bool				useDebugLayers)
 {
-	VK_FALLTHROUGH(myVulkanFramework.Init(windowInfo, useDebugLayers));
+	VK_FALLTHROUGH(myVulkanFramework.Init(threadID, windowInfo, useDebugLayers));
 	VK_FALLTHROUGH(InitSync());
 
 	// PRESENTATION QUEUE
@@ -315,6 +316,10 @@ VulkanImplementation::BeginFrame()
 	myImageHandler->UpdateDescriptors(swapchainIndexToUpdate, myWorkerSystemsFences[swapchainIndexToUpdate]);
 	myMeshHandler->UpdateDescriptors(swapchainIndexToUpdate, myWorkerSystemsFences[swapchainIndexToUpdate]);
 	myAllocationSubmitter->TryReleasing();
+	myAllocationSubmitter->FreeUsedCommandBuffers(myVulkanFramework.GetMainThread(), 64);
+	myImageAllocator->DoCleanUp(128);
+	myBufferAllocator->DoCleanUp(128);
+	myAccelerationStructureAllocator->DoCleanUp(128);
 }
 
 void

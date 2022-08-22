@@ -29,6 +29,7 @@ using conc_queue = concurrency::concurrent_queue<type>;
 #include <filesystem>
 #include <shared_mutex>
 #include <string>
+#include <semaphore>
 
 using shared_lock = std::shared_lock<std::shared_mutex>;
 

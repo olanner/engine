@@ -15,6 +15,20 @@ struct ImageRequestInfo
 	VkPipelineStageFlags			targetPipelineStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 };
 
+struct AllocatedImage
+{
+	VkImageView		view	= nullptr;
+	VkImage			image	= nullptr;
+	VkDeviceMemory	memory	= nullptr;
+};
+
+struct QueuedImageDestroy
+{
+	VkImageView														imageView = nullptr;
+	int																tries = 0;
+	std::shared_ptr<std::counting_semaphore<NumSwapchainImages>>	waitSignal;
+};
+
 class ImageAllocator : public AllocatorBase
 {
 public:
@@ -38,6 +52,11 @@ public:
 														std::vector<uint8_t>	initialData, 
 														uint32_t				numLayers, 
 														const ImageRequestInfo& requestInfo);
+
+	void											QueueDestroy(
+														VkImageView&&													imageView,
+														std::shared_ptr<std::counting_semaphore<NumSwapchainImages>>	waitSignal);
+	void											DoCleanUp(int limit) override;
 	
 	void											SetDebugName(
 														VkImageView	imgView, 
@@ -47,6 +66,10 @@ public:
 
 
 private:
+	void											QueueRequest(
+														AllocationSubmission&	allocSub,
+														AllocatedImage			toQueue);
+	
 	VkImageMemoryBarrier							CreateTransition(
 														VkImage					image,
 														VkImageSubresourceRange	range,
@@ -84,8 +107,13 @@ private:
 														VkImageLayout			targetLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 														VkPipelineStageFlags	targetPipelineStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT );
 
-	std::unordered_map<VkImage, VkDeviceMemory>		myAllocatedImages;
-	std::unordered_map<VkImageView, VkImage>		myImageViews;
+	//conc_map<VkImageView, VkImage>					myImageViews;
+	//conc_map<VkImage, VkDeviceMemory>				myAllocatedImages;
+	std::unordered_map<VkImageView, AllocatedImage>	myAllocatedImages;
+
+	conc_queue<AllocatedImage>						myRequestedImagesQueue;
+	conc_queue<QueuedImageDestroy>					myImageDestroyQueue;
+	std::vector<QueuedImageDestroy>					myFailedDestructs;
 
 	VkClearColorValue								myClearColor
 	{

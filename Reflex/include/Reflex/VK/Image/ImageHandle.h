@@ -3,20 +3,29 @@
 
 class ImageHandler;
 namespace rflx
-{	
+{
+	class Reflex;
 	class ImageHandle
 	{
-		friend class Reflex;
+		friend Reflex;
 
 	public:
 		ImageID		GetID() const;
 		Vec2f		GetDimensions() const;
 		uint32_t	GetLayers() const;
 
-	private:
-					ImageHandle(ImageID	id);
+		void		Load() const;
+		void		Unload() const;
 
-		ImageID							myID;
+	private:
+					ImageHandle(
+						Reflex&		reflex,
+						ImageID		id,
+						std::string path);
+
+		Reflex&		theirReflex;
+		ImageID		myID;
+		std::string	myPath;
 
 	};
 }

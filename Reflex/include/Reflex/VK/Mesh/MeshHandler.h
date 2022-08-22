@@ -3,6 +3,14 @@
 #include "Mesh.h"
 #include "Reflex/VK/Misc/HandlerBase.h"
 
+struct Mesh
+{
+	VkDescriptorBufferInfo			vertexInfo;
+	VkDescriptorBufferInfo			indexInfo;
+	MeshGeometry					geo;
+	neat::static_vector<Vec4f, 64>	imageIDs;
+};
+
 class MeshHandler : public HandlerBase
 {
 public:
@@ -16,7 +24,11 @@ public:
 
 	VkDescriptorSetLayout						GetImageArraySetLayout() const;
 
-	MeshID										AddMesh(
+	MeshID										AddMesh();
+	void										RemoveMesh(MeshID meshID);
+	void										UnloadMesh(MeshID meshID);
+	void										LoadMesh(
+													MeshID meshID,
 													class AllocationSubmission& allocSub,
 													const char*					path,
 													std::vector<ImageID>&&		imageIDs = {});
@@ -32,7 +44,7 @@ public:
 	Mesh										operator[](MeshID id) const;
 
 private:
-	std::vector<Vec4f>							LoadImagesFromDoc(
+	neat::static_vector<Vec4f, 64>				LoadImagesFromDoc(
 													const rapidjson::Document& doc, 
 													AllocationSubmission& allocSub) const;
 	void										WriteMeshDescriptorData(
@@ -44,6 +56,7 @@ private:
 
 	std::vector<QueueFamilyIndex>				myOwners;
 
+	Mesh										myDefaultMesh = {};
 	std::array<Mesh, MaxNumMeshesLoaded>		myMeshes = {};
 	IDKeeper<MeshID>							myMeshIDKeeper;
 
@@ -52,8 +65,9 @@ private:
 	std::array<VkDescriptorSet, NumSwapchainImages>
 												myMeshDataSets = {};
 
-	ImageID										myMissingAlbedoID;
-	ImageID										myMissingMaterialID;
-	ImageID										myMissingNormalID;
+	std::array<ImageID, 4>						myMissingImageIDs;
+	//ImageID										myMissingAlbedoID;
+	//ImageID										myMissingMaterialID;
+	//ImageID										myMissingNormalID;
 
 };

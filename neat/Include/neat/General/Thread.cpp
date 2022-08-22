@@ -30,6 +30,7 @@ neat::Thread::Thread(Thread&& thread) noexcept
 	: myStartFunc(std::move(thread.myStartFunc))
 	, myMainFunc(std::move(thread.myMainFunc))
 	, myIsRunning(thread.myIsRunning)
+	, myIsJoined(thread.myIsJoined)
 	, myThread(std::move(thread.myThread))
 	, myThreadID(thread.myThreadID)
 	, myStartSignal(std::move(thread.myStartSignal))
@@ -45,6 +46,7 @@ neat::Thread::operator=(
 	myStartFunc = std::move(thread.myStartFunc);
 	myMainFunc = std::move(thread.myMainFunc);
 	myIsRunning = thread.myIsRunning;
+	myIsJoined = thread.myIsJoined;
 	myThread = std::move(thread.myThread);
 	myThreadID = thread.myThreadID;
 	myStartSignal = std::move(thread.myStartSignal);
@@ -72,7 +74,7 @@ neat::Thread::Start()
 		myNextSignal->release();
 		myMainFunc();
 		myStartSignal->release();
-		myNextSignal->acquire();
+		//myNextSignal->acquire();
 	});
 }
 
@@ -89,9 +91,10 @@ neat::Thread::Join()
 	if (myThread.joinable())
 	{
 		myThread.join();
-		return true;
+		myIsJoined = true;
+		return myIsJoined;
 	}
-	return false;
+	return myIsJoined;
 }
 
 neat::ThreadID

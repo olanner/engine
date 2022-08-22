@@ -5,8 +5,8 @@
 
 RawMesh
 LoadRawMesh(
-	const char* filepath,
-	std::vector<Vec4f> imgIDs)
+	const char*						filepath,
+	neat::static_vector<Vec4f, 64>	imgIDs)
 {
 	const aiScene* scene = aiImportFile(filepath,
 		aiProcess_CalcTangentSpace
@@ -65,13 +65,21 @@ LoadRawMesh(
 		}
 	}
 	
-	/*float div = std::max({ max.x, max.y, max.z });
+	Mat4f scaleMat = glm::identity<Mat4f>();
+	scaleMat = glm::scale(scaleMat, { 1.f / max.x, 1.f / max.y, 1.f / max.z });
 	for (auto& vertex : rawMesh.vertices)
 	{
-		vertex.position.x /= div;
-		vertex.position.y /= div;
-		vertex.position.z /= div;
-	}*/
+		break;
+		//vertex.position.x /= max.x;
+		//vertex.position.y /= max.y;
+		//vertex.position.z /= max.z;
+		vertex.position = vertex.position * scaleMat;
+		vertex.normal = vertex.normal * (scaleMat);
+		vertex.tangent = vertex.tangent * (scaleMat);
+		vertex.position.w = 1;
+		vertex.normal.w = 0;
+		vertex.tangent.w = 0;
+	}
 
 	uint32_t totalIndexIndex = 0;
 	uint32_t indexOffset = 0;
@@ -87,8 +95,6 @@ LoadRawMesh(
 		}
 		indexOffset += mesh->mNumVertices;
 	}
-
-
 
 	return rawMesh;
 }

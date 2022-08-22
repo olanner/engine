@@ -10,7 +10,6 @@ struct Vertex3D
 	Vec4f texIDs;
 };
 
-
 constexpr VkPipelineInputAssemblyStateCreateInfo Vertex3DIAInfo
 {
 	.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,

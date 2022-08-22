@@ -4,7 +4,7 @@
 void
 RecordMesh(
 	VkCommandBuffer&	cmdBuffer,
-	const Mesh&			mesh,
+	const MeshGeometry&	mesh,
 	uint32_t			firstInstance,
 	uint32_t			numInstances)
 {

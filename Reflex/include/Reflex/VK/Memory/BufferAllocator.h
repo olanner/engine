@@ -3,6 +3,20 @@
 
 #include "AllocatorBase.h"
 
+struct AllocatedBuffer
+{
+	VkBuffer		buffer	= nullptr;
+	VkDeviceMemory	memory	= nullptr;
+	size_t			size	= 0;
+};
+
+struct QueuedBufferDestroy
+{
+	VkBuffer														buffer = nullptr;
+	int																tries = 0;
+	std::shared_ptr<std::counting_semaphore<NumSwapchainImages>>	waitSignal;
+};
+
 class BufferAllocator : public AllocatorBase
 {
 	friend class AccelerationStructureAllocator;
@@ -46,11 +60,20 @@ public:
 														VkMemoryPropertyFlags					memPropFlags,
 														bool									immediateTransfer = false);
 
-private:
-	std::unordered_map<VkBuffer, VkDeviceMemory>	myAllocatedBuffers;
-	std::unordered_map<VkBuffer, size_t>			myBufferSizes;
-	std::unordered_map<VkBuffer, VkBufferView>		myBufferViews;
+	void											QueueDestroy(
+														VkBuffer&&								buffer,
+														std::shared_ptr<std::counting_semaphore<NumSwapchainImages>> 
+																								waitSignal);
+	void											DoCleanUp(int limit) override;
 
+private:
+	//std::unordered_map<VkBuffer, VkDeviceMemory>	myAllocatedBuffers;
+	//std::unordered_map<VkBuffer, size_t>			myBufferSizes;
+	//std::unordered_map<VkBuffer, VkBufferView>		myBufferViews;
+	std::unordered_map<VkBuffer, AllocatedBuffer>	myAllocatedBuffers;
+	conc_queue<AllocatedBuffer>						myRequestedBuffersQueue;
+	conc_queue<QueuedBufferDestroy>					myBufferDestroyQueue;
+	std::vector<QueuedBufferDestroy>				myFailedDestructs;
 
 
 };

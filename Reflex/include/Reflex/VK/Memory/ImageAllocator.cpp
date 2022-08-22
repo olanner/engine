@@ -8,31 +8,28 @@
 
 ImageAllocator::~ImageAllocator()
 {
-	for (auto& [image, memory] : myAllocatedImages)
 	{
-		if (image)
+		AllocatedImage allocImage;
+		while (myRequestedImagesQueue.try_pop(allocImage))
 		{
-			vkDestroyImage(theirVulkanFramework.GetDevice(), image, nullptr);
-		}
-		if (memory)
-		{
-			vkFreeMemory(theirVulkanFramework.GetDevice(), memory, nullptr);
+			vkDestroyImageView(theirVulkanFramework.GetDevice(), allocImage.view, nullptr);
+			vkDestroyImage(theirVulkanFramework.GetDevice(), allocImage.image, nullptr);
+			vkFreeMemory(theirVulkanFramework.GetDevice(), allocImage.memory, nullptr);
 		}
 	}
-	for (auto& [view, image] : myImageViews)
+	for (auto&& [view, allocImage] : myAllocatedImages)
 	{
-		if (view)
-		{
-			vkDestroyImageView(theirVulkanFramework.GetDevice(), view, nullptr);
-		}
+		vkDestroyImageView(theirVulkanFramework.GetDevice(), allocImage.view, nullptr);
+		vkDestroyImage(theirVulkanFramework.GetDevice(), allocImage.image, nullptr);
+		vkFreeMemory(theirVulkanFramework.GetDevice(), allocImage.memory, nullptr);
 	}
 }
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImage2D(
 	AllocationSubmission& allocSub,
-	const uint8_t*			initialData,
-	size_t					initialDataNumBytes, 
+	const uint8_t* initialData,
+	size_t					initialDataNumBytes,
 	const ImageRequestInfo& requestInfo)
 {
 	VkImage image{};
@@ -78,14 +75,14 @@ ImageAllocator::RequestImage2D(
 	if (resultImage)
 	{
 		LOG("failed creating image");
-		return {resultImage, nullptr};
+		return { resultImage, nullptr };
 	}
 
 	// MEMORY
 	auto [memReq, typeIndex] = GetMemReq(image, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	if (typeIndex == UINT_MAX)
 	{
-		return {VK_ERROR_FEATURE_NOT_PRESENT, nullptr};
+		return { VK_ERROR_FEATURE_NOT_PRESENT, nullptr };
 	}
 	assert(initialDataNumBytes <= memReq.size && "byte size of image layer 0 mip 0 is too large");
 
@@ -101,7 +98,7 @@ ImageAllocator::RequestImage2D(
 	if (resultMem)
 	{
 		LOG("failed to allocate memory");
-		return {resultMem, nullptr};
+		return { resultMem, nullptr };
 	}
 
 	vkBindImageMemory(theirVulkanFramework.GetDevice(), image, memory, 0);
@@ -111,7 +108,7 @@ ImageAllocator::RequestImage2D(
 	if (initialData)
 	{
 		StagingBuffer stagingBuffer;
-		RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, 0, initialData, initialDataNumBytes,owners.data(), owners.size());
+		RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, 0, initialData, initialDataNumBytes, owners.data(), owners.size());
 		RecordBlit(cmdBuffer, image, requestInfo.width, requestInfo.height, requestInfo.mips, 0);
 		RecordImageTransition(cmdBuffer, image, requestInfo.mips, 1, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, requestInfo.layout, requestInfo.targetPipelineStage);
 		allocSub.AddStagingBuffer(std::move(stagingBuffer));
@@ -148,20 +145,25 @@ ImageAllocator::RequestImage2D(
 	if (resultView)
 	{
 		LOG("failed creating image view");
-		return {resultView, nullptr};
+		return { resultView, nullptr };
 	}
 
-	myAllocatedImages[image] = memory;
-	myImageViews[view] = image;
+	QueueRequest(
+		allocSub,
+		{
+			view,
+			image,
+			memory
+		});
 
-	return {VK_SUCCESS, view};
+	return { VK_SUCCESS, view };
 }
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImageCube(
-	AllocationSubmission&	allocSub,
+	AllocationSubmission& allocSub,
 	std::vector<uint8_t>	initialData,
-	size_t					initialDataBytesPerLayer, 
+	size_t					initialDataBytesPerLayer,
 	const ImageRequestInfo& requestInfo)
 {
 	VkImage image{};
@@ -207,14 +209,14 @@ ImageAllocator::RequestImageCube(
 	if (resultImage)
 	{
 		LOG("failed creating image");
-		return {resultImage, nullptr};
+		return { resultImage, nullptr };
 	}
 
 	// MEMORY
 	auto [memReq, typeIndex] = GetMemReq(image, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	if (typeIndex == UINT_MAX)
 	{
-		return {VK_ERROR_FEATURE_NOT_PRESENT, nullptr};
+		return { VK_ERROR_FEATURE_NOT_PRESENT, nullptr };
 	}
 
 	VkMemoryAllocateInfo allocInfo{};
@@ -229,7 +231,7 @@ ImageAllocator::RequestImageCube(
 	if (resultMem)
 	{
 		LOG("failed to allocate memory");
-		return {resultMem, nullptr};
+		return { resultMem, nullptr };
 	}
 
 	vkBindImageMemory(theirVulkanFramework.GetDevice(), image, memory, 0);
@@ -241,7 +243,7 @@ ImageAllocator::RequestImageCube(
 		for (int i = 0; i < 6; ++i)
 		{
 			StagingBuffer stagingBuffer;
-			RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, i, &initialData[i*initialDataBytesPerLayer], initialDataBytesPerLayer,owners.data(), owners.size());
+			RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, i, &initialData[i * initialDataBytesPerLayer], initialDataBytesPerLayer, owners.data(), owners.size());
 			allocSub.AddStagingBuffer(std::move(stagingBuffer));
 		}
 		for (int i = 0; i < 6; ++i)
@@ -278,20 +280,25 @@ ImageAllocator::RequestImageCube(
 	if (resultView)
 	{
 		LOG("failed creating image view");
-		return {resultView, nullptr};
+		return { resultView, nullptr };
 	}
 
-	myAllocatedImages[image] = memory;
-	myImageViews[view] = image;
+	QueueRequest(
+		allocSub,
+		{
+			view,
+			image,
+			memory
+		});
 
-	return {VK_SUCCESS, view};
+	return { VK_SUCCESS, view };
 }
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImageArray(
-	AllocationSubmission&	allocSub,
-	std::vector<uint8_t>	initialData, 
-	uint32_t				numLayers, 
+	AllocationSubmission& allocSub,
+	std::vector<uint8_t>	initialData,
+	uint32_t				numLayers,
 	const ImageRequestInfo& requestInfo)
 {
 	VkImage image{};
@@ -335,14 +342,14 @@ ImageAllocator::RequestImageArray(
 	if (resultImage)
 	{
 		LOG("failed creating image");
-		return {resultImage, nullptr};
+		return { resultImage, nullptr };
 	}
 
 	// MEMORY
 	auto [memReq, typeIndex] = GetMemReq(image, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	if (typeIndex == UINT_MAX)
 	{
-		return {VK_ERROR_FEATURE_NOT_PRESENT, nullptr};
+		return { VK_ERROR_FEATURE_NOT_PRESENT, nullptr };
 	}
 	assert(initialData.size() <= memReq.size && "byte size of image layer 0 mip 0 is too large");
 
@@ -358,14 +365,14 @@ ImageAllocator::RequestImageArray(
 	if (resultMem)
 	{
 		LOG("failed to allocate memory");
-		return {resultMem, nullptr};
+		return { resultMem, nullptr };
 	}
 
 	vkBindImageMemory(theirVulkanFramework.GetDevice(), image, memory, 0);
 
 	// IMAGE ALLOC
 	auto cmdBuffer = allocSub.Record();
-	
+
 	if (!initialData.empty())
 	{
 		const uint64_t numImgBytes = initialData.size() / numLayers;
@@ -373,7 +380,7 @@ ImageAllocator::RequestImageArray(
 		for (uint32_t layer = 0; layer < numLayers; ++layer)
 		{
 			StagingBuffer stagingBuffer;
-			RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, layer, initialData.data() + byteOffset, numImgBytes,owners.data(), owners.size());
+			RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, layer, initialData.data() + byteOffset, numImgBytes, owners.data(), owners.size());
 			allocSub.AddStagingBuffer(std::move(stagingBuffer));
 			byteOffset += numImgBytes;
 		}
@@ -411,29 +418,103 @@ ImageAllocator::RequestImageArray(
 	if (resultView)
 	{
 		LOG("failed creating image view");
-		return {resultView, nullptr};
+		return { resultView, nullptr };
 	}
 
-	myAllocatedImages[image] = memory;
-	myImageViews[view] = image;
+	QueueRequest(
+		allocSub,
+		{
+			view,
+			image,
+			memory
+		});
 
-	return {VK_SUCCESS, view};
+	return { VK_SUCCESS, view };
+}
+
+void
+ImageAllocator::QueueDestroy(
+	VkImageView&& imageView,
+	std::shared_ptr<std::counting_semaphore<NumSwapchainImages>>	waitSignal)
+{
+	QueuedImageDestroy queued;
+	queued.imageView = imageView;
+	queued.waitSignal = std::move(waitSignal);
+	myImageDestroyQueue.push(queued);
+}
+
+void
+ImageAllocator::DoCleanUp(int limit)
+{
+	{
+		AllocatedImage allocImage;
+		int count = 0;
+		while (myRequestedImagesQueue.try_pop(allocImage)
+			&& count++ < limit)
+		{
+			myAllocatedImages[allocImage.view] = allocImage;
+		}
+	}
+	{
+		QueuedImageDestroy queuedDestroy;
+		int count = 0;
+
+		while (myImageDestroyQueue.try_pop(queuedDestroy)
+			&& count++ < limit)
+		{
+			if (!myAllocatedImages.contains(queuedDestroy.imageView))
+			{
+				// Requested image may not be popped from queue yet
+				myFailedDestructs.emplace_back(queuedDestroy);
+				continue;
+			}
+			if (!SemaphoreWait(*queuedDestroy.waitSignal))
+			{
+				myFailedDestructs.emplace_back(queuedDestroy);
+				continue;
+			}
+			auto allocImage = myAllocatedImages[queuedDestroy.imageView];
+			vkDestroyImageView(theirVulkanFramework.GetDevice(), allocImage.view, nullptr);
+			vkDestroyImage(theirVulkanFramework.GetDevice(), allocImage.image, nullptr);
+			vkFreeMemory(theirVulkanFramework.GetDevice(), allocImage.memory, nullptr);
+			myAllocatedImages.erase(queuedDestroy.imageView);
+		}
+		for (auto&& failedDestroy : myFailedDestructs)
+		{
+			failedDestroy.tries++;
+			myImageDestroyQueue.push(failedDestroy);
+		}
+		myFailedDestructs.clear();
+	}
 }
 
 void
 ImageAllocator::SetDebugName(
-	VkImageView imgView, 
+	VkImageView imgView,
 	const char* name)
 {
 	DebugSetObjectName(std::string(name).append("_view").c_str(), imgView, VK_OBJECT_TYPE_IMAGE_VIEW, theirVulkanFramework.GetDevice());
-	DebugSetObjectName(std::string(name).append("_img").c_str(), myImageViews[imgView], VK_OBJECT_TYPE_IMAGE, theirVulkanFramework.GetDevice());
+	DebugSetObjectName(std::string(name).append("_img").c_str(), myAllocatedImages[imgView].image, VK_OBJECT_TYPE_IMAGE, theirVulkanFramework.GetDevice());
 }
 
 VkImage
 ImageAllocator::GetImage(
 	VkImageView imgView)
 {
-	return myImageViews[imgView];
+	return myAllocatedImages[imgView].image;
+}
+
+void
+ImageAllocator::QueueRequest(
+	AllocationSubmission&	allocSub, 
+	AllocatedImage			toQueue)
+{
+	if (allocSub.GetOwningThread() == theirVulkanFramework.GetMainThread())
+	{
+		myAllocatedImages[toQueue.view] = toQueue;
+		return;
+	}
+	myRequestedImagesQueue.push(toQueue);
 }
 
 VkImageMemoryBarrier
@@ -467,29 +548,29 @@ ImageAllocator::EvaluateAccessFlags(
 {
 	switch (layout)
 	{
-		case VK_IMAGE_LAYOUT_UNDEFINED:
-			return NULL;
+	case VK_IMAGE_LAYOUT_UNDEFINED:
+		return NULL;
 
-		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-			return VK_ACCESS_TRANSFER_READ_BIT;
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		return VK_ACCESS_TRANSFER_READ_BIT;
 
-		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-			return VK_ACCESS_TRANSFER_WRITE_BIT;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		return VK_ACCESS_TRANSFER_WRITE_BIT;
 
-		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-			return VK_ACCESS_SHADER_READ_BIT;
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		return VK_ACCESS_SHADER_READ_BIT;
 
-		case VK_IMAGE_LAYOUT_GENERAL:
-			return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+	case VK_IMAGE_LAYOUT_GENERAL:
+		return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
 
-		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-			return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 
-		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-			return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 
-		default:
-			assert(false && "undefined image transition");
+	default:
+		assert(false && "undefined image transition");
 	}
 	return NULL;
 }
@@ -500,32 +581,32 @@ ImageAllocator::EvaluateImageAspect(
 {
 	switch (layout)
 	{
-		case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
-			return VK_IMAGE_ASPECT_DEPTH_BIT;
-		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-			return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-			return VK_IMAGE_ASPECT_COLOR_BIT;
-		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-			return VK_IMAGE_ASPECT_COLOR_BIT;
-		case VK_IMAGE_LAYOUT_GENERAL:
-			return VK_IMAGE_ASPECT_COLOR_BIT;
+	case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
+		return VK_IMAGE_ASPECT_DEPTH_BIT;
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+		return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		return VK_IMAGE_ASPECT_COLOR_BIT;
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		return VK_IMAGE_ASPECT_COLOR_BIT;
+	case VK_IMAGE_LAYOUT_GENERAL:
+		return VK_IMAGE_ASPECT_COLOR_BIT;
 
-		default:
-			assert(false && "unimplementend image layout");
-			return VK_IMAGE_ASPECT_COLOR_BIT;
+	default:
+		assert(false && "unimplementend image layout");
+		return VK_IMAGE_ASPECT_COLOR_BIT;
 	}
 }
 
 void
 ImageAllocator::RecordImageAlloc(
 	VkCommandBuffer			cmdBuffer,
-	StagingBuffer&			outStagingBuffer,
+	StagingBuffer& outStagingBuffer,
 	VkImage					image,
 	uint32_t				width,
 	uint32_t				height,
 	uint32_t				layer,
-	const uint8_t*			data,
+	const uint8_t* data,
 	uint64_t				numBytes, const QueueFamilyIndex* firstOwner, uint32_t				numOwners)
 {
 	{
@@ -554,22 +635,22 @@ ImageAllocator::RecordImageAlloc(
 
 		auto destToSrc = CreateTransition(image, range, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-		
+
 		vkCmdPipelineBarrier(cmdBuffer,
-							  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-							  VK_PIPELINE_STAGE_TRANSFER_BIT,
-							  NULL,
-							  0,
-							  nullptr,
-							  0,
-							  nullptr,
-							  1,
-							  &undefToDest);
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			NULL,
+			0,
+			nullptr,
+			0,
+			nullptr,
+			1,
+			&undefToDest);
 		if (data)
 		{
 			auto [resultStaged, stagedBuffer] = CreateStagingBuffer(data, numBytes, firstOwner, numOwners);
 			outStagingBuffer = stagedBuffer;
-			
+
 			vkCmdCopyBufferToImage(cmdBuffer, stagedBuffer.buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 		}
 		else
@@ -577,15 +658,15 @@ ImageAllocator::RecordImageAlloc(
 			vkCmdClearColorImage(cmdBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &myClearColor, 1, &range);
 		}
 		vkCmdPipelineBarrier(cmdBuffer,
-							  VK_PIPELINE_STAGE_TRANSFER_BIT,
-							  VK_PIPELINE_STAGE_TRANSFER_BIT,
-							  NULL,
-							  0,
-							  nullptr,
-							  0,
-							  nullptr,
-							  1,
-							  &destToSrc);
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			NULL,
+			0,
+			nullptr,
+			0,
+			nullptr,
+			1,
+			&destToSrc);
 	}
 }
 
@@ -625,15 +706,15 @@ ImageAllocator::RecordBlit(
 		auto destToSrc = CreateTransition(image, dstRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
 		VkImageBlit blit{};
-		blit.srcOffsets[0] = {0,0,0};
-		blit.srcOffsets[1] = {srcWidth,srcHeight,1};
+		blit.srcOffsets[0] = { 0,0,0 };
+		blit.srcOffsets[1] = { srcWidth,srcHeight,1 };
 		blit.srcSubresource.mipLevel = mipLevel - 1;
 		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		blit.srcSubresource.baseArrayLayer = layer;
 		blit.srcSubresource.layerCount = 1;
 
-		blit.dstOffsets[0] = {0,0,0};
-		blit.dstOffsets[1] = {dstWidth, dstHeight,1};
+		blit.dstOffsets[0] = { 0,0,0 };
+		blit.dstOffsets[1] = { dstWidth, dstHeight,1 };
 		blit.dstSubresource.mipLevel = mipLevel;
 		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		blit.dstSubresource.baseArrayLayer = layer;
@@ -641,33 +722,33 @@ ImageAllocator::RecordBlit(
 
 		// TRANSFER WORK
 		vkCmdPipelineBarrier(cmdBuffer,
-							  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-							  VK_PIPELINE_STAGE_TRANSFER_BIT,
-							  NULL,
-							  0,
-							  nullptr,
-							  0,
-							  nullptr,
-							  1,
-							  &undefToDest);
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			NULL,
+			0,
+			nullptr,
+			0,
+			nullptr,
+			1,
+			&undefToDest);
 		vkCmdBlitImage(cmdBuffer,
-						image,
-						VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-						image,
-						VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-						1,
-						&blit,
-						VK_FILTER_LINEAR);
+			image,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&blit,
+			VK_FILTER_LINEAR);
 		vkCmdPipelineBarrier(cmdBuffer,
-							  VK_PIPELINE_STAGE_TRANSFER_BIT,
-							  VK_PIPELINE_STAGE_TRANSFER_BIT,
-							  NULL,
-							  0,
-							  nullptr,
-							  0,
-							  nullptr,
-							  1,
-							  &destToSrc);
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			NULL,
+			0,
+			nullptr,
+			0,
+			nullptr,
+			1,
+			&destToSrc);
 		srcHeight /= 2;
 		srcWidth /= 2;
 		dstHeight /= 2;
@@ -695,20 +776,20 @@ ImageAllocator::RecordImageTransition(
 
 	auto destToRead =
 		CreateTransition(image,
-						  range,
-						  prevLayout,
-						  targetLayout);
+			range,
+			prevLayout,
+			targetLayout);
 
 	vkCmdPipelineBarrier(cmdBuffer,
-						  VK_PIPELINE_STAGE_TRANSFER_BIT,
-						  targetPipelineStage,
-						  NULL,
-						  0,
-						  nullptr,
-						  0,
-						  nullptr,
-						  1,
-						  &destToRead);
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		targetPipelineStage,
+		NULL,
+		0,
+		nullptr,
+		0,
+		nullptr,
+		1,
+		&destToRead);
 }
 
 

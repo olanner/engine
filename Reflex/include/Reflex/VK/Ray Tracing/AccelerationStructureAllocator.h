@@ -18,9 +18,9 @@ public:
 													~AccelerationStructureAllocator();
 
 	std::tuple<VkResult, VkAccelerationStructureNV> RequestGeometryStructure(
-														AllocationSubmission&	allocSub,
-														const struct Mesh*		firstMesh,
-														uint32_t				numMeshes);
+														AllocationSubmission&		allocSub,
+														const struct MeshGeometry*	firstMesh,
+														uint32_t					numMeshes);
 	std::tuple<VkResult, VkAccelerationStructureNV> RequestInstanceStructure(
 														AllocationSubmission&	allocSub,	
 														const RTInstances&		instanceDesc);
@@ -32,13 +32,14 @@ public:
 														VkAccelerationStructureNV	instanceStructure, 
 														const RTInstances&			instanceDesc);
 
+	void											DoCleanUp(int limit) override {}
+
 private:
 	std::tuple<VkMemoryRequirements2, MemTypeIndex> GetMemReq(
 														VkAccelerationStructureNV						accStruct,
 														VkMemoryPropertyFlags							memPropFlags,
 														VkAccelerationStructureMemoryRequirementsTypeNV accMemType);
 
-	ImmediateTransferrer&							theirImmediateTransferrer;
 	BufferAllocator&								theirBufferAllocator;
 
 	std::vector<QueueFamilyIndex>					myOwners;

@@ -32,15 +32,18 @@ public:
 	void									AddStagingBuffer(StagingBuffer&& stagingBuffer);
 	_nodiscard VkCommandBuffer				Record() const;
 	std::tuple<VkCommandBuffer, VkEvent>	Submit(VkFence fence);
-	bool									Release();
+	std::tuple<bool, VkCommandBuffer>		Release();
 	_nodiscard std::shared_ptr<VkEvent>		GetExecutedEvent() const;
+	_nodiscard neat::ThreadID				GetOwningThread() const;
 
 private:
 	void									Start(
+												neat::ThreadID	threadID,
 												VkDevice		device,
 												VkCommandPool	cmdPool);
 	void									End();
 
+	neat::ThreadID							myThreadID;
 	Status									myStatus = Status::Fresh;
 	VkDevice								myDevice = nullptr;
 	VkCommandPool							myCommandPool = nullptr;
@@ -61,25 +64,32 @@ public:
 										~AllocationSubmitter();
 	
 	void								RegisterThread(neat::ThreadID threadID);
-	_nodiscard AllocationSubmission		StartAllocSubmission() const;
+	_nodiscard AllocationSubmission		StartAllocSubmission();
 	_nodiscard AllocationSubmission		StartAllocSubmission(neat::ThreadID threadID);
 	void								QueueAllocSubmission(AllocationSubmission&& allocationSubmission);
 
 	std::optional<AllocationSubmission>	AcquireNextAllocSubmission();
 	void								QueueRelease(AllocationSubmission&& allocationSubmission);
+	
 	void								TryReleasing();
+	void								FreeUsedCommandBuffers(
+											neat::ThreadID	threadID,
+											int				maxCount);
+
 
 private:
 	VulkanFramework&					theirVulkanFramework;
 	QueueFamilyIndex					myTransferFamily = 0;
 	
-	VkCommandPool						myCommandPool = nullptr;
 	conc_map<neat::ThreadID, VkCommandPool>
-										myThreadCommandPools;
+										myCommandPools;
 	conc_map<neat::ThreadID, AllocationSubmission>
 										myTransferSubmissions;
 	conc_queue<AllocationSubmission>	myQueuedSubmissions;
 	conc_queue<AllocationSubmission>	myQueuedReleases;
+	conc_map<neat::ThreadID, conc_queue<VkCommandBuffer>>
+										myQueuedCommandBufferDeallocs;
+	
 	
 };
 
@@ -97,6 +107,8 @@ public:
 	_nodiscard AllocationSubmission		Start() const;
 	_nodiscard AllocationSubmission		Start(neat::ThreadID threadID) const;
 	void								Queue(AllocationSubmission&& allocationSubmission) const;
+
+	virtual void						DoCleanUp(int limit) = 0;
 
 protected:
 	bool								IsExclusive(

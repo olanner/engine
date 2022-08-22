@@ -228,7 +228,7 @@ MeshRenderer::RecordSubmit(
 		auto& cmd = assembledWork[i];
 		auto [first, num] = instanceControl[int(cmd.id)];
 		RecordMesh(cmdBuffer,
-					theirMeshHandler[cmd.id],
+					theirMeshHandler[cmd.id].geo,
 					first,
 					num
 		);

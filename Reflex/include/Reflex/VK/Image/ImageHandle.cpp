@@ -2,6 +2,7 @@
 #include "ImageHandle.h"
 
 #include "Reflex/VK/HandlesInternal.h"
+#include "Reflex/Reflex.h"
 
 ImageID rflx::ImageHandle::GetID() const
 {
@@ -20,7 +21,25 @@ rflx::ImageHandle::GetLayers() const
 	return (*gImageHandler)[myID].layers;
 }
 
-rflx::ImageHandle::ImageHandle(ImageID id)
-: myID(id)
+void
+rflx::ImageHandle::Load() const
+{
+	const int threadID = int(theirReflex.GetThreadID());
+	gImageHandler->LoadImage2D(myID, gAllocationSubmissions[threadID], myPath.c_str());
+}
+
+void
+rflx::ImageHandle::Unload() const
+{
+	gImageHandler->UnloadImage2D(myID);
+}
+
+rflx::ImageHandle::ImageHandle(
+	Reflex&		reflex,
+	ImageID		id,
+	std::string path)
+	: theirReflex(reflex)
+	, myID(id)
+	, myPath(path)
 {
 }

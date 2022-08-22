@@ -105,6 +105,19 @@ public:
 				distance -= InputHandler::IsHeld(VK_DOWN) * 128.f * dt;
 				myReflexInterface.SetView({ 0, y,0 }, { xRot, yRot }, distance);
 
+				if (InputHandler::IsReleased('L'))
+				{
+					static bool yeah = false;
+					yeah = !yeah;
+					if (yeah)
+					{
+						boyHandle.Unload();
+					}
+					else
+					{
+						boyHandle.Load();
+					}
+				}
 				myReflexInterface.PushRenderCommand(boyHandle);
 
 				auto fps = std::to_string(int(1.f / dt));
@@ -158,19 +171,21 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	WindowInfo info = { window.GetWindowHandle(), uint32_t(window.GetWindowParameters().width), uint32_t(window.GetWindowParameters().height) };
 
-	std::vector<std::unique_ptr<neat::Thread>> threads;
-	threads.emplace_back(std::make_unique<RenderThread>(info));
-	threads.emplace_back(std::make_unique<LogicThread>(threads.front()->GetNextSignal()));
-	neat::MultiApplication app(
-		window, std::move(threads)
-	);
+	{
+		std::vector<std::unique_ptr<neat::Thread>> threads;
+		threads.emplace_back(std::make_unique<RenderThread>(info));
+		threads.emplace_back(std::make_unique<LogicThread>(threads.front()->GetNextSignal()));
+		neat::MultiApplication app(
+			window, std::move(threads)
+		);
+		retVal = int(app.Loop());
+	}
 
-	retVal = int(app.Loop());
 
 #ifdef _DEBUG
 	if (std::string(_bstr_t(lpCmdLine)).find("vkdebug") != std::string::npos)
 	{
-		//system("pause");
+		system("pause");
 	}
 #endif
 	return retVal;

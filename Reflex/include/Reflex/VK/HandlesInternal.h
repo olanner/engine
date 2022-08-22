@@ -7,7 +7,7 @@
 #include "Text/FontHandler.h"
 #include "Image/CubeFilterer.h"
 #include "Ray Tracing/AccelerationStructureHandler.h"
-
+#include "Memory/AllocatorBase.h"
 
 //CORE
 inline std::shared_ptr<SceneGlobals>					gSceneGlobals;
@@ -16,3 +16,5 @@ inline std::shared_ptr<ImageHandler>					gImageHandler;
 inline std::shared_ptr<FontHandler>						gFontHandler;
 inline std::shared_ptr<CubeFilterer>					gCubeFilterer;
 inline std::shared_ptr<AccelerationStructureHandler>	gAccStructHandler;
+
+inline std::array<AllocationSubmission, neat::MaxThreadID> gAllocationSubmissions;

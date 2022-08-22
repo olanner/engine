@@ -75,7 +75,9 @@ FontHandler::AddFont(
 		numLayers++;
 	}
 
-	font.imgArrID = theirImageHandler.AddImage2D(
+	font.imgArrID = theirImageHandler.AddImage2D();
+	theirImageHandler.LoadImage2D(
+		font.imgArrID,
 		allocSub, 
 		std::move(fontData), 
 		{res,res}, 

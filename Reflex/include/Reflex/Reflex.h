@@ -69,10 +69,18 @@ namespace rflx
 											ImageHandle		handle,
 											Vec2f			coefficient);
 
-		CubeHandle						CreateImageCube(const char* path) const;
-		ImageHandle						CreateImage(const char* path, Vec2f tiling = { 1,1 }) const;
-		ImageHandle						CreateImage(std::vector<PixelValue>&& pixelData, Vec2f tiling = { 1,1 }) const;
-		MeshHandle						CreateMesh(const char* path, std::vector<class ImageHandle>&& imgHandles = {});
+		neat::ThreadID					GetThreadID() const;
+		
+		CubeHandle						CreateImageCube(const char* path);
+		ImageHandle						CreateImage(
+											const char* path, 
+											Vec2f tiling = { 1,1 });
+		ImageHandle						CreateImage(
+											std::vector<PixelValue>&& pixelData, 
+											Vec2f tiling = { 1,1 });
+		MeshHandle						CreateMesh(
+											const char* path, 
+											std::vector<class ImageHandle>&& imgHandles = {});
 	
 	private:
 		neat::ThreadID					myThreadID;

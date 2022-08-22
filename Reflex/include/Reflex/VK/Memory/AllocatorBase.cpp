@@ -74,7 +74,8 @@ AllocationSubmitter::QueueRelease(
 	myQueuedReleases.push(std::move(allocationSubmission));
 }
 
-void AllocationSubmitter::TryReleasing()
+void
+AllocationSubmitter::TryReleasing()
 {
 	AllocationSubmission allocSub;
 	int count = 0;
@@ -82,18 +83,42 @@ void AllocationSubmitter::TryReleasing()
 	while (myQueuedReleases.try_pop(allocSub)
 		&& count++ < cMaxRelease)
 	{
-		if (!allocSub.Release())
+		const auto threadID =  allocSub.GetOwningThread();
+		const auto [success, cmdBuffer] = allocSub.Release();
+		if (!success)
 		{
 			myQueuedReleases.push(std::move(allocSub));
+			continue;
 		}
+		myQueuedCommandBufferDeallocs[threadID].push(cmdBuffer);
+	}
+}
+
+void
+AllocationSubmitter::FreeUsedCommandBuffers(
+	neat::ThreadID	threadID,
+	int				maxCount)
+{
+	const auto cmdPool = myCommandPools[threadID];
+	VkCommandBuffer cmdBuffer = nullptr;
+	int count = 0;
+	while (myQueuedCommandBufferDeallocs[threadID].try_pop(cmdBuffer)
+		&& count++ < maxCount)
+	{
+		vkFreeCommandBuffers(
+			theirVulkanFramework.GetDevice(),
+			cmdPool,
+			1,
+			&cmdBuffer);
 	}
 }
 
 AllocationSubmission
-AllocationSubmitter::StartAllocSubmission() const
+AllocationSubmitter::StartAllocSubmission()
 {
 	AllocationSubmission sub;
-	sub.Start(theirVulkanFramework.GetDevice(), myCommandPool);
+	const auto cmdPool = myCommandPools[theirVulkanFramework.GetMainThread()];
+	sub.Start(theirVulkanFramework.GetMainThread(), theirVulkanFramework.GetDevice(), cmdPool);
 	return sub;
 }
 
@@ -101,14 +126,14 @@ AllocationSubmission
 AllocationSubmitter::StartAllocSubmission(
 	neat::ThreadID threadID)
 {
-	if (myThreadCommandPools.find(threadID) == myThreadCommandPools.cend())
+	if (myCommandPools.find(threadID) == myCommandPools.cend())
 	{
 		RegisterThread(threadID);
 		LOG("start called from unregistered thread!");
 	}
-	const auto cmdPool = myThreadCommandPools[threadID];
+	const auto cmdPool = myCommandPools[threadID];
 	AllocationSubmission sub;
-	sub.Start(theirVulkanFramework.GetDevice(), cmdPool);
+	sub.Start(threadID, theirVulkanFramework.GetDevice(), cmdPool);
 	return sub;
 }
 
@@ -131,13 +156,14 @@ AllocationSubmitter::AllocationSubmitter(
 	cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	cmdPoolInfo.queueFamilyIndex = myTransferFamily;
 
-	auto result = vkCreateCommandPool(theirVulkanFramework.GetDevice(), &cmdPoolInfo, nullptr, &myCommandPool);
+	auto& cmdPool = myCommandPools[theirVulkanFramework.GetMainThread()];
+	auto result = vkCreateCommandPool(theirVulkanFramework.GetDevice(), &cmdPoolInfo, nullptr, &cmdPool);
 	assert(!result && "failed creating command pool");
 }
 
 AllocationSubmitter::~AllocationSubmitter()
 {
-	for (auto& [threadID, pool] : myThreadCommandPools)
+	for (auto& [threadID, pool] : myCommandPools)
 	{
 		vkDestroyCommandPool(theirVulkanFramework.GetDevice(), pool, nullptr);
 	}
@@ -154,7 +180,7 @@ void AllocationSubmitter::RegisterThread(neat::ThreadID threadID)
 	auto resultPool = vkCreateCommandPool(theirVulkanFramework.GetDevice(), &cmdPoolInfo, nullptr, &pool);
 	if (!resultPool)
 	{
-		myThreadCommandPools.insert({threadID, pool});
+		myCommandPools.insert({threadID, pool});
 	}
 }
 
@@ -312,10 +338,12 @@ AllocatorBase::CreateStagingBuffer(
 
 void
 AllocationSubmission::Start(
+	neat::ThreadID	threadID,
 	VkDevice		device,
 	VkCommandPool	cmdPool)
 {
 	assert(myStatus == Status::Fresh);
+	myThreadID = threadID;
 	myDevice = device;
 	myCommandPool = cmdPool;
 	
@@ -353,7 +381,8 @@ AllocationSubmission::End()
 
 AllocationSubmission::AllocationSubmission(
 	AllocationSubmission&& moveFrom) noexcept
-	: myStatus(std::exchange(moveFrom.myStatus, Status::Fresh))
+	: myThreadID(std::exchange(moveFrom.myThreadID, neat::ThreadID(-1)))
+	, myStatus(std::exchange(moveFrom.myStatus, Status::Fresh))
 	, myDevice(std::exchange(moveFrom.myDevice, nullptr))
 	, myCommandPool(std::exchange(moveFrom.myCommandPool, nullptr))
 	, myCommandBuffer(std::exchange(moveFrom.myCommandBuffer, nullptr))
@@ -361,13 +390,13 @@ AllocationSubmission::AllocationSubmission(
 	, myExecutedEvent(std::move(moveFrom.myExecutedEvent))
 	, myStagingBuffers(std::move(moveFrom.myStagingBuffers))
 {
-
 }
 
 AllocationSubmission& 
 AllocationSubmission::operator=(
 	AllocationSubmission&& moveFrom) noexcept
 {
+	myThreadID = std::exchange(moveFrom.myThreadID, neat::ThreadID(-1));
 	myStatus = std::exchange(moveFrom.myStatus, Status::Fresh);
 	myDevice = std::exchange(moveFrom.myDevice, nullptr);
 	myCommandPool = std::exchange(moveFrom.myCommandPool, nullptr);
@@ -405,7 +434,7 @@ AllocationSubmission::Submit(VkFence fence)
 	return {myCommandBuffer, *myExecutedEvent};
 }
 
-bool
+std::tuple<bool, VkCommandBuffer>
 AllocationSubmission::Release()
 {
 	assert(myCommandBuffer != nullptr && myExecutedEvent != nullptr && "Start() not called on allocation submission");
@@ -414,7 +443,7 @@ AllocationSubmission::Release()
 	
 	if (vkGetEventStatus(myDevice, *myExecutedEvent) != VK_EVENT_SET)
 	{
-		return false;
+		return {false, nullptr};
 	}
 	
 	while (vkGetFenceStatus(myDevice, myExecutedFence))
@@ -429,15 +458,13 @@ AllocationSubmission::Release()
 	myStagingBuffers.resize(myStagingBuffers.size(), StagingBuffer{nullptr, nullptr});
 	myStagingBuffers.clear();
 
-	vkFreeCommandBuffers(myDevice, myCommandPool, 1, &myCommandBuffer);
-	myCommandBuffer = nullptr;
 	myExecutedFence = nullptr;
 	vkDestroyEvent(myDevice, *myExecutedEvent, nullptr);
 	*myExecutedEvent = nullptr;
 	myExecutedEvent = nullptr;
 	
 	myCommandPool = nullptr;
-	return true;
+	return {true, myCommandBuffer};
 }
 
 std::shared_ptr<VkEvent>
@@ -446,4 +473,9 @@ AllocationSubmission::GetExecutedEvent() const
 	assert(myStatus == Status::Recording);
 	assert(myCommandBuffer != nullptr && myExecutedEvent != nullptr && "Start() not called on allocation submission");
 	return myExecutedEvent;
+}
+
+_nodiscard neat::ThreadID AllocationSubmission::GetOwningThread() const
+{
+	return myThreadID;
 }

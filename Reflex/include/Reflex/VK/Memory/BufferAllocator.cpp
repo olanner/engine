@@ -8,20 +8,18 @@
 
 BufferAllocator::~BufferAllocator()
 {
-	for (auto& [buffer, memory] : myAllocatedBuffers)
 	{
-		if (buffer)
+		AllocatedBuffer allocBuffer;
+		while (myRequestedBuffersQueue.try_pop(allocBuffer))
 		{
-			vkDestroyBuffer(theirVulkanFramework.GetDevice(), buffer, nullptr);
+			vkDestroyBuffer(theirVulkanFramework.GetDevice(), allocBuffer.buffer, nullptr);
+			vkFreeMemory(theirVulkanFramework.GetDevice(), allocBuffer.memory, nullptr);
 		}
-		else
-		{
-			assert(false && "how did you get here?");
-		}
-		if (memory)
-		{
-			vkFreeMemory(theirVulkanFramework.GetDevice(), memory, nullptr);
-		}
+	}
+	for (auto&& [buffer, allocBuffer] : myAllocatedBuffers)
+	{
+		vkDestroyBuffer(theirVulkanFramework.GetDevice(), allocBuffer.buffer, nullptr);
+		vkFreeMemory(theirVulkanFramework.GetDevice(), allocBuffer.memory, nullptr);
 	}
 }
 
@@ -43,14 +41,18 @@ BufferAllocator::RequestVertexBuffer(
 	{
 		if (buffer)
 		{
-			myAllocatedBuffers[buffer] = nullptr;
+			vkDestroyBuffer(theirVulkanFramework.GetDevice(), buffer, nullptr);
 		}
 		LOG("failed creating vertex buffer");
-		return {result, buffer};
+		return {result, nullptr};
 	}
 
-	myAllocatedBuffers[buffer] = memory;
-	myBufferSizes[buffer] = sizeof(Vertex3D) * vertices.size();
+	myRequestedBuffersQueue.push({
+	buffer,
+	memory,
+	sizeof(Vertex3D) * vertices.size()
+		});
+	
 	return {result, buffer};
 }
 
@@ -73,14 +75,18 @@ BufferAllocator::RequestVertexBuffer(
 	{
 		if (buffer)
 		{
-			myAllocatedBuffers[buffer] = nullptr;
+			vkDestroyBuffer(theirVulkanFramework.GetDevice(), buffer, nullptr);
 		}
 		LOG("failed creating vertex buffer");
-		return {result, buffer};
+		return {result, nullptr};
 	}
 
-	myAllocatedBuffers[buffer] = memory;
-	myBufferSizes[buffer] = sizeof(Vertex2D) * vertices.size();
+	myRequestedBuffersQueue.push({
+		buffer,
+		memory,
+		sizeof(Vertex2D)* vertices.size()
+		});
+	
 	return {result, buffer};
 }
 
@@ -103,14 +109,18 @@ BufferAllocator::RequestIndexBuffer(
 	{
 		if (buffer)
 		{
-			myAllocatedBuffers[buffer] = nullptr;
+			vkDestroyBuffer(theirVulkanFramework.GetDevice(), buffer, nullptr);
 		}
 		LOG("failed creating index buffer");
-		return {result, buffer};
+		return {result, nullptr};
 	}
 
-	myAllocatedBuffers[buffer] = memory;
-	myBufferSizes[buffer] = sizeof(uint32_t) * indices.size();
+	myRequestedBuffersQueue.push({
+		buffer,
+		memory,
+		sizeof(uint32_t)* indices.size()
+		});
+	
 	return {result, buffer};
 }
 
@@ -135,14 +145,17 @@ BufferAllocator::RequestUniformBuffer(
 	{
 		if (buffer)
 		{
-			myAllocatedBuffers[buffer] = nullptr;
+			vkDestroyBuffer(theirVulkanFramework.GetDevice(), buffer, nullptr);
 		}
 		LOG("failed creating uniform buffer");
-		return {result, buffer};
+		return {result, nullptr};
 	}
 
-	myAllocatedBuffers[buffer] = memory;
-	myBufferSizes[buffer] = size;
+	myRequestedBuffersQueue.push({
+		buffer,
+		memory,
+		size
+		});
 	return {result, buffer};
 }
 
@@ -161,13 +174,13 @@ BufferAllocator::UpdateBufferData(
 	auto allocSub = theirAllocationSubmitter.StartAllocSubmission();
 	const auto cmdBuffer = allocSub.Record();
 	
-	vkCmdUpdateBuffer(cmdBuffer, buffer, 0, myBufferSizes[buffer], data);
+	vkCmdUpdateBuffer(cmdBuffer, buffer, 0, myAllocatedBuffers[buffer].size, data);
 	
 	VkBufferMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
 	
 	barrier.buffer = buffer;
-	barrier.size = myBufferSizes[buffer];
+	barrier.size = myAllocatedBuffers[buffer].size;
 	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 	
@@ -297,6 +310,62 @@ BufferAllocator::CreateBuffer(
 
 	}
 	return {VK_SUCCESS, buffer, memory};
+}
+
+void
+BufferAllocator::QueueDestroy(
+	VkBuffer&&														buffer,
+	std::shared_ptr<std::counting_semaphore<NumSwapchainImages>>	waitSignal)
+{
+	QueuedBufferDestroy queuedDestroy;
+	queuedDestroy.buffer		= buffer;
+	queuedDestroy.waitSignal	= std::move(waitSignal);
+	myBufferDestroyQueue.push(queuedDestroy);
+}
+
+void
+BufferAllocator::DoCleanUp(
+	int limit)
+{
+	{
+		AllocatedBuffer allocBuffer;
+		int count = 0;
+		while (myRequestedBuffersQueue.try_pop(allocBuffer)
+			&& count++ < limit)
+		{
+			myAllocatedBuffers[allocBuffer.buffer] = allocBuffer;
+		}
+	}
+	{
+		QueuedBufferDestroy queuedDestroy;
+		int count = 0;
+
+		while (myBufferDestroyQueue.try_pop(queuedDestroy)
+			&& count++ < limit)
+		{
+			if (!myAllocatedBuffers.contains(queuedDestroy.buffer))
+			{
+				// Requested resource may not be popped from queue yet
+				myFailedDestructs.emplace_back(queuedDestroy);
+				continue;
+			}
+			if (!SemaphoreWait(*queuedDestroy.waitSignal))
+			{
+				myFailedDestructs.emplace_back(queuedDestroy);
+				continue;
+			}
+			const auto& allocBuffer = myAllocatedBuffers[queuedDestroy.buffer];
+			vkDestroyBuffer(theirVulkanFramework.GetDevice(), allocBuffer.buffer, nullptr);
+			vkFreeMemory(theirVulkanFramework.GetDevice(), allocBuffer.memory, nullptr);
+			myAllocatedBuffers.erase(queuedDestroy.buffer);
+		}
+		for (auto&& failedDestroy : myFailedDestructs)
+		{
+			failedDestroy.tries++;
+			myBufferDestroyQueue.push(failedDestroy);
+		}
+		myFailedDestructs.clear();
+	}
 }
 
 

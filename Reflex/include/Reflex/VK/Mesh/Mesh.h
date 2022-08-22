@@ -1,10 +1,8 @@
 
 #pragma once
 
-struct Mesh
+struct MeshGeometry
 {
-	VkDescriptorBufferInfo vertexInfo;
-	VkDescriptorBufferInfo indexInfo;
 	VkBuffer vertexBuffer;
 	VkBuffer indexBuffer;
 	uint32_t numVertices;
@@ -13,6 +11,6 @@ struct Mesh
 
 void RecordMesh(
 		VkCommandBuffer& cmdBuffer,
-		const Mesh& mesh,
+		const MeshGeometry& mesh,
 		uint32_t			firstInstance,
 		uint32_t			numInstances);

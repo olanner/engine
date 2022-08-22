@@ -56,9 +56,12 @@ VulkanFramework::~VulkanFramework()
 
 VkResult
 VulkanFramework::Init(
+	neat::ThreadID		threadID,
 	const WindowInfo&	windowInfo, 
 	bool				useDebugLayers)
 {
+	myMainThread = threadID;
+	
 	LOG("Debug Layers", useDebugLayers ? "ON" : "OFF");
 	gUseDebugLayers = useDebugLayers;
 
@@ -283,6 +286,11 @@ VulkanFramework::GetSwapchainImageViews() const
 	std::array<VkImageView, NumSwapchainImages> ret;
 	memcpy(ret.data(), mySwapchainImageViews.data(), NumSwapchainImages * sizeof VkImageView);
 	return ret;
+}
+
+neat::ThreadID VulkanFramework::GetMainThread() const
+{
+	return myMainThread;
 }
 
 VkResult

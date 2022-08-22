@@ -187,22 +187,24 @@ ImageHandler::ImageHandler(
 	assert(!resultSampAlloc && "failed creating image array descriptor set");
 
 	// WRITE SAMPLERS
-	VkDescriptorImageInfo imageInfo{};
-	imageInfo.sampler = mySampler;
-	VkWriteDescriptorSet write{};
-	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	write.pNext = nullptr;
+	{
+		VkDescriptorImageInfo samplerDescInfo = {};
+		samplerDescInfo.sampler = mySampler;
+		VkWriteDescriptorSet write{};
+		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write.pNext = nullptr;
 
-	write.dstSet = mySamplerSet;
-	write.dstBinding = SamplerSetSamplersBinding;
-	write.dstArrayElement = 0;
-	write.descriptorCount = 1;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-	write.pImageInfo = &imageInfo;
-	write.pBufferInfo = nullptr;
-	write.pTexelBufferView = nullptr;
+		write.dstSet = mySamplerSet;
+		write.dstBinding = SamplerSetSamplersBinding;
+		write.dstArrayElement = 0;
+		write.descriptorCount = 1;
+		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+		write.pImageInfo = &samplerDescInfo;
+		write.pBufferInfo = nullptr;
+		write.pTexelBufferView = nullptr;
 
-	vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+		vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
+	}
 
 	// DO DEFAULT TEXTURES
 	auto allocSub = theirImageAllocator.Start();
@@ -237,12 +239,12 @@ ImageHandler::ImageHandler(
 			1,
 			requestInfo);
 		
-		VkDescriptorImageInfo imageInfo = {};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = albedoView;
+		myDefaultImage2DInfo = {};
+		myDefaultImage2DInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		myDefaultImage2DInfo.imageView = albedoView;
 
 		std::vector<VkDescriptorImageInfo> defAlbedoInfos;
-		defAlbedoInfos.resize(MaxNumImages, imageInfo);
+		defAlbedoInfos.resize(MaxNumImages, myDefaultImage2DInfo);
 
 		VkWriteDescriptorSet write{};
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -262,6 +264,11 @@ ImageHandler::ImageHandler(
 			write.dstSet = myImageSets[swapchainIndex];
 			vkUpdateDescriptorSets(theirVulkanFramework.GetDevice(), 1, &write, 0, nullptr);
 		}
+
+		myDefaultImage2DWrite = write;
+		myDefaultImage2DWrite.pImageInfo = &myDefaultImage2DInfo;
+		myDefaultImage2DWrite.descriptorCount = 1;
+		myDefaultImage2DWrite.dstSet = nullptr;
 	}
 	{
 		ImageRequestInfo requestInfo;
@@ -366,7 +373,7 @@ ImageHandler::ImageHandler(
 	
 	myImageSwizzleToFormat[neat::ImageSwizzle::Unknown] = VK_FORMAT_UNDEFINED;
 	
-	AddImage2D(allocSub,"brdfFilament.dds");
+	LoadImage2D(AddImage2D(), allocSub, "brdfFilament.dds");
 	theirImageAllocator.Queue(std::move(allocSub));
 }
 
@@ -379,13 +386,65 @@ ImageHandler::~ImageHandler()
 }
 
 ImageID
-ImageHandler::AddImage2D(
+ImageHandler::AddImage2D()
+{
+	ImageID imageID = myImageIDKeeper.FetchFreeID();
+	if (BAD_ID(imageID))
+	{
+		LOG("no more free image slots");
+		return ImageID(INVALID_ID);
+	}
+	return imageID;
+}
+
+void
+ImageHandler::RemoveImage2D(
+	ImageID imageID)
+{
+	UnloadImage2D(imageID);
+	myImageIDKeeper.ReturnID(imageID);
+}
+
+void
+ImageHandler::UnloadImage2D(
+	ImageID imageID)
+{
+	if (BAD_ID(imageID))
+	{
+		LOG("tried to unload invalid image id");
+		return;
+	}
+	if (myImages2D[int(imageID)].view == nullptr)
+	{
+		LOG("failed to unload image with id: ", int(imageID), ", already unloaded");
+		return;
+	}
+	const std::shared_ptr<std::counting_semaphore<NumSwapchainImages>> doneSignal = std::make_shared<std::counting_semaphore<NumSwapchainImages>>(0);
+	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
+	{
+		auto write = myDefaultImage2DWrite;
+		write.dstSet = myImageSets[swapchainIndex];
+		write.dstArrayElement = int(imageID);
+		QueueDescriptorUpdate(
+			swapchainIndex,
+			nullptr,
+			doneSignal,
+			write);
+	}
+	theirImageAllocator.QueueDestroy(std::move(myImages2D[int(imageID)].view), doneSignal);
+	myImages2D[int(imageID)] = {};
+}
+
+void
+ImageHandler::LoadImage2D(
+	ImageID					imageID,
 	AllocationSubmission&	allocSub,
 	const char*				path)
 {
 	auto img = neat::ReadImage(path);
 
-	return AddImage2D(
+	return LoadImage2D(
+		imageID,
 		allocSub,
 		std::move(img.pixelData), 
 		{img.width, img.height}, 
@@ -393,21 +452,20 @@ ImageHandler::AddImage2D(
 		img.bitDepth / 8);
 }
 
-ImageID
-ImageHandler::AddImage2D(
+void
+ImageHandler::LoadImage2D(
+	ImageID					imageID,
 	AllocationSubmission&	allocSub,
 	std::vector<uint8_t>&&	pixelData,
 	Vec2f					dimension,
 	VkFormat				format,
 	uint32_t				byteDepth)
 {
-	ImageID imgID = myImageIDKeeper.FetchFreeID();
-	if (BAD_ID(imgID))
+	if (BAD_ID(imageID))
 	{
-		LOG("no more free image slots");
-		return ImageID(INVALID_ID);
+		return;
 	}
-	myImages2D[uint32_t(imgID)] = {};
+	myImages2D[uint32_t(imageID)] = {};
 	
 	uint32_t layers = pixelData.size() / (dimension.x * dimension.y * byteDepth);
 	VkResult result{};
@@ -418,7 +476,7 @@ ImageHandler::AddImage2D(
 		requestInfo.mips = NUM_MIPS(std::max(dimension.x, dimension.y));
 		requestInfo.owners = myOwners;
 		requestInfo.format = format;
-		std::tie(result, myImages2D[uint32_t(imgID)].view) = theirImageAllocator.RequestImageArray(
+		std::tie(result, myImages2D[uint32_t(imageID)].view) = theirImageAllocator.RequestImageArray(
 			allocSub,
 			pixelData,
 			layers,
@@ -428,17 +486,16 @@ ImageHandler::AddImage2D(
 	if (result)
 	{
 		LOG("failed loading image 2D, error code: ", result);
-		return ImageID(INVALID_ID);
 	}
 
-	myImages2D[uint32_t(imgID)].dim = dimension;
+	myImages2D[uint32_t(imageID)].dim = dimension;
 	auto [sw, sh] = theirVulkanFramework.GetTargetResolution();
 	float s = std::max(dimension.x, dimension.y) / (sw / 2.f);
-	myImages2D[uint32_t(imgID)].scale = {s, s};
-	myImages2D[uint32_t(imgID)].layers = layers;
+	myImages2D[uint32_t(imageID)].scale = {s, s};
+	myImages2D[uint32_t(imageID)].layers = layers;
 	
-	myImages2D[uint32_t(imgID)].info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	myImages2D[uint32_t(imgID)].info.imageView = myImages2D[uint32_t(imgID)].view;
+	myImages2D[uint32_t(imageID)].info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	myImages2D[uint32_t(imageID)].info.imageView = myImages2D[uint32_t(imageID)].view;
 
 	auto executedEvent = allocSub.GetExecutedEvent();
 	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
@@ -446,18 +503,22 @@ ImageHandler::AddImage2D(
 		VkWriteDescriptorSet write = {};
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.dstBinding = ImageSetImages2DBinding;
-		write.dstArrayElement = uint32_t(imgID);
+		write.dstArrayElement = uint32_t(imageID);
 		write.descriptorCount = 1;
 		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-		write.pImageInfo = &myImages2D[uint32_t(imgID)].info;
+		write.pImageInfo = &myImages2D[uint32_t(imageID)].info;
 		write.dstSet = myImageSets[swapchainIndex];
-		myQueuedDescriptorWrites[swapchainIndex].push({ executedEvent, write });
+		QueueDescriptorUpdate(
+			swapchainIndex, 
+			executedEvent,
+			nullptr,
+			write);
+		//myQueuedDescriptorWrites[swapchainIndex].push({ executedEvent, write });
 	}
-
-	return imgID;
 }
-ImageID
-ImageHandler::AddImage2DTiled(
+void
+ImageHandler::LoadImage2DTiled(
+	ImageID					imageID,
 	AllocationSubmission&	allocSub,
 	const char*				path,
 	uint32_t				rows,
@@ -488,11 +549,11 @@ ImageHandler::AddImage2DTiled(
 		}
 	}
 	
-	return AddImage2D(allocSub, std::move(sortedData), {tileWidth, tileHeight}, myImageSwizzleToFormat[img.swizzle]);
+	return LoadImage2D(imageID, allocSub, std::move(sortedData), {tileWidth, tileHeight}, myImageSwizzleToFormat[img.swizzle]);
 }
 
 CubeID
-ImageHandler::AddImageCube(
+ImageHandler::LoadImageCube(
 	AllocationSubmission& allocSub,
 	const char* path)
 {
@@ -548,14 +609,19 @@ ImageHandler::AddImageCube(
 		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 		write.pImageInfo = &myImagesCube[uint32_t(cubeID)].info;
 		write.dstSet = myImageSets[swapchainIndex];
-		myQueuedDescriptorWrites[swapchainIndex].push({executedEvent, write});
+		QueueDescriptorUpdate(
+			swapchainIndex, 
+			executedEvent,
+			nullptr,
+			write);
+		//myQueuedDescriptorWrites[swapchainIndex].push({executedEvent, write});
 	}
 
 	return cubeID;
 }
 
 VkResult
-ImageHandler::AddStorageImage(
+ImageHandler::LoadStorageImage(
 	uint32_t	index,
 	VkFormat	format,
 	uint32_t	width,

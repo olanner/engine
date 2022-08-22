@@ -109,7 +109,7 @@ VkResult
 AccelerationStructureHandler::AddGeometryStructure(
 	AllocationSubmission&	allocSub,
 	MeshID					ownerID,
-	const struct Mesh*		firstMesh, 
+	const MeshGeometry*		firstMesh, 
 	uint32_t				numMeshes)
 {
 	auto [failure, geoStruct] = theirAccStructAllocator.RequestGeometryStructure(allocSub, firstMesh, numMeshes);
@@ -170,13 +170,13 @@ AccelerationStructureHandler::UpdateInstanceStructure(
 }
 
 VkDescriptorSetLayout
-AccelerationStructureHandler::GetInstanceStructuresLayout()
+AccelerationStructureHandler::GetInstanceStructuresLayout() const
 {
 	return myInstanceStructDescriptorSetLayout;
 }
 
 VkDescriptorSet
-AccelerationStructureHandler::GetInstanceStructuresSet()
+AccelerationStructureHandler::GetInstanceStructuresSet() const
 {
 	return myInstanceStructDescriptorSet;
 }
@@ -191,7 +191,7 @@ void
 AccelerationStructureHandler::BindInstanceStructures(
 	VkCommandBuffer		commandBuffer, 
 	VkPipelineLayout	pipelineLayout, 
-	uint32_t			setIndex)
+	uint32_t			setIndex) const
 {
 	vkCmdBindDescriptorSets(commandBuffer,
 							 VK_PIPELINE_BIND_POINT_RAY_TRACING_NV,

@@ -34,3 +34,20 @@ LOG(Args&& ... someArgs)
 
 	out.close();
 }
+
+template<size_t Count>
+bool SemaphoreWait(std::counting_semaphore<Count>& semaphore)
+{
+	int acquired = 0;
+	for (; acquired < semaphore.max(); ++acquired)
+	{
+		if (!semaphore.try_acquire())
+		{
+			semaphore.release(acquired);
+			acquired = 0;
+			break;
+		}
+	}
+	
+	return acquired == semaphore.max();
+}

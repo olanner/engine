@@ -18,7 +18,6 @@ AccelerationStructureAllocator::AccelerationStructureAllocator(
 	QueueFamilyIndex		transferFamilyIndex,
 	QueueFamilyIndex		presentationFamilyIndex)
 	: AllocatorBase(vulkanFramework, allocationSubmitter, immediateTransferrer, transferFamilyIndex)
-	, theirImmediateTransferrer(immediateTransferrer)
 	, theirBufferAllocator(bufferAllocator)
 	, myOwners{transferFamilyIndex, presentationFamilyIndex, theirImmediateTransferrer.GetOwner()}
 	, myTransferFamilyIndex(transferFamilyIndex)
@@ -115,7 +114,7 @@ AccelerationStructureAllocator::~AccelerationStructureAllocator()
 std::tuple<VkResult, VkAccelerationStructureNV>
 AccelerationStructureAllocator::RequestGeometryStructure(
 	AllocationSubmission&	allocSub,
-	const Mesh*				firstMesh, 
+	const MeshGeometry*		firstMesh,
 	uint32_t				numMeshes)
 {
 	// ACCELERATION STRUCTURE 

@@ -29,24 +29,30 @@ public:
 														uint32_t				numOwners);
 													~ImageHandler();
 
-	ImageID											AddImage2D(
+	ImageID											AddImage2D();
+	void											RemoveImage2D(ImageID imageID);
+	void											UnloadImage2D(ImageID imageID);
+	void											LoadImage2D(
+														ImageID imageID,
 														class AllocationSubmission& allocSub,
 														const char* path);
-	ImageID											AddImage2D(
+	void											LoadImage2D(
+														ImageID imageID,
 														class AllocationSubmission& allocSub,
-														std::vector<uint8_t>&&	pixelData,
-														Vec2f				dimension,
-														VkFormat			format = VK_FORMAT_R8G8B8A8_UNORM,
-														uint32_t			byteDepth = 4);
-	ImageID											AddImage2DTiled(
+														std::vector<uint8_t>&&		pixelData,
+														Vec2f						dimension,
+														VkFormat					format = VK_FORMAT_R8G8B8A8_UNORM,
+														uint32_t					byteDepth = 4);
+	void											LoadImage2DTiled(
+														ImageID imageID,
 														class AllocationSubmission& allocSub,
 														const char* path,
 														uint32_t	rows,
 														uint32_t	cols);
-	CubeID											AddImageCube(
+	CubeID											LoadImageCube(
 														class AllocationSubmission& allocSub,
 														const char* path);
-	VkResult										AddStorageImage(
+	VkResult										LoadStorageImage(
 														uint32_t	index,
 														VkFormat	format,
 														uint32_t	width,
@@ -77,6 +83,8 @@ private:
 	std::unordered_map<neat::ImageSwizzle, VkFormat>
 													myImageSwizzleToFormat;
 	
+	VkDescriptorImageInfo							myDefaultImage2DInfo = {};
+	VkWriteDescriptorSet							myDefaultImage2DWrite = {};
 	VkDescriptorPool								myDescriptorPool = nullptr;
 	VkDescriptorSetLayout							myImageSetLayout = nullptr;
 	std::array<VkDescriptorSet, NumSwapchainImages>	myImageSets = {};

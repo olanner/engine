@@ -98,17 +98,65 @@ MeshHandler::MeshHandler(
 		assert(!failure && "failed allocating mesh data set");
 	}
 
-	// FILL DEFAULT MESH DATA
-	Vertex3D vertex{};
-	uint32_t index = 0;
-
+	// LOAD DEFAULT IMAGES
 	AllocationSubmission allocSub = theirImageHandler.GetImageAllocator().Start();
+	{
+		std::vector<PixelValue> albedoPixels;
+		albedoPixels.resize(64 * 64);
+		for (size_t pixIndex = 0; pixIndex < albedoPixels.size(); ++pixIndex)
+		{
+			uint32_t y = pixIndex / 64;
+			uint32_t x = pixIndex % 64;
+			uint32_t g = (y + x) % 2;
+			if (g == 0)
+			{
+				albedoPixels[pixIndex] = { 0, 0, 0, 255 };
+			}
+			else if (g == 1)
+			{
+				albedoPixels[pixIndex] = { 255, 255, 255, 255 };
+			}
+		}
+		std::vector<uint8_t> albedoData;
+		albedoData.resize(64 * 64 * 4);
+		memcpy(albedoData.data(), albedoPixels.data(), albedoData.size());
+		myMissingImageIDs[0] = theirImageHandler.AddImage2D();
+		theirImageHandler.LoadImage2D(myMissingImageIDs[0], allocSub, std::move(albedoData), { 64, 64 });
+	}
+	{
+		std::vector<PixelValue> materialPixels;
+		materialPixels.resize(2 * 2, { 255, 0, 0, 0 });
+		std::vector<uint8_t> materialData;
+		materialData.resize(2 * 2 * 4);
+		memcpy(materialData.data(), materialPixels.data(), materialData.size());
+		myMissingImageIDs[1] = theirImageHandler.AddImage2D();
+		theirImageHandler.LoadImage2D(myMissingImageIDs[1], allocSub, std::move(materialData), { 2, 2 });
+	}
+	{
+		std::vector<PixelValue> normalPixels;
+		normalPixels.resize(2 * 2, { 127, 127, 255, 0 });
+		std::vector<uint8_t> normalData;
+		normalData.resize(2 * 2 * 4);
+		memcpy(normalData.data(), normalPixels.data(), normalData.size());
+		myMissingImageIDs[2] = theirImageHandler.AddImage2D();
+		theirImageHandler.LoadImage2D(myMissingImageIDs[2], allocSub, std::move(normalData), { 2, 2 }, VK_FORMAT_R8G8B8A8_UNORM);
+	}
+
+	// FILL DEFAULT MESH DATA
+	const auto rawMesh = LoadRawMesh("cube.dae", { {myMissingImageIDs[0], myMissingImageIDs[1], myMissingImageIDs[2], 0} });
+	
 	VkBuffer vBuffer, iBuffer;
-	std::tie(failure, vBuffer) = theirBufferAllocator.RequestVertexBuffer(allocSub, { vertex }, myOwners);
+	std::tie(failure, vBuffer) = theirBufferAllocator.RequestVertexBuffer(allocSub, rawMesh.vertices, myOwners);
 	assert(!failure && "failed allocating default vertex buffer");
-	std::tie(failure, iBuffer) = theirBufferAllocator.RequestIndexBuffer(allocSub, { index }, myOwners);
+	std::tie(failure, iBuffer) = theirBufferAllocator.RequestIndexBuffer(allocSub, rawMesh.indices, myOwners);
 	assert(!failure && "failed allocating default index buffer");
 	
+	Mesh defaultMesh = {};
+	defaultMesh.geo.vertexBuffer = vBuffer;
+	defaultMesh.geo.indexBuffer = iBuffer;
+	defaultMesh.geo.numVertices = uint32_t(rawMesh.vertices.size());
+	defaultMesh.geo.numIndices = uint32_t(rawMesh.indices.size());
+	defaultMesh.imageIDs.emplace_back(Vec4f{myMissingImageIDs[0], myMissingImageIDs[1], myMissingImageIDs[2], 0});
 	
 	for (uint32_t i = 0; i < MaxNumMeshesLoaded; ++i)
 	{
@@ -126,6 +174,8 @@ MeshHandler::MeshHandler(
 		vBuffInfo.offset = 0;
 		vBuffInfo.range = VK_WHOLE_SIZE;
 		vWrite.pBufferInfo = &vBuffInfo;
+
+		defaultMesh.vertexInfo = vBuffInfo;
 
 		for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
 		{
@@ -148,6 +198,8 @@ MeshHandler::MeshHandler(
 		iBuffInfo.range = VK_WHOLE_SIZE;
 		iWrite.pBufferInfo = &iBuffInfo;
 
+		defaultMesh.indexInfo = iBuffInfo;
+
 		for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
 		{
 			iWrite.dstSet = myMeshDataSets[swapchainIndex];
@@ -155,44 +207,8 @@ MeshHandler::MeshHandler(
 		}
 	}
 
-	{
-		std::vector<PixelValue> albedoPixels;
-		albedoPixels.resize(64 * 64);
-		for (size_t pixIndex = 0; pixIndex < albedoPixels.size(); ++pixIndex)
-		{
-			uint32_t y = pixIndex / 64;
-			uint32_t x = pixIndex % 64;
-			uint32_t g = (y + x) % 2;
-			if (g == 0)
-			{
-				albedoPixels[pixIndex] = { 0, 0, 0, 255 };
-			}
-			else if (g == 1)
-			{
-				albedoPixels[pixIndex] = { 255, 255, 255, 255 };
-			}
-		}
-		std::vector<uint8_t> albedoData;
-		albedoData.resize(64 * 64 * 4);
-		memcpy(albedoData.data(), albedoPixels.data(), albedoData.size());
-		myMissingAlbedoID = theirImageHandler.AddImage2D(allocSub, std::move(albedoData), { 64, 64 });
-	}
-	{
-		std::vector<PixelValue> materialPixels;
-		materialPixels.resize(2 * 2, { 255, 0, 0, 0 });
-		std::vector<uint8_t> materialData;
-		materialData.resize(2 * 2 * 4);
-		memcpy(materialData.data(), materialPixels.data(), materialData.size());
-		myMissingMaterialID = theirImageHandler.AddImage2D(allocSub, std::move(materialData), { 2, 2 });
-	}
-	{
-		std::vector<PixelValue> normalPixels;
-		normalPixels.resize(2 * 2, { 127, 127, 255, 0 });
-		std::vector<uint8_t> normalData;
-		normalData.resize(2 * 2 * 4);
-		memcpy(normalData.data(), normalPixels.data(), normalData.size());
-		myMissingNormalID = theirImageHandler.AddImage2D(allocSub, std::move(normalData), { 2, 2 }, VK_FORMAT_R8G8B8A8_UNORM);
-	}
+	myDefaultMesh = defaultMesh;
+	myMeshes.fill(defaultMesh);
 	
 	theirImageHandler.GetImageAllocator().Queue(std::move(allocSub));
 }
@@ -207,11 +223,7 @@ MeshHandler::GetImageArraySetLayout() const
 	return theirImageHandler.GetImageSetLayout();
 }
 
-MeshID
-MeshHandler::AddMesh(
-	class AllocationSubmission& allocSub,
-	const char*					path, 
-	std::vector<ImageID>&&		imageIDs)
+MeshID MeshHandler::AddMesh()
 {
 	MeshID meshID = myMeshIDKeeper.FetchFreeID();
 	if (BAD_ID(meshID))
@@ -219,28 +231,81 @@ MeshHandler::AddMesh(
 		LOG("no more free mesh slots");
 		return MeshID(INVALID_ID);
 	}
-	myMeshes[uint32_t(meshID)] = {};
+	return meshID;
+}
+
+void
+MeshHandler::RemoveMesh(
+	MeshID meshID)
+{
+	UnloadMesh(meshID);
+	myMeshIDKeeper.ReturnID(meshID);
+}
+
+void
+MeshHandler::UnloadMesh(
+	MeshID meshID)
+{
+	if (BAD_ID(meshID))
+	{
+		LOG("invalid id passed to UnloadMesh()");
+		return;
+	}
+	auto& mesh = myMeshes[int(meshID)];
+	if (mesh.geo.vertexBuffer == myDefaultMesh.geo.vertexBuffer)
+	{
+		LOG("mesh with id: ", int(meshID), ", already unloaded");
+		return;
+	}
+	for (auto& ids : mesh.imageIDs)
+	{
+		for (auto& id : {ids.x, ids.y, ids.z, ids.w})
+		{
+			if (std::ranges::find(myMissingImageIDs, ImageID(id)) == myMissingImageIDs.end()
+				&& int(id) != 0)
+			{
+				theirImageHandler.UnloadImage2D(ImageID(id));
+			}
+		}
+	}
+	mesh.imageIDs.clear();
+	mesh = myDefaultMesh;
+}
+
+void
+MeshHandler::LoadMesh(
+	MeshID meshID,
+	class AllocationSubmission& allocSub,
+	const char*					path, 
+	std::vector<ImageID>&&		imageIDs)
+{
+	if (BAD_ID(meshID))
+	{
+		LOG("invalid id passed to load mesh");
+		return;
+	}
+	auto& mesh = myMeshes[int(meshID)];
 	
-	std::vector<Vec4f> imgIDs;
+	//neat::static_vector<Vec4f, 64> imgIDs;
 	if (imageIDs.empty())
 	{
 		// IMAGE ALLOC
 		rapidjson::Document doc = OpenJsonDoc(std::filesystem::path(path).replace_extension("mx").string().c_str());
-		imgIDs = LoadImagesFromDoc(doc, allocSub);
+		mesh.imageIDs = LoadImagesFromDoc(doc, allocSub);
 	}
 	else
 	{
-		imageIDs.resize(4);
-		imgIDs.resize(1);
-		imgIDs[0].x = (BAD_ID(imageIDs[0]) || uint32_t(imageIDs[0]) == 0) ? float(myMissingAlbedoID) : float(imageIDs[0]);
-		imgIDs[0].y = (BAD_ID(imageIDs[1]) || uint32_t(imageIDs[1]) == 0) ? float(myMissingMaterialID) : float(imageIDs[1]);
-		imgIDs[0].z = (BAD_ID(imageIDs[2]) || uint32_t(imageIDs[2]) == 0) ? float(myMissingNormalID) : float(imageIDs[2]);
-		imgIDs[0].w = (BAD_ID(imageIDs[3]) || uint32_t(imageIDs[3]) == 0) ? float(myMissingAlbedoID) : float(imageIDs[3]);
+		imageIDs.resize(4, ImageID(-1));
+		mesh.imageIDs.resize(1);
+		mesh.imageIDs[0].x = (BAD_ID(imageIDs[0]) || uint32_t(imageIDs[0]) == 0) ? float(myMissingImageIDs[0]) : float(imageIDs[0]);
+		mesh.imageIDs[0].y = (BAD_ID(imageIDs[1]) || uint32_t(imageIDs[1]) == 0) ? float(myMissingImageIDs[1]) : float(imageIDs[1]);
+		mesh.imageIDs[0].z = (BAD_ID(imageIDs[2]) || uint32_t(imageIDs[2]) == 0) ? float(myMissingImageIDs[2]) : float(imageIDs[2]);
+		mesh.imageIDs[0].w = (BAD_ID(imageIDs[3]) || uint32_t(imageIDs[3]) == 0) ? float(myMissingImageIDs[3]) : float(imageIDs[3]);
 	}
 
 
 	// BUFFER ALLOC
-	RawMesh raw = LoadRawMesh(path, imgIDs);
+	const auto rawMesh = LoadRawMesh(path, mesh.imageIDs);
 
 	/*for (auto& v : raw.vertices)
 	{
@@ -252,29 +317,27 @@ MeshHandler::AddMesh(
 
 	auto [resultV, vBuffer] = theirBufferAllocator.RequestVertexBuffer(
 		allocSub,
-		raw.vertices,
+		rawMesh.vertices,
 		myOwners
 	);
 	auto [resultI, iBuffer] = theirBufferAllocator.RequestIndexBuffer(
 		allocSub,
-		raw.indices,
+		rawMesh.indices,
 		myOwners
 	);
 	if (resultV || resultI)
 	{
 		LOG("failed loading mesh");
-		return MeshID(INVALID_ID);
+		return;
 	}
 
-	myMeshes[int(meshID)].vertexBuffer = vBuffer;
-	myMeshes[int(meshID)].indexBuffer = iBuffer;
-	myMeshes[int(meshID)].numVertices = uint32_t(raw.vertices.size());
-	myMeshes[int(meshID)].numIndices = uint32_t(raw.indices.size());
+	mesh.geo.vertexBuffer = vBuffer;
+	mesh.geo.indexBuffer = iBuffer;
+	mesh.geo.numVertices = uint32_t(rawMesh.vertices.size());
+	mesh.geo.numIndices = uint32_t(rawMesh.indices.size());
 
 	// DESCRIPTOR WRITE
 	WriteMeshDescriptorData(meshID, allocSub);
-
-	return meshID;
 }
 
 Mesh
@@ -294,7 +357,8 @@ MeshHandler::BindMeshData(
 	int					swapchainIndex,
 	VkCommandBuffer		cmdBuffer,
 	VkPipelineLayout	layout,
-	uint32_t			setIndex, VkPipelineBindPoint bindPoint)
+	uint32_t			setIndex, 
+	VkPipelineBindPoint bindPoint)
 {
 	vkCmdBindDescriptorSets(cmdBuffer,
 		bindPoint,
@@ -306,11 +370,11 @@ MeshHandler::BindMeshData(
 		nullptr);
 }
 
-std::vector<Vec4f>
+neat::static_vector<Vec4f, 64>
 MeshHandler::LoadImagesFromDoc(
 	const rapidjson::Document& doc, AllocationSubmission& allocSub) const
 {
-	std::vector<Vec4f> imgIDs;
+	neat::static_vector<Vec4f, 64> imgIDs;
 
 	if (doc.HasMember("Albedo"))
 	{
@@ -324,14 +388,15 @@ MeshHandler::LoadImagesFromDoc(
 					meshIndex = member.GetInt();
 					if (meshIndex + 1 > imgIDs.size())
 					{
-						imgIDs.resize(meshIndex + 1, {float(myMissingAlbedoID), float(myMissingMaterialID), float(myMissingNormalID), 0});
+						imgIDs.resize(meshIndex + 1, {float(myMissingImageIDs[0]), float(myMissingImageIDs[1]), float(myMissingImageIDs[2]), 0});
 					}
 				}
 				else if (member.IsString())
 				{
 					const std::string& path = member.GetString();
-					const ImageID imgID = theirImageHandler.AddImage2D(allocSub, path.c_str());
-					imgIDs[meshIndex].x = BAD_ID(imgID) ? float(myMissingAlbedoID) : float(imgID);
+					const ImageID imgID = theirImageHandler.AddImage2D();
+					theirImageHandler.LoadImage2D(imgID, allocSub, path.c_str());
+					imgIDs[meshIndex].x = BAD_ID(imgID) ? float(myMissingImageIDs[0]) : float(imgID);
 				}
 			}
 		}
@@ -348,14 +413,15 @@ MeshHandler::LoadImagesFromDoc(
 					meshIndex = member.GetInt();
 					if (meshIndex + 1 > imgIDs.size())
 					{
-						imgIDs.resize(meshIndex + 1, { float(myMissingAlbedoID), float(myMissingMaterialID), float(myMissingNormalID), 0 });
+						imgIDs.resize(meshIndex + 1, { float(myMissingImageIDs[0]), float(myMissingImageIDs[1]), float(myMissingImageIDs[2]), 0 });
 					}
 				}
 				else if (member.IsString())
 				{
 					const std::string& path = member.GetString();
-					const ImageID imgID = theirImageHandler.AddImage2D(allocSub, path.c_str());
-					imgIDs[meshIndex].y = BAD_ID(imgID) ? float(myMissingMaterialID) : float(imgID);
+					const ImageID imgID = theirImageHandler.AddImage2D();
+					theirImageHandler.LoadImage2D(imgID, allocSub, path.c_str());
+					imgIDs[meshIndex].y = BAD_ID(imgID) ? float(myMissingImageIDs[1]) : float(imgID);
 				}
 			}
 		}
@@ -372,14 +438,15 @@ MeshHandler::LoadImagesFromDoc(
 					meshIndex = member.GetInt();
 					if (meshIndex + 1 > imgIDs.size())
 					{
-						imgIDs.resize(meshIndex + 1, { float(myMissingAlbedoID), float(myMissingMaterialID), float(myMissingNormalID), 0 });
+						imgIDs.resize(meshIndex + 1, { float(myMissingImageIDs[0]), float(myMissingImageIDs[1]), float(myMissingImageIDs[2]), 0 });
 					}
 				}
 				else if (member.IsString())
 				{
 					const std::string& path = member.GetString();
-					const ImageID imgID = theirImageHandler.AddImage2D(allocSub, path.c_str());
-					imgIDs[meshIndex].z = BAD_ID(imgID) ? float(myMissingNormalID) : float(imgID);
+					const ImageID imgID = theirImageHandler.AddImage2D();
+					theirImageHandler.LoadImage2D(imgID, allocSub, path.c_str());
+					imgIDs[meshIndex].z = BAD_ID(imgID) ? float(myMissingImageIDs[2]) : float(imgID);
 				}
 			}
 		}
@@ -394,13 +461,13 @@ MeshHandler::WriteMeshDescriptorData(
 	AllocationSubmission& allocSub)
 {
 	{
-		auto [vBuffer, iBuffer] = std::tuple{ myMeshes[int(meshID)].vertexBuffer,myMeshes[int(meshID)].indexBuffer };
+		auto [vBuffer, iBuffer] = std::tuple{ myMeshes[int(meshID)].geo.vertexBuffer,myMeshes[int(meshID)].geo.indexBuffer };
 		myMeshes[uint32_t(meshID)].vertexInfo.buffer = vBuffer;
 		myMeshes[uint32_t(meshID)].vertexInfo.range = VK_WHOLE_SIZE;
 		myMeshes[uint32_t(meshID)].indexInfo.buffer = iBuffer;
 		myMeshes[uint32_t(meshID)].indexInfo.range = VK_WHOLE_SIZE;
 
-		auto executedEvent = allocSub.GetExecutedEvent();
+		const auto executedEvent = allocSub.GetExecutedEvent();
 		for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
 		{
 			VkWriteDescriptorSet write = {};
@@ -411,8 +478,11 @@ MeshHandler::WriteMeshDescriptorData(
 			write.dstBinding = 0;
 			write.pBufferInfo = &myMeshes[uint32_t(meshID)].vertexInfo;
 			write.dstSet = myMeshDataSets[swapchainIndex];
-
-			myQueuedDescriptorWrites[swapchainIndex].push({executedEvent, write});
+			QueueDescriptorUpdate(
+				swapchainIndex, 
+				executedEvent, 
+				nullptr, 
+				write);
 		}
 		for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
 		{
@@ -424,8 +494,11 @@ MeshHandler::WriteMeshDescriptorData(
 			write.dstBinding = 1;
 			write.pBufferInfo = &myMeshes[uint32_t(meshID)].indexInfo;
 			write.dstSet = myMeshDataSets[swapchainIndex];
-
-			myQueuedDescriptorWrites[swapchainIndex].push({executedEvent, write});
+			QueueDescriptorUpdate(
+				swapchainIndex, 
+				executedEvent, 
+				nullptr, 
+				write);
 		}
 	}
 }

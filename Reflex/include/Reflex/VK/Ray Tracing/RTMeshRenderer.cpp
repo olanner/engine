@@ -177,7 +177,7 @@ RTMeshRenderer::RTMeshRenderer(
 
 	// STORE IMAGE
 	auto [w, h] = theirVulkanFramework.GetTargetResolution();
-	theirImageHandler.AddStorageImage(0, VK_FORMAT_R32G32B32A32_SFLOAT, w, h);
+	theirImageHandler.LoadStorageImage(0, VK_FORMAT_R32G32B32A32_SFLOAT, w, h);
 
 	// INSTANCE STRUCT
 	RTInstances instances;

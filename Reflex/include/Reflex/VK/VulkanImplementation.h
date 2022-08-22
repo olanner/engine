@@ -18,6 +18,7 @@ public:
 												~VulkanImplementation();
 
 	VkResult									Initialize(
+													neat::ThreadID		threadID,
 													const WindowInfo&	windowInfo, 
 													bool				useDebugLayers = false);
 
@@ -31,6 +32,7 @@ public:
 													VkQueueFlagBits					subQueueType);
 	void										LockWorkerSystems();
 	void										RegisterThread(neat::ThreadID threadID);
+
 private:
 	VkResult									InitSync();
 

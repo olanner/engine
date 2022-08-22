@@ -9,7 +9,7 @@ public:
 										VulkanFramework();
 										~VulkanFramework();
 
-	VkResult							Init(const WindowInfo& windowInfo, bool useDebugLayers = false);
+	VkResult							Init(neat::ThreadID threadID, const WindowInfo& windowInfo, bool useDebugLayers = false);
 	std::tuple<VkResult, VkQueue, QueueFamilyIndex>
 										RequestQueue(VkQueueFlagBits queueType);
 	std::tuple<VkResult, VkCommandBuffer>
@@ -45,6 +45,7 @@ public:
 	VkAttachmentDescription				GetSwapchainAttachmentDesc() const;
 	std::array<VkImageView, NumSwapchainImages>
 										GetSwapchainImageViews() const;
+	neat::ThreadID						GetMainThread() const;
 
 private:
 	VkResult							InitInstance();
@@ -62,6 +63,7 @@ private:
 	VkResult							InitDepthImage(const WindowInfo& windowInfo);
 	VkResult							InitFramebuffers(const WindowInfo& windowInfo);
 
+	neat::ThreadID						myMainThread;
 	std::vector<VkPhysicalDevice>		myPhysicalDevices;
 	std::vector<VkPhysicalDeviceProperties>
 										myPhysicalDeviceProperties;
