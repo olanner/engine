@@ -8,11 +8,11 @@ Box::AddBox(
 	const char* imgPath,
 	Vec2ui		size)
 {
-	Box box =
-	{ rflx::CreateImage(imgPath)
-	,	size.x
-	,	size.y };
-	gBoxes.emplace_back(box);
+	//Box box =
+	//{ rflx::CreateImage(imgPath)
+	//,	size.x
+	//,	size.y };
+	//gBoxes.emplace_back(box);
 }
 
 void

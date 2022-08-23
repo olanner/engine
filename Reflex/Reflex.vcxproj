@@ -12,25 +12,24 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{9CE084CF-A684-48C5-8CD9-72AF569E6E9E}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{3ec588ae-af95-423e-aa2c-43dc7d46a51b}</ProjectGuid>
     <RootNamespace>Reflex</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>Reflex</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
-    <ConfigurationType>StaticLibrary</ConfigurationType>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -48,145 +47,63 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(SolutionDir)ext\freetype\include\;$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)ext\glslang\include\;$(SolutionDir)ext\assimp\include\;$(SolutionDir)ext\glm\</IncludePath>
-    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;$(SolutionDir)ext\Vulkan\Lib\;$(SolutionDir)ext\assimp\lib\;$(SolutionDir)ext\glslang\lib\debug\</LibraryPath>
+    <IncludePath>$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)RFVK\include\;$(SolutionDir)ext\glm\</IncludePath>
+    <LibraryPath>$(SolutionDir)..\Lib\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir)ext\freetype\include\;$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)ext\glslang\include\;$(SolutionDir)ext\assimp\include\;$(SolutionDir)ext\glm\</IncludePath>
-    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;$(SolutionDir)ext\Vulkan\Lib\;$(SolutionDir)ext\assimp\lib\;$(SolutionDir)ext\glslang\lib\release\</LibraryPath>
+    <IncludePath>$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)RFVK\include\;$(SolutionDir)ext\glm\</IncludePath>
+    <LibraryPath>$(SolutionDir)..\Lib\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>
+      </SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>
+      </SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="constexprs.h" />
-    <ClInclude Include="defines.h" />
-    <ClInclude Include="HelperFuncs.h" />
-    <ClInclude Include="include\Reflex\Features.h" />
-    <ClInclude Include="include\Reflex\identities.h" />
-    <ClInclude Include="include\Reflex\Reflex.h" />
-    <ClInclude Include="include\Reflex\VK\Debug\DebugUtils.h" />
-    <ClInclude Include="include\Reflex\VK\HandlesInternal.h" />
-    <ClInclude Include="include\Reflex\VK\Image\CubeFilterer.h" />
-    <ClInclude Include="include\Reflex\VK\Image\CubeHandle.h" />
-    <ClInclude Include="include\Reflex\VK\Image\ImageHandle.h" />
-    <ClInclude Include="include\Reflex\VK\Memory\Streamer.h" />
-    <ClInclude Include="include\Reflex\VK\Misc\HandlerBase.h" />
-    <ClInclude Include="include\Reflex\VK\Pipelines\GenBlendStates.h" />
-    <ClInclude Include="include\Reflex\VK\Pipelines\GenRasterStates.h" />
-    <ClInclude Include="include\Reflex\VK\Pipelines\Pipeline.h" />
-    <ClInclude Include="include\Reflex\VK\Pipelines\PipelineBuilder.h" />
-    <ClInclude Include="include\Reflex\VK\RenderPass\RenderPass.h" />
-    <ClInclude Include="include\Reflex\VK\RenderPass\RenderPassBuilder.h" />
-    <ClInclude Include="include\Reflex\VK\RenderPass\RenderPassFactory.h" />
-    <ClInclude Include="include\Reflex\VK\Text\FontHandler.h" />
-    <ClInclude Include="include\Reflex\VK\Sprite\SpriteRenderer.h" />
-    <ClInclude Include="include\Reflex\VK\WorkerSystem\WorkScheduler.h" />
-    <ClInclude Include="include\Reflex\VK\WorkerSystem\WorkerSystem.h" />
-    <ClInclude Include="include\Reflex\VK\Presenter\Presenter.h" />
-    <ClInclude Include="include\Reflex\VK\Geometry\Vertex2D.h" />
-    <ClInclude Include="include\Reflex\VK\Memory\ImmediateTransferrer.h" />
-    <ClInclude Include="include\Reflex\VK\Mesh\MeshHandle.h" />
-    <ClInclude Include="include\Reflex\VK\Mesh\MeshRenderCommand.h" />
-    <ClInclude Include="include\Reflex\VK\Mesh\MeshRendererBase.h" />
-    <ClInclude Include="include\Reflex\VK\Pipelines\FullscreenPipeline.h" />
-    <ClInclude Include="include\Reflex\VK\Ray Tracing\AccelerationStructureAllocator.h" />
-    <ClInclude Include="include\Reflex\VK\Ray Tracing\AccelerationStructureHandler.h" />
-    <ClInclude Include="include\Reflex\VK\Ray Tracing\NVRayTracing.h" />
-    <ClInclude Include="include\Reflex\VK\Ray Tracing\RTMeshRenderer.h" />
-    <ClInclude Include="include\Reflex\VK\Scene\SceneGlobals.h" />
-    <ClInclude Include="include\VK\GlobalScene\GlobalScene.h" />
-    <ClInclude Include="include\Reflex\VK\Memory\AllocatorBase.h" />
-    <ClInclude Include="include\Reflex\VK\Memory\ImageAllocator.h" />
-    <ClInclude Include="include\Reflex\VK\Mesh\Mesh.h" />
-    <ClInclude Include="include\Reflex\VK\Mesh\MeshHandler.h" />
-    <ClInclude Include="include\Reflex\VK\Mesh\MeshRenderer.h" />
-    <ClInclude Include="include\Reflex\VK\Pipelines\MeshPipeline.h" />
-    <ClInclude Include="include\Reflex\VK\Image\ImageHandler.h" />
-    <ClInclude Include="usings.h" />
-    <ClInclude Include="include\Reflex\VK\Geometry\Vertex3D.h" />
-    <ClInclude Include="include\Reflex\VK\Memory\BufferAllocator.h" />
-    <ClInclude Include="include\Reflex\VK\Mesh\LoadMesh.h" />
-    <ClInclude Include="include\Reflex\VK\Shader\Shader.h" />
-    <ClInclude Include="include\Reflex\VK\Shader\VKCompile.h" />
-    <ClInclude Include="include\Reflex\VK\Uniform\UniformHandler.h" />
-    <ClInclude Include="include\Reflex\VK\VulkanFramework.h" />
-    <ClInclude Include="include\Reflex\VK\VulkanImplementation.h" />
-    <ClInclude Include="include\Reflex\WindowInfo\WindowInfo.h" />
+    <ClInclude Include="include\Handles\CubeHandle.h" />
+    <ClInclude Include="include\Handles\HandlesInternal.h" />
+    <ClInclude Include="include\Handles\ImageHandle.h" />
+    <ClInclude Include="include\Handles\MeshHandle.h" />
+    <ClInclude Include="include\Reflex.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="include\Reflex\Reflex.cpp" />
-    <ClCompile Include="include\Reflex\VK\Image\CubeFilterer.cpp" />
-    <ClCompile Include="include\Reflex\VK\Image\CubeHandle.cpp" />
-    <ClCompile Include="include\Reflex\VK\Image\ImageHandle.cpp" />
-    <ClCompile Include="include\Reflex\VK\Misc\HandlerBase.cpp" />
-    <ClCompile Include="include\Reflex\VK\Presenter\Presenter.cpp" />
-    <ClCompile Include="include\Reflex\VK\Memory\AllocatorBase.cpp" />
-    <ClCompile Include="include\Reflex\VK\Memory\BufferAllocator.cpp" />
-    <ClCompile Include="include\Reflex\VK\Memory\ImageAllocator.cpp" />
-    <ClCompile Include="include\Reflex\VK\Memory\ImmediateTransferrer.cpp" />
-    <ClCompile Include="include\Reflex\VK\Mesh\LoadMesh.cpp" />
-    <ClCompile Include="include\Reflex\VK\Mesh\MeshHandle.cpp" />
-    <ClCompile Include="include\Reflex\VK\Mesh\MeshHandler.cpp" />
-    <ClCompile Include="include\Reflex\VK\Mesh\MeshRenderer.cpp" />
-    <ClCompile Include="include\Reflex\VK\Mesh\MeshRendererBase.cpp" />
-    <ClCompile Include="include\Reflex\VK\Mesh\Mesh.cpp" />
-    <ClCompile Include="include\Reflex\VK\Pipelines\PipelineBuilder.cpp" />
-    <ClCompile Include="include\Reflex\VK\Ray Tracing\AccelerationStructureAllocator.cpp" />
-    <ClCompile Include="include\Reflex\VK\Ray Tracing\AccelerationStructureHandler.cpp" />
-    <ClCompile Include="include\Reflex\VK\Ray Tracing\RTMeshRenderer.cpp" />
-    <ClCompile Include="include\Reflex\VK\RenderPass\RenderPass.cpp" />
-    <ClCompile Include="include\Reflex\VK\RenderPass\RenderPassBuilder.cpp" />
-    <ClCompile Include="include\Reflex\VK\RenderPass\RenderPassFactory.cpp" />
-    <ClCompile Include="include\Reflex\VK\Scene\SceneGlobals.cpp" />
-    <ClCompile Include="include\Reflex\VK\Shader\Shader.cpp" />
-    <ClCompile Include="include\Reflex\VK\Shader\VKCompile.cpp" />
-    <ClCompile Include="include\Reflex\VK\Image\ImageHandler.cpp" />
-    <ClCompile Include="include\Reflex\VK\Text\FontHandler.cpp" />
-    <ClCompile Include="include\Reflex\VK\Sprite\SpriteRenderer.cpp" />
-    <ClCompile Include="include\Reflex\VK\Uniform\UniformHandler.cpp" />
-    <ClCompile Include="include\Reflex\VK\VulkanFramework.cpp" />
-    <ClCompile Include="include\Reflex\VK\VulkanImplementation.cpp" />
-    <ClCompile Include="include\Reflex\VK\WorkerSystem\WorkerSystem.cpp" />
+    <ClCompile Include="include\Handles\CubeHandle.cpp" />
+    <ClCompile Include="include\Handles\ImageHandle.cpp" />
+    <ClCompile Include="include\Handles\MeshHandle.cpp" />
+    <ClCompile Include="include\Reflex.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>

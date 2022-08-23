@@ -10,7 +10,7 @@
 #include "neat/General/MultiApplication.h"
 #include "neat/General/Timer.h"
 
-#include "Reflex/Reflex.h"
+#include "Reflex.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "neat_Debugx64.lib")
@@ -23,12 +23,12 @@
 class RenderThread : public neat::Thread
 {
 public:
-	RenderThread(const WindowInfo& windowInfo)
+	RenderThread(void* hWND, const Vec2ui& windowRes)
 		: myReflexInterface(GetThreadID())
 	{
-		myStartFunc = [this, windowInfo]()
+		myStartFunc = [this, hWND, windowRes]()
 		{
-			myReflexInterface.Start(windowInfo, "vkdebug");
+			myReflexInterface.Start(hWND, windowRes, "vkdebug");
 			myTimer.Start();
 		};
 		myMainFunc = [this]()
@@ -77,7 +77,7 @@ public:
 		myStartFunc = [this]()
 		{
 			myTimer.Start();
-			myReflexInterface.Start({});
+			myReflexInterface.Start(nullptr, {});
 		};
 		myMainFunc = [this]() -> void
 		{
@@ -177,11 +177,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		SWP_SHOWWINDOW);
 #endif
 
-	WindowInfo info = { window.GetWindowHandle(), uint32_t(window.GetWindowParameters().width), uint32_t(window.GetWindowParameters().height) };
 
 	{
 		std::vector<std::unique_ptr<neat::Thread>> threads;
-		threads.emplace_back(std::make_unique<RenderThread>(info));
+		threads.emplace_back(std::make_unique<RenderThread>(
+			window.GetWindowHandle(),
+			Vec2ui{window.GetWindowParameters().width, window.GetWindowParameters().height}));
 		threads.emplace_back(std::make_unique<LogicThread>(threads.front()->GetNextSignal()));
 		neat::MultiApplication app(
 			window, std::move(threads)

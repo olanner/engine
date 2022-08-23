@@ -63,7 +63,6 @@ typedef enum {
   shaderc_glsl_default_tess_control_shader,
   shaderc_glsl_default_tess_evaluation_shader,
   shaderc_spirv_assembly,
-#ifdef NV_EXTENSIONS
   shaderc_raygen_shader,
   shaderc_anyhit_shader,
   shaderc_closesthit_shader,
@@ -88,14 +87,13 @@ typedef enum {
   shaderc_glsl_mesh_shader = shaderc_mesh_shader,
   shaderc_glsl_default_task_shader,
   shaderc_glsl_default_mesh_shader,
-#endif
 } shaderc_shader_kind;
 
 typedef enum {
   shaderc_profile_none,  // Used if and only if GLSL version did not specify
                          // profiles.
   shaderc_profile_core,
-  shaderc_profile_compatibility,
+  shaderc_profile_compatibility,  // Disabled. This generates an error
   shaderc_profile_es,
 } shaderc_profile;
 
@@ -408,6 +406,11 @@ SHADERC_EXPORT void shaderc_compile_options_set_limit(
 // that aren't already explicitly bound in the shader source.
 SHADERC_EXPORT void shaderc_compile_options_set_auto_bind_uniforms(
     shaderc_compile_options_t options, bool auto_bind);
+
+// Sets whether the compiler should automatically remove sampler variables
+// and convert image variables to combined image-sampler variables.
+SHADERC_EXPORT void shaderc_compile_options_set_auto_combined_image_sampler(
+    shaderc_compile_options_t options, bool upgrade);
 
 // Sets whether the compiler should use HLSL IO mapping rules for bindings.
 // Defaults to false.
