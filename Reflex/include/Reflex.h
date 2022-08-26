@@ -69,15 +69,16 @@ namespace rflx
 
 		neat::ThreadID					GetThreadID() const;
 		
-		CubeHandle						CreateImageCube(const char* path);
+		CubeHandle						CreateImageCube(
+											const std::string& path);
 		ImageHandle						CreateImage(
-											const char* path, 
+											const std::string& path, 
 											Vec2f tiling = { 1,1 });
 		ImageHandle						CreateImage(
 											std::vector<PixelValue>&& pixelData, 
 											Vec2f tiling = { 1,1 });
 		MeshHandle						CreateMesh(
-											const char* path, 
+											const std::string& path,
 											std::vector<class ImageHandle>&& imgHandles = {});
 	
 	private:

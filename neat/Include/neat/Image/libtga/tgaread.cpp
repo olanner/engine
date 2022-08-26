@@ -66,7 +66,6 @@ TGAReadImage(TGA     *tga,
 				data->flags |= TGA_COLOR_MAP;
 			}
 		}
-		
 		data->img_data = (tbyte*)malloc(TGA_IMG_DATA_SIZE(tga));
 		if (!data->img_data) {
 			data->flags &= ~TGA_IMAGE_DATA;

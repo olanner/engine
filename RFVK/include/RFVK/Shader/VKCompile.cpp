@@ -9,24 +9,37 @@
 #include "StandAlone/ResourceLimits.h"
 
 #ifdef _DEBUG
-#pragma comment( lib, "glslang-default-resource-limitsd.lib" )
-#pragma comment( lib, "glslangd.lib" )
-#pragma comment( lib, "HLSLd.lib" )
-#pragma comment( lib, "OGLCompilerd.lib" )
-#pragma comment( lib, "OSDependentd.lib" )
-#pragma comment( lib, "SPIRVd.lib" )
-#pragma comment( lib, "SPVRemapperd.lib" )
+#pragma comment(lib, "GenericCodeGend.lib")
+#pragma comment(lib, "glslang-default-resource-limitsd.lib")
+#pragma comment(lib, "glslangd.lib")
+#pragma comment(lib, "HLSLd.lib")
+#pragma comment(lib, "MachineIndependentd.lib")
+#pragma comment(lib, "OGLCompilerd.lib")
+#pragma comment(lib, "OSDependentd.lib")
+#pragma comment(lib, "SPIRVd.lib")
+#pragma comment(lib, "SPVRemapperd.lib")
+#pragma comment(lib, "SPIRV-Toolsd.lib")
+#pragma comment(lib, "SPIRV-Tools-diffd.lib")
+#pragma comment(lib, "SPIRV-Tools-linkd.lib")
+#pragma comment(lib, "SPIRV-Tools-lintd.lib")
+#pragma comment(lib, "SPIRV-Tools-reduced.lib")
+#pragma comment(lib, "SPIRV-Tools-optd.lib")
 #else
-
-#pragma comment(lib, "glslang-default-resource-limits.lib" )
-#pragma comment(lib, "glslang.lib" )
-#pragma comment(lib, "HLSL.lib" )
-#pragma comment(lib, "OGLCompiler.lib" )
-#pragma comment(lib, "OSDependent.lib" )
-#pragma comment(lib, "SPIRV.lib" )
-#pragma comment(lib, "SPVRemapper.lib" )
-
-
+#pragma comment(lib, "GenericCodeGen.lib")
+#pragma comment(lib, "glslang-default-resource-limits.lib")
+#pragma comment(lib, "glslang.lib")
+#pragma comment(lib, "HLSL.lib")
+#pragma comment(lib, "MachineIndependent.lib")
+#pragma comment(lib, "OGLCompiler.lib")
+#pragma comment(lib, "OSDependent.lib")
+#pragma comment(lib, "SPIRV.lib")
+#pragma comment(lib, "SPVRemapper.lib")
+#pragma comment(lib, "SPIRV-Tools.lib")
+#pragma comment(lib, "SPIRV-Tools-diff.lib")
+#pragma comment(lib, "SPIRV-Tools-link.lib")
+#pragma comment(lib, "SPIRV-Tools-lint.lib")
+#pragma comment(lib, "SPIRV-Tools-reduce.lib")
+#pragma comment(lib, "SPIRV-Tools-opt.lib")
 #endif
 
 bool glslangInit = false;

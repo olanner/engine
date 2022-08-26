@@ -97,6 +97,7 @@
     <ClInclude Include="Include\neat\Image\ImageReader.h" />
     <ClInclude Include="Include\neat\Image\libtga\tga.h" />
     <ClInclude Include="Include\neat\Image\libtga\tgaconfig.h" />
+    <ClInclude Include="Include\neat\Image\tga-main\tga.h" />
     <ClInclude Include="Include\neat\Input\InputHandler.h" />
     <ClInclude Include="Include\neat\Math\float4.h" />
     <ClInclude Include="Include\neat\Containers\static_vector.h" />
@@ -119,6 +120,10 @@
     <ClCompile Include="Include\neat\Image\libtga\tga.cpp" />
     <ClCompile Include="Include\neat\Image\libtga\tgaread.cpp" />
     <ClCompile Include="Include\neat\Image\libtga\tgawrite.cpp" />
+    <ClCompile Include="Include\neat\Image\tga-main\decoder.cpp" />
+    <ClCompile Include="Include\neat\Image\tga-main\encoder.cpp" />
+    <ClCompile Include="Include\neat\Image\tga-main\image_iterator.cpp" />
+    <ClCompile Include="Include\neat\Image\tga-main\stdio.cpp" />
     <ClCompile Include="Include\neat\Input\InputHandler.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

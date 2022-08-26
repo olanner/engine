@@ -107,11 +107,11 @@ ImageAllocator::RequestImage2D(
 	auto cmdBuffer = allocSub.Record();
 	if (initialData)
 	{
-		StagingBuffer stagingBuffer;
+		BufferXMemory stagingBuffer;
 		RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, 0, initialData, initialDataNumBytes, owners.data(), owners.size());
 		RecordBlit(cmdBuffer, image, requestInfo.width, requestInfo.height, requestInfo.mips, 0);
 		RecordImageTransition(cmdBuffer, image, requestInfo.mips, 1, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, requestInfo.layout, requestInfo.targetPipelineStage);
-		allocSub.AddStagingBuffer(std::move(stagingBuffer));
+		allocSub.AddResourceBuffer(stagingBuffer.buffer, stagingBuffer.memory);
 	}
 	else
 	{
@@ -242,9 +242,9 @@ ImageAllocator::RequestImageCube(
 	{
 		for (int i = 0; i < 6; ++i)
 		{
-			StagingBuffer stagingBuffer;
+			BufferXMemory stagingBuffer;
 			RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, i, &initialData[i * initialDataBytesPerLayer], initialDataBytesPerLayer, owners.data(), owners.size());
-			allocSub.AddStagingBuffer(std::move(stagingBuffer));
+			allocSub.AddResourceBuffer(stagingBuffer.buffer, stagingBuffer.memory);
 		}
 		for (int i = 0; i < 6; ++i)
 		{
@@ -379,9 +379,9 @@ ImageAllocator::RequestImageArray(
 		uint64_t byteOffset = 0;
 		for (uint32_t layer = 0; layer < numLayers; ++layer)
 		{
-			StagingBuffer stagingBuffer;
+			BufferXMemory stagingBuffer;
 			RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, layer, initialData.data() + byteOffset, numImgBytes, owners.data(), owners.size());
-			allocSub.AddStagingBuffer(std::move(stagingBuffer));
+			allocSub.AddResourceBuffer(stagingBuffer.buffer, stagingBuffer.memory);
 			byteOffset += numImgBytes;
 		}
 		for (uint32_t layer = 0; layer < numLayers; ++layer)
@@ -601,7 +601,7 @@ ImageAllocator::EvaluateImageAspect(
 void
 ImageAllocator::RecordImageAlloc(
 	VkCommandBuffer			cmdBuffer,
-	StagingBuffer& outStagingBuffer,
+	BufferXMemory&			outStagingBuffer,
 	VkImage					image,
 	uint32_t				width,
 	uint32_t				height,

@@ -1,8 +1,6 @@
 #include "pch.h"
 #include "RTMeshRenderer.h"
 
-
-
 #include "AccelerationStructureHandler.h"
 #include "NVRayTracing.h"
 #include "RFVK/Image/ImageHandler.h"
@@ -44,47 +42,47 @@ RTMeshRenderer::RTMeshRenderer(
 								 _ARRAYSIZE(shaderPaths),
 								 theirVulkanFramework
 	);
-
+	
 	// SHADER GROUPS
-	VkRayTracingShaderGroupCreateInfoNV rgenGrp{};
-	rgenGrp.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_NV;
+	VkRayTracingShaderGroupCreateInfoKHR rgenGrp{};
+	rgenGrp.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
 	rgenGrp.pNext = nullptr;
 
-	rgenGrp.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_NV;
-	rgenGrp.closestHitShader = VK_SHADER_UNUSED_NV;
-	rgenGrp.anyHitShader = VK_SHADER_UNUSED_NV;
-	rgenGrp.intersectionShader = VK_SHADER_UNUSED_NV;
+	rgenGrp.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+	rgenGrp.closestHitShader = VK_SHADER_UNUSED_KHR;
+	rgenGrp.anyHitShader = VK_SHADER_UNUSED_KHR;
+	rgenGrp.intersectionShader = VK_SHADER_UNUSED_KHR;
 	rgenGrp.generalShader = 0;
 
-	VkRayTracingShaderGroupCreateInfoNV missGrp{};
-	missGrp.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_NV;
+	VkRayTracingShaderGroupCreateInfoKHR missGrp{};
+	missGrp.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
 	missGrp.pNext = nullptr;
 
-	missGrp.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_NV;
-	missGrp.closestHitShader = VK_SHADER_UNUSED_NV;
-	missGrp.anyHitShader = VK_SHADER_UNUSED_NV;
-	missGrp.intersectionShader = VK_SHADER_UNUSED_NV;
+	missGrp.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+	missGrp.closestHitShader = VK_SHADER_UNUSED_KHR;
+	missGrp.anyHitShader = VK_SHADER_UNUSED_KHR;
+	missGrp.intersectionShader = VK_SHADER_UNUSED_KHR;
 	missGrp.generalShader = 1;
 
-	VkRayTracingShaderGroupCreateInfoNV shadowMissGrp{};
-	shadowMissGrp.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_NV;
+	VkRayTracingShaderGroupCreateInfoKHR shadowMissGrp{};
+	shadowMissGrp.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
 	shadowMissGrp.pNext = nullptr;
 
-	shadowMissGrp.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_NV;
-	shadowMissGrp.closestHitShader = VK_SHADER_UNUSED_NV;
-	shadowMissGrp.anyHitShader = VK_SHADER_UNUSED_NV;
-	shadowMissGrp.intersectionShader = VK_SHADER_UNUSED_NV;
+	shadowMissGrp.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+	shadowMissGrp.closestHitShader = VK_SHADER_UNUSED_KHR;
+	shadowMissGrp.anyHitShader = VK_SHADER_UNUSED_KHR;
+	shadowMissGrp.intersectionShader = VK_SHADER_UNUSED_KHR;
 	shadowMissGrp.generalShader = 2;
 
-	VkRayTracingShaderGroupCreateInfoNV chitGrp{};
-	chitGrp.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_NV;
+	VkRayTracingShaderGroupCreateInfoKHR chitGrp{};
+	chitGrp.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
 	chitGrp.pNext = nullptr;
 
-	chitGrp.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_NV;
+	chitGrp.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 	chitGrp.closestHitShader = 3;
-	chitGrp.anyHitShader = VK_SHADER_UNUSED_NV;
-	chitGrp.intersectionShader = VK_SHADER_UNUSED_NV;
-	chitGrp.generalShader = VK_SHADER_UNUSED_NV;
+	chitGrp.anyHitShader = VK_SHADER_UNUSED_KHR;
+	chitGrp.intersectionShader = VK_SHADER_UNUSED_KHR;
+	chitGrp.generalShader = VK_SHADER_UNUSED_KHR;
 
 	// LAYOUT
 	VkPipelineLayoutCreateInfo layoutCreateInfo{};
@@ -105,8 +103,8 @@ RTMeshRenderer::RTMeshRenderer(
 	layoutCreateInfo.pSetLayouts = layouts;
 
 	// PIPELINE
-	VkRayTracingPipelineCreateInfoNV rtPipelineInfo{};
-	rtPipelineInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_NV;
+	VkRayTracingPipelineCreateInfoKHR rtPipelineInfo{};
+	rtPipelineInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
 	rtPipelineInfo.pNext = nullptr;
 	rtPipelineInfo.flags = NULL;
 
@@ -114,21 +112,17 @@ RTMeshRenderer::RTMeshRenderer(
 	rtPipelineInfo.pStages = stages.data();
 	rtPipelineInfo.stageCount = numStages;
 
-	myNumMissShaders = 2;
-	myNumClosestHitShaders = 2;
-
-
-	VkPhysicalDeviceRayTracingPropertiesNV rtProps{};
-	rtProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV;
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProps{};
+	rtProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
 	VkPhysicalDeviceProperties2 props{};
 	props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 	props.pNext = &rtProps;
 
 	vkGetPhysicalDeviceProperties2(theirVulkanFramework.GetPhysicalDevice(), &props);
 
-	rtPipelineInfo.maxRecursionDepth = rtProps.maxRecursionDepth;
+	rtPipelineInfo.maxPipelineRayRecursionDepth = rtProps.maxRayRecursionDepth;
 
-	VkRayTracingShaderGroupCreateInfoNV shaderGroups[]
+	VkRayTracingShaderGroupCreateInfoKHR shaderGroups[]
 	{
 		rgenGrp,
 		missGrp,
@@ -141,48 +135,62 @@ RTMeshRenderer::RTMeshRenderer(
 
 	auto failure = vkCreatePipelineLayout(theirVulkanFramework.GetDevice(), &layoutCreateInfo, nullptr, &myRTPipelineLayout);
 	rtPipelineInfo.layout = myRTPipelineLayout;
-	failure = vkCreateRayTracingPipelines(theirVulkanFramework.GetDevice(), nullptr, 1, &rtPipelineInfo, nullptr, &myRTPipeLine);
+	vkCreateRayTracingPipelines(
+		theirVulkanFramework.GetDevice(),
+		nullptr, 
+		nullptr,
+		1, 
+		&rtPipelineInfo, 
+		nullptr, 
+		&myRTPipeLine);
 	assert(!failure && "failed creating pipeline");
 
-	// SBT
-	myShaderProgramSize = rtProps.shaderGroupBaseAlignment;
-
-	size_t sbtSize = myShaderProgramSize * ARRAYSIZE(shaderGroups);
-	std::vector<char> shaderGrpHandles;
-	shaderGrpHandles.resize(sbtSize);
-
-	int offset = 0;
-	for (int handleIndex = 0; handleIndex < ARRAYSIZE(shaderGroups); ++handleIndex)
-	{
-		vkGetRayTracingShaderGroupHandles(theirVulkanFramework.GetDevice(),
-										   myRTPipeLine,
-										   handleIndex,
-										   1,
-										   myShaderProgramSize,
-										   shaderGrpHandles.data() + offset);
-		offset += myShaderProgramSize;
-	}
-
-
+	// SBTs
+	size_t shaderProgramSize = rtProps.shaderGroupBaseAlignment;
+	size_t shaderHandleAlignment = rtProps.shaderGroupHandleAlignment;
+	size_t shaderHandleSize = rtProps.shaderGroupHandleSize;
+	uint32_t alignedSize = AlignedSize(shaderHandleSize, shaderHandleAlignment);
 	auto allocSub = theirBufferAllocator.Start();
-	std::tie(failure, myShaderBindingTable, mySBTMemory) =
-		theirBufferAllocator.CreateBuffer(
-			allocSub,
-			VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			shaderGrpHandles.data(),
-			sbtSize,
-			myOwners,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			true);
 
+	myShaderBindingTables[0] =
+		CreateShaderBindingTable(
+			allocSub,
+			alignedSize,
+			0,
+			1,
+			myRTPipeLine);
+	myShaderBindingTables[1] =
+		CreateShaderBindingTable(
+			allocSub,
+			alignedSize,
+			1,
+			2,
+			myRTPipeLine);
+	myShaderBindingTables[2] =
+		CreateShaderBindingTable(
+			allocSub,
+			alignedSize,
+			3,
+			1,
+			myRTPipeLine);
+	
 	// STORE IMAGE
 	auto [w, h] = theirVulkanFramework.GetTargetResolution();
 	theirImageHandler.LoadStorageImage(0, VK_FORMAT_R32G32B32A32_SFLOAT, w, h);
 
 	// INSTANCE STRUCT
-	RTInstances instances;
-	instances.resize(MaxNumInstances);
-	myInstancesID = theirAccStructHandler.AddInstanceStructure(allocSub, instances);
+	VkAccelerationStructureInstanceKHR instance;
+	instance.flags = NULL;
+	instance.instanceCustomIndex = 0;
+	instance.instanceShaderBindingTableRecordOffset = 0;
+	instance.mask = 0xff;
+	auto transform = glm::identity<Mat4rt>();
+	instance.transform = *(VkTransformMatrixKHR*)&transform;
+	instance.accelerationStructureReference = theirAccStructHandler[GeoStructID(0)].address;
+	
+	//RTInstances instances;
+	myInstances.resize(MaxNumInstances, {instance});
+	myInstancesID = theirAccStructHandler.AddInstanceStructure(allocSub, myInstances);
 
 	theirBufferAllocator.Queue(std::move(allocSub));
 }
@@ -191,8 +199,8 @@ RTMeshRenderer::~RTMeshRenderer()
 {
 	vkDestroyPipeline(theirVulkanFramework.GetDevice(), myRTPipeLine, nullptr);
 	vkDestroyPipelineLayout(theirVulkanFramework.GetDevice(), myRTPipelineLayout, nullptr);
-	vkDestroyBuffer(theirVulkanFramework.GetDevice(), myShaderBindingTable, nullptr);
-	vkFreeMemory(theirVulkanFramework.GetDevice(), mySBTMemory, nullptr);
+	//vkDestroyBuffer(theirVulkanFramework.GetDevice(), mySBTBuffer, nullptr);
+	//vkFreeMemory(theirVulkanFramework.GetDevice(), mySBTMemory, nullptr);
 
 	SAFE_DELETE(myOpaqueShader);
 }
@@ -208,26 +216,20 @@ RTMeshRenderer::RecordSubmit(
 {
 	// ACQUIRE RENDER COMMAND BUFFER
 	const auto& assembledWork = myWorkScheduler.AssembleScheduledWork();
-	
 	// UPDATE INSTANCE STRUCTURE
-	RTInstances instances;
+	myInstances.clear();
 	for (auto& cmd : assembledWork)
 	{
-		uint64_t geoHandle{};
-		auto geoStruct = theirAccStructHandler.GetGeometryStruct(cmd.id);
-		auto result = vkGetAccelerationStructureHandle(theirVulkanFramework.GetDevice(), geoStruct, sizeof geoHandle, &geoHandle);
-		assert(!result && "failed getting geo struct GPU handle");
-
-		GeometryInstance inst{};
-		inst.accelerationStructureHandle = geoHandle;
-		inst.customID = uint32_t(cmd.id);
-		inst.transform = glm::transpose(cmd.transform);
-		inst.instanceOffset = 0;
+		RTInstances::value_type inst{};
+		inst.accelerationStructureReference = theirAccStructHandler[cmd.geoID].address;
+		inst.instanceCustomIndex = uint32_t(cmd.id);
+		auto transform = glm::transpose(cmd.transform);
+		inst.transform = *(VkTransformMatrixKHR*)&transform;
+		inst.instanceShaderBindingTableRecordOffset = 0;
 		inst.mask = 0xff;
 		inst.flags = NULL;
-		instances.emplace_back(inst);
+		myInstances.emplace_back(inst);
 	}
-	theirAccStructHandler.UpdateInstanceStructure(myInstancesID, instances);
 
 	// RECORD
 	VkCommandBufferBeginInfo beginInfo{};
@@ -240,29 +242,29 @@ RTMeshRenderer::RecordSubmit(
 	while (vkGetFenceStatus(theirVulkanFramework.GetDevice(), myCmdBufferFences[swapchainImageIndex]))
 	{
 	}
-	auto resultBegin = vkBeginCommandBuffer(myCmdBuffers[swapchainImageIndex], &beginInfo);
 
-	vkCmdBindPipeline(myCmdBuffers[swapchainImageIndex], VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, myRTPipeLine);
+	theirAccStructHandler.UpdateInstanceStructure(swapchainImageIndex, myInstancesID, myInstances);
+	auto cmdBuffer = myCmdBuffers[swapchainImageIndex];
+	auto resultBegin = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+
+	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, myRTPipeLine);
 
 	// DESCRIPTORS
-	theirSceneGlobals.BindGlobals(myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 0, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV);
-	theirImageHandler.BindSamplers(myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 1, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV);
-	theirImageHandler.BindImages(swapchainImageIndex, myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 2, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV);
-	theirAccStructHandler.BindInstanceStructures(myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 3);
-	theirMeshHandler.BindMeshData(swapchainImageIndex, myCmdBuffers[swapchainImageIndex], myRTPipelineLayout, 4, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV);
-
-	// TRACE RAYS
-	const uint32_t missOffset = myShaderProgramSize;
-	const uint32_t missWidth = myShaderProgramSize * myNumMissShaders;
-	const uint32_t chitOffset = missOffset + missWidth;
+	theirSceneGlobals.BindGlobals(cmdBuffer, myRTPipelineLayout, 0, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+	theirImageHandler.BindSamplers(cmdBuffer, myRTPipelineLayout, 1, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+	theirImageHandler.BindImages(swapchainImageIndex, cmdBuffer, myRTPipelineLayout, 2, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+	theirAccStructHandler.BindInstanceStructures(swapchainImageIndex, cmdBuffer, myRTPipelineLayout, 3);
+	theirMeshHandler.BindMeshData(swapchainImageIndex, cmdBuffer, myRTPipelineLayout, 4, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 
 	auto [w, h] = theirVulkanFramework.GetTargetResolution();
-	vkCmdTraceRays(myCmdBuffers[swapchainImageIndex],
-					myShaderBindingTable, 0,
-					myShaderBindingTable, missOffset, myShaderProgramSize,
-					myShaderBindingTable, chitOffset, myShaderProgramSize,
-					myShaderBindingTable, 0, 0,
-					w, h, 1);
+	VkStridedDeviceAddressRegionKHR callableStride = {};
+	vkCmdTraceRays(
+		cmdBuffer,
+		&myShaderBindingTables[0].stride,
+		&myShaderBindingTables[1].stride,
+		&myShaderBindingTables[2].stride,
+		&callableStride,
+		uint32_t(w), uint32_t(h), 1);
 
 	auto resultEnd = vkEndCommandBuffer(myCmdBuffers[swapchainImageIndex]);
 
@@ -292,4 +294,49 @@ RTMeshRenderer::RecordSubmit(
 std::vector<rflx::Features> RTMeshRenderer::GetImplementedFeatures() const
 {
     return {rflx::Features::FEATURE_RAY_TRACING};
+}
+
+ShaderBindingTable
+RTMeshRenderer::CreateShaderBindingTable(
+	AllocationSubmission&		allocSub,
+	size_t						handleSize,
+	uint32_t					firstGroup,
+	uint32_t					groupCount,
+	VkPipeline)
+{
+	std::vector<char> handleData(handleSize * groupCount);
+	{
+		auto result = vkGetRayTracingShaderGroupHandles(theirVulkanFramework.GetDevice(),
+			myRTPipeLine,
+			firstGroup,
+			groupCount,
+			handleSize * groupCount,
+			handleData.data());
+		int val = 0;
+	}
+	auto [result, buffer, memory] =
+		theirBufferAllocator.CreateBuffer(
+			allocSub,
+			VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR
+			| VK_BUFFER_USAGE_TRANSFER_DST_BIT
+			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			handleData.data(),
+			handleData.size(),
+			myOwners,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	
+	VkBufferDeviceAddressInfo addressInfo = {};
+	addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+	addressInfo.buffer = buffer;
+	VkStridedDeviceAddressRegionKHR stride = {};
+	stride.size = handleData.size();
+	stride.stride = handleSize;
+	stride.deviceAddress = vkGetBufferDeviceAddress(theirVulkanFramework.GetDevice(), &addressInfo);
+
+	return {buffer, memory, stride};
+}
+
+uint32_t RTMeshRenderer::AlignedSize(uint32_t a, uint32_t b)
+{
+	return (a + b - 1) & ~(b - 1);
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#define ENABLE_OPT
+
 #include <vector>
 #include "glslang/public/ShaderLang.h"
 

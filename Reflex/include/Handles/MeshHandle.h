@@ -18,11 +18,13 @@ namespace rflx
 				MeshHandle(
 					Reflex&		reflex,
 					MeshID		id,
+					GeoStructID	geoID,
 					std::string path);
 
-		Reflex&		theirReflex;
-		MeshID		myID;
-		std::string myPath;
+		Reflex&			theirReflex;
+		MeshID			myMeshID;
+		GeoStructID		myGeoID;
+		std::string		myPath;
 
 	};
 }

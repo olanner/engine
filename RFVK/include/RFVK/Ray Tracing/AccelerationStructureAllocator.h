@@ -5,14 +5,19 @@
 
 struct AllocatedAccelerationStructure
 {
-	VkAccelerationStructureNV	structure;
-	VkBuffer					buffer;
-	VkDeviceMemory				memory;
+	VkAccelerationStructureKHR	structure			= nullptr;
+	BufferXMemory				structureBuffer		= {};
+	BufferXMemory				scratchBuffer		= {};
+	BufferXMemory				instancesBuffer		= {};
+	VkDeviceAddress				structureAddress	= 0;
+	VkDeviceAddress				scratchAddress		= 0;
+	VkDeviceAddress				instancesAddress	= 0;
+	size_t						instancesBufferSize	= 0;
 };
 
 struct QueuedAccStructDestroy
 {
-	VkAccelerationStructureNV										structure;
+	VkAccelerationStructureKHR										structure = nullptr;
 	int																tries = 0;
 	std::shared_ptr<std::counting_semaphore<NumSwapchainImages>>	waitSignal;
 };
@@ -30,22 +35,19 @@ public:
 
 													~AccelerationStructureAllocator();
 
-	std::tuple<VkResult, VkAccelerationStructureNV> RequestGeometryStructure(
+	std::tuple<VkResult, VkAccelerationStructureKHR> RequestGeometryStructure(
 														AllocationSubmission&					allocSub,
 														const std::vector<struct MeshGeometry>&	meshes);
-	std::tuple<VkResult, VkAccelerationStructureNV> RequestInstanceStructure(
+	std::tuple<VkResult, VkAccelerationStructureKHR> RequestInstanceStructure(
 														AllocationSubmission&	allocSub,	
 														const RTInstances&		instanceDesc);
 
-	VkBuffer										GetUnderlyingBuffer(
-														VkAccelerationStructureNV accStruct);
-
 	void											UpdateInstanceStructure(
-														VkAccelerationStructureNV	instanceStructure, 
+														VkAccelerationStructureKHR	instanceStructure, 
 														const RTInstances&			instanceDesc);
 
 	void											QueueDestroy(
-														VkAccelerationStructureNV	accStruct, 
+														VkAccelerationStructureKHR	accStruct, 
 														std::shared_ptr<std::counting_semaphore<NumSwapchainImages>>	
 																					waitSignal);
 	void											DoCleanUp(int limit) override;
@@ -53,10 +55,19 @@ public:
 	std::vector<QueueFamilyIndex>					GetOwners() const;
 
 private:
-	std::tuple<VkMemoryRequirements2, MemTypeIndex> GetMemReq(
-														VkAccelerationStructureNV						accStruct,
-														VkMemoryPropertyFlags							memPropFlags,
-														VkAccelerationStructureMemoryRequirementsTypeNV accMemType);
+	void											FreeAllocatedStructure(
+														const AllocatedAccelerationStructure& allocatedStructure) const;
+
+	void											BuildInstanceStructure(
+														AllocationSubmission& allocSub,
+														bool						update,
+														const RTInstances& instanceDesc,
+														VkBuffer					instancesBuffer,
+														size_t						instancesBufferSize,
+														VkDeviceAddress				instancesBufferAddress,
+														VkDeviceAddress				scratchBufferAddress,
+														VkAccelerationStructureKHR	instanceStructure);
+	
 
 	BufferAllocator&								theirBufferAllocator;
 
@@ -65,19 +76,9 @@ private:
 													myPresentationFamilyIndex;
 
 	conc_queue<AllocatedAccelerationStructure>		myQueuedRequests;
-	std::unordered_map<VkAccelerationStructureNV, AllocatedAccelerationStructure>
+	std::unordered_map<VkAccelerationStructureKHR, AllocatedAccelerationStructure>
 													myAllocatedAccelerationStructures;
 	conc_queue<QueuedAccStructDestroy>				myQueuedDestroys;
 	std::vector<QueuedAccStructDestroy>				myFailedDestroys;
-
-	size_t											myInstanceDescSize;
-	VkBuffer										myInstanceDescBuffer;
-	VkDeviceMemory									myInstanceDescMemory;
-
-	size_t											myInstanceScratchSize;
-	VkBuffer										myInstanceScratchBuffer;
-	VkDeviceMemory									myInstanceScratchMemory;
-
-	size_t											myInstanceObjMaxSize;
 
 };

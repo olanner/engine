@@ -57,6 +57,7 @@ using Vec4f = glm::vec4;
 using Mat3f = glm::mat3x3;
 using Mat4f = glm::mat4x4;
 using Mat4nv = glm::mat3x4;
+using Mat4rt = glm::mat3x4;
 
 using Vec2uc = glm::u8vec2;
 using Vec3uc = glm::u8vec3;

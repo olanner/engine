@@ -2,8 +2,9 @@
 
 struct MeshRenderCommand
 {
-	MeshID id;
-	Mat4f transform;
+	MeshID		id;
+	GeoStructID geoID;
+	Mat4f		transform;
 };
 
 inline bool

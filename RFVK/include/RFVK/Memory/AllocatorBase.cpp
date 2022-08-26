@@ -248,7 +248,7 @@ AllocatorBase::GetMemReq(
 	return {memReq, chosenIndex};
 }
 
-std::tuple<VkResult, StagingBuffer>
+std::tuple<VkResult, BufferXMemory>
 AllocatorBase::CreateStagingBuffer(
 	const void*				data,
 	size_t					size,
@@ -361,6 +361,7 @@ AllocationSubmission::Start(
 
 	myExecutedEvent = std::make_shared<VkEvent>();
 	result = vkCreateEvent(myDevice, &eventInfo, nullptr, &*myExecutedEvent);
+	vkResetEvent(myDevice, *myExecutedEvent);
 
 	myStatus = Status::Recording;
 }
@@ -382,7 +383,7 @@ AllocationSubmission::AllocationSubmission(
 	, myCommandBuffer(std::exchange(moveFrom.myCommandBuffer, nullptr))
 	, myExecutedFence(std::exchange(moveFrom.myExecutedFence, nullptr))
 	, myExecutedEvent(std::move(moveFrom.myExecutedEvent))
-	, myStagingBuffers(std::move(moveFrom.myStagingBuffers))
+	, myBufferXMemorys(std::move(moveFrom.myBufferXMemorys))
 {
 }
 
@@ -397,17 +398,18 @@ AllocationSubmission::operator=(
 	myCommandBuffer = std::exchange(moveFrom.myCommandBuffer, nullptr);
 	myExecutedFence = std::exchange(moveFrom.myExecutedFence, nullptr);
 	myExecutedEvent = std::move(moveFrom.myExecutedEvent);
-	myStagingBuffers = std::move(moveFrom.myStagingBuffers);
+	myBufferXMemorys = std::move(moveFrom.myBufferXMemorys);
 
 	return *this;
 }
 
 void
-AllocationSubmission::AddStagingBuffer(
-	StagingBuffer&& stagingBuffer)
+AllocationSubmission::AddResourceBuffer(
+	VkBuffer		buffer,
+	VkDeviceMemory	memory)
 {
 	assert(myStatus == Status::Recording);
-	myStagingBuffers.emplace_back(std::move(stagingBuffer));
+	myBufferXMemorys.emplace_back(buffer, memory);
 }
 
 VkCommandBuffer
@@ -434,31 +436,31 @@ AllocationSubmission::Release()
 	assert(myCommandBuffer != nullptr && myExecutedEvent != nullptr && "Start() not called on allocation submission");
 	assert(myExecutedFence != nullptr && "Submit() not called on allocation submission");
 	assert(myStatus == Status::PendingRelease);
-	
+
 	if (vkGetEventStatus(myDevice, *myExecutedEvent) != VK_EVENT_SET)
 	{
-		return {false, nullptr};
+		return { false, nullptr };
 	}
-	
+
 	while (vkGetFenceStatus(myDevice, myExecutedFence))
 	{
 	}
 
-	for (auto& stagingBuffer : myStagingBuffers)
+	for (auto& stagingBuffer : myBufferXMemorys)
 	{
 		vkDestroyBuffer(myDevice, stagingBuffer.buffer, nullptr);
 		vkFreeMemory(myDevice, stagingBuffer.memory, nullptr);
 	}
-	myStagingBuffers.resize(myStagingBuffers.size(), StagingBuffer{nullptr, nullptr});
-	myStagingBuffers.clear();
+	myBufferXMemorys.resize(myBufferXMemorys.size(), BufferXMemory{ nullptr, nullptr });
+	myBufferXMemorys.clear();
 
 	myExecutedFence = nullptr;
 	vkDestroyEvent(myDevice, *myExecutedEvent, nullptr);
 	*myExecutedEvent = nullptr;
 	myExecutedEvent = nullptr;
-	
+
 	myCommandPool = nullptr;
-	return {true, myCommandBuffer};
+	return { true, myCommandBuffer };
 }
 
 std::shared_ptr<VkEvent>

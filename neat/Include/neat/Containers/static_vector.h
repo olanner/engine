@@ -28,6 +28,8 @@ namespace neat
 	class static_vector
 	{
 	public:
+		typedef t value_type;
+		
 		static_vector();
 		static_vector(std::initializer_list<t> init_list);
 		static_vector(const static_vector<t, width>& copy_from);
@@ -57,6 +59,8 @@ namespace neat
 		unsigned int size() const;
 		bool empty();
 		bool empty() const;
+
+		unsigned int max_size() const;
 
 		t* data();
 		t* data() const;
@@ -287,6 +291,12 @@ namespace neat
 	inline bool static_vector<t, width>::empty() const
 	{
 		return _size == 0;
+	}
+
+	template<typename t, int width>
+	inline unsigned int static_vector<t, width>::max_size() const
+	{
+		return width;
 	}
 
 	template<typename t, int width>

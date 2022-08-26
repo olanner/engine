@@ -31,6 +31,21 @@ namespace neat
 		UnsupportedImageFormat,
 		GenericError
 	};
+	inline std::string ImageErrorStr(ImageError error)
+	{
+		switch (error) {
+		case ImageError::None: 
+			return "None";
+		case ImageError::FileReadError: 
+			return "File Read Error";
+		case ImageError::UnsupportedFileFormat: 
+			return "Unsupported File Format";
+		case ImageError::UnsupportedImageFormat: 
+			return "Unsupported Image Format";
+		case ImageError::GenericError:
+			return "Generic Error"; }
+		return "Generic Error";
+	}
 
 	struct Image
 	{

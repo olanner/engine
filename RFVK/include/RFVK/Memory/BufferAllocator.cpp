@@ -29,14 +29,18 @@ BufferAllocator::RequestVertexBuffer(
 	const std::vector<Vertex3D>& vertices, 
 	const std::vector<QueueFamilyIndex>& owners)
 {
-	auto [result, buffer, memory] = CreateBuffer(
-																		allocSub,
-																		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-																		vertices.data(),
-																		sizeof(Vertex3D) * vertices.size(),
-																		owners,
-																		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-																		false);
+	auto [result, buffer, memory] = 
+		CreateBuffer(
+			allocSub,
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT 
+			| VK_BUFFER_USAGE_TRANSFER_DST_BIT
+			| VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
+			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+			| VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			vertices.data(),
+			sizeof(Vertex3D) * vertices.size(),
+			owners,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	if (result)
 	{
 		if (buffer)
@@ -62,15 +66,17 @@ BufferAllocator::RequestVertexBuffer(
 	const std::vector<struct Vertex2D>&		vertices,
 	const std::vector<QueueFamilyIndex>&	owners)
 {
-	auto [result, buffer, memory] = CreateBuffer(
-													allocSub,
-													VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-													vertices.data(),
-													sizeof(Vertex2D) * vertices.size(),
-													owners,
-													VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-													false
-	);
+	auto [result, buffer, memory] = 
+		CreateBuffer(
+			allocSub,
+			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT 
+			| VK_BUFFER_USAGE_TRANSFER_DST_BIT 
+			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT 
+			| VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			vertices.data(),
+			sizeof(Vertex2D) * vertices.size(),
+			owners,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	if (result)
 	{
 		if (buffer)
@@ -96,15 +102,18 @@ BufferAllocator::RequestIndexBuffer(
 	const std::vector<uint32_t>&			indices,
 	const std::vector<QueueFamilyIndex>&	owners)
 {
-	auto [result, buffer, memory] = CreateBuffer(
-										allocSub,
-										VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-										indices.data(),
-										sizeof(uint32_t) * indices.size(),
-										owners,
-										VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-										false
-	);
+	auto [result, buffer, memory] = 
+		CreateBuffer(
+			allocSub,
+			VK_BUFFER_USAGE_INDEX_BUFFER_BIT 
+			| VK_BUFFER_USAGE_TRANSFER_DST_BIT
+			| VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
+			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+			| VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			indices.data(),
+			sizeof(uint32_t) * indices.size(),
+			owners,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	if (result)
 	{
 		if (buffer)
@@ -138,9 +147,7 @@ BufferAllocator::RequestUniformBuffer(
 									startData,
 									size,
 									owners,
-									memPropFlags,
-									false
-	);
+									memPropFlags);
 	if (result)
 	{
 		if (buffer)
@@ -167,29 +174,48 @@ BufferAllocator::RequestBufferView(VkBuffer buffer)
 
 void
 BufferAllocator::UpdateBufferData(
-	VkBuffer	buffer,	
-	const void* data)
+	VkBuffer								buffer,	
+	const void*								data,
+	size_t									offset,
+	size_t									size,
+	const std::vector<QueueFamilyIndex>&	owners)
 {
 	// TODO: maybe do this better lol
 	auto allocSub = theirAllocationSubmitter.StartAllocSubmission();
 	const auto cmdBuffer = allocSub.Record();
+
+	size = 
+		size > myAllocatedBuffers[buffer].size || size == 0
+		? myAllocatedBuffers[buffer].size
+		: size;
 	
-	vkCmdUpdateBuffer(cmdBuffer, buffer, 0, myAllocatedBuffers[buffer].size, data);
+	VkBufferCopy copy;
+	copy.size = size;
+	copy.srcOffset = 0;
+	copy.dstOffset = offset;
+
+	auto [resultStaged, stagedBuffer] = CreateStagingBuffer(data, size, owners.data(), owners.size());
+	vkCmdCopyBuffer(allocSub.Record(), stagedBuffer.buffer, buffer, 1, &copy);
+
+	allocSub.AddResourceBuffer(stagedBuffer.buffer, stagedBuffer.memory);
 	
 	VkBufferMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
 	
 	barrier.buffer = buffer;
-	barrier.size = myAllocatedBuffers[buffer].size;
+	barrier.size = size;
 	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 	
-	vkCmdPipelineBarrier(cmdBuffer,
-						  VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
-						  VK_DEPENDENCY_DEVICE_GROUP_BIT,
-						  0, nullptr,
-						  1, &barrier,
-						  0, nullptr);
+	vkCmdPipelineBarrier(
+		cmdBuffer,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, 
+		VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT 
+		| VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+		VK_DEPENDENCY_DEVICE_GROUP_BIT,
+		0, nullptr,
+		1, &barrier,
+		0, nullptr);
 	
 	theirAllocationSubmitter.QueueAllocSubmission(std::move(allocSub));
 }
@@ -202,18 +228,16 @@ BufferAllocator::CreateBuffer(
 	const void*								data,
 	size_t									size,
 	const std::vector<QueueFamilyIndex>&	owners,
-	VkMemoryPropertyFlags					memPropFlags,
-	bool									immediateTransfer)
+	VkMemoryPropertyFlags					memPropFlags)
 {
 	VkBuffer buffer{};
 	VkDeviceMemory memory{};
-
+	
 	// BUFFER CREATION
 	VkBufferCreateInfo bufferInfo;
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.pNext = nullptr;
 	bufferInfo.flags = NULL;
-
 	bufferInfo.usage = usage;
 
 	if (IsExclusive(owners.data(), owners.size()))
@@ -247,9 +271,13 @@ BufferAllocator::CreateBuffer(
 		return {VK_ERROR_FEATURE_NOT_PRESENT, buffer, memory};
 	}
 
-	VkMemoryAllocateInfo allocInfo;
+	VkMemoryAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.pNext = nullptr;
+
+	VkMemoryAllocateFlagsInfo allocFlagsInfo = {};
+	allocFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+	allocFlagsInfo.flags = usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT ? VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT : NULL;
+	allocInfo.pNext = &allocFlagsInfo;
 
 	allocInfo.allocationSize = memReq.size;
 	allocInfo.memoryTypeIndex = memTypeIndex;
@@ -271,28 +299,29 @@ BufferAllocator::CreateBuffer(
 	// MEM STAGE
 	if (data)
 	{
+		if (usage & VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
 		{
-			if (usage & VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
-			{
-				void* mappedData;
-				vkMapMemory(theirVulkanFramework.GetDevice(), memory, 0, size, NULL, &mappedData);
-				memcpy(mappedData, data, size);
-				vkUnmapMemory(theirVulkanFramework.GetDevice(), memory);
-			}
-			else if (usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-			{
-				VkBufferCopy copy;
-				copy.size = size;
-				copy.srcOffset = 0;
-				copy.dstOffset = 0;
-
-				auto [resultStaged, stagedBuffer] = CreateStagingBuffer(data, size, owners.data(), owners.size());
-				vkCmdCopyBuffer(allocSub.Record() , stagedBuffer.buffer, buffer, 1, &copy);
-				
-				allocSub.AddStagingBuffer(std::move(stagedBuffer));
-			}
+			void* mappedData;
+			vkMapMemory(theirVulkanFramework.GetDevice(), memory, 0, size, NULL, &mappedData);
+			memcpy(mappedData, data, size);
+			vkUnmapMemory(theirVulkanFramework.GetDevice(), memory);
 		}
+		else if (usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+		{
+			VkBufferCopy copy;
+			copy.size = size;
+			copy.srcOffset = 0;
+			copy.dstOffset = 0;
 
+			auto [resultStaged, stagedBuffer] = CreateStagingBuffer(data, size, owners.data(), owners.size());
+			vkCmdCopyBuffer(allocSub.Record() , stagedBuffer.buffer, buffer, 1, &copy);
+			
+			allocSub.AddResourceBuffer(stagedBuffer.buffer, stagedBuffer.memory);
+		}
+		else
+		{
+			LOG("WARNING: data was present but neither transfer source or transfer destination was included in buffer usage");
+		}
 	}
 	return {VK_SUCCESS, buffer, memory};
 }

@@ -23,66 +23,6 @@ AccelerationStructureAllocator::AccelerationStructureAllocator(
 	, myTransferFamilyIndex(transferFamilyIndex)
 	, myPresentationFamilyIndex(presentationFamilyIndex)
 {
-	// INSTANCE STRUCTURE LIMIT CALCULATIONS
-	VkAccelerationStructureNV instStructure;
-
-	VkAccelerationStructureInfoNV accStructInfo{};
-	accStructInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_INFO_NV;
-	accStructInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV;
-	accStructInfo.pNext = nullptr;
-
-	accStructInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV;
-	accStructInfo.instanceCount = MaxNumInstances;
-
-	accStructInfo.geometryCount = 0;
-	accStructInfo.pGeometries = nullptr;
-
-	VkAccelerationStructureCreateInfoNV createInfo;
-	createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_NV;
-	createInfo.pNext = nullptr;
-
-	createInfo.info = accStructInfo;
-	createInfo.compactedSize = 0;
-
-	VkResult failure{};
-	failure = vkCreateAccelerationStructure(theirVulkanFramework.GetDevice(), &createInfo, nullptr, &instStructure);
-	assert(!failure && "failed creating instance structure");
-
-	// SCRATCH AND OBJ BUFFERS
-	auto allocSub = theirBufferAllocator.Start();
-	
-	auto [memReqObj, memIndexObj] =
-		GetMemReq(instStructure,
-				   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				   VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_OBJECT_NV);
-	myInstanceObjMaxSize = memReqObj.memoryRequirements.size;
-
-	auto [memReqScratch, memIndexScratch] =
-		GetMemReq(instStructure,
-				   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				   VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_NV);
-	myInstanceScratchSize = memReqScratch.memoryRequirements.size;
-	std::tie(failure, myInstanceScratchBuffer, myInstanceScratchMemory) = theirBufferAllocator.CreateBuffer(	
-																										allocSub,
-																										VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
-																										nullptr,
-																										memReqScratch.memoryRequirements.size,
-																										myOwners,
-																										VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
-	assert(!failure && "failed creating scratch buffer");
-
-	std::tie(failure, myInstanceDescBuffer, myInstanceDescMemory) = theirBufferAllocator.CreateBuffer(
-																										allocSub,
-																										VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
-																										nullptr,
-																										MaxNumInstances * sizeof GeometryInstance,
-																										myOwners,
-																										VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-	myInstanceDescSize = MaxNumInstances * sizeof GeometryInstance;
-	assert(!failure && "failed creating instance desc buffer");
-
-	theirBufferAllocator.Queue(std::move(allocSub));
 }
 
 AccelerationStructureAllocator::~AccelerationStructureAllocator()
@@ -91,342 +31,305 @@ AccelerationStructureAllocator::~AccelerationStructureAllocator()
 		AllocatedAccelerationStructure allocAccStruct;
 		while (myQueuedRequests.try_pop(allocAccStruct))
 		{
-			vkFreeMemory(theirVulkanFramework.GetDevice(), allocAccStruct.memory, nullptr);
-			vkDestroyBuffer(theirVulkanFramework.GetDevice(), allocAccStruct.buffer, nullptr);
-			vkDestroyAccelerationStructure(theirVulkanFramework.GetDevice(), allocAccStruct.structure, nullptr);
+			FreeAllocatedStructure(allocAccStruct);
 		}
 	}
 	for (auto& [accStruct, allocAccStruct] : myAllocatedAccelerationStructures)
 	{
-		vkFreeMemory(theirVulkanFramework.GetDevice(), allocAccStruct.memory, nullptr);
-		vkDestroyBuffer(theirVulkanFramework.GetDevice(), allocAccStruct.buffer, nullptr);
-		vkDestroyAccelerationStructure(theirVulkanFramework.GetDevice(), allocAccStruct.structure, nullptr);
+		FreeAllocatedStructure(allocAccStruct);
 	}
-	
-	vkDestroyBuffer(theirVulkanFramework.GetDevice(), myInstanceDescBuffer, nullptr);
-	vkFreeMemory(theirVulkanFramework.GetDevice(), myInstanceDescMemory, nullptr);
-	vkDestroyBuffer(theirVulkanFramework.GetDevice(), myInstanceScratchBuffer, nullptr);
-	vkFreeMemory(theirVulkanFramework.GetDevice(), myInstanceScratchMemory, nullptr);
 }
 
-std::tuple<VkResult, VkAccelerationStructureNV>
+std::tuple<VkResult, VkAccelerationStructureKHR>
 AccelerationStructureAllocator::RequestGeometryStructure(
 	AllocationSubmission&					allocSub,
 	const std::vector<struct MeshGeometry>&	meshes)
 {
-	// ACCELERATION STRUCTURE 
-	VkAccelerationStructureNV geoStructure{};
-
-	std::vector<VkGeometryNV> geometries;
-
-	for (auto&& mesh : meshes)
+	std::vector<VkAccelerationStructureGeometryKHR> geometries;
+	std::vector<VkAccelerationStructureBuildRangeInfoKHR> geoRangeInfos;
+	std::vector<uint32_t> primitiveCounts;
+	for (auto& mesh : meshes)
 	{
-		VkGeometryTrianglesNV tris{};
-		tris.sType = VK_STRUCTURE_TYPE_GEOMETRY_TRIANGLES_NV;
-		tris.pNext = nullptr;
+		VkAccelerationStructureGeometryKHR asGeometry = {};
+		asGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+		asGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+		asGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+		asGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+		asGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+		asGeometry.geometry.triangles.vertexData = {mesh.vertexAddress};
+		asGeometry.geometry.triangles.maxVertex = mesh.numVertices;
+		asGeometry.geometry.triangles.vertexStride = sizeof(Vertex3D);
+		asGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+		asGeometry.geometry.triangles.indexData = {mesh.indexAddress};
+		//asGeometry.geometry.triangles.transformData = {transAddress};
+		geometries.emplace_back(asGeometry);
 
-		tris.indexCount = mesh.numIndices;
-		tris.indexData = mesh.indexBuffer;
-		tris.indexType = VK_INDEX_TYPE_UINT32;
-		tris.indexOffset = 0;
+		VkAccelerationStructureBuildRangeInfoKHR rangeInfo = {};
+		rangeInfo.primitiveCount = mesh.numIndices / 3;
+		geoRangeInfos.emplace_back(rangeInfo);
 
-		tris.vertexCount = mesh.numVertices;
-		tris.vertexData = mesh.vertexBuffer;
-		tris.vertexStride = sizeof Vertex3D;
-		tris.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-		tris.vertexOffset = 0;
-
-		tris.transformData = nullptr;
-
-		VkGeometryNV geo{};
-		geo.sType = VK_STRUCTURE_TYPE_GEOMETRY_NV;
-		geo.pNext = nullptr;
-
-		geo.flags = VK_GEOMETRY_OPAQUE_BIT_NV;
-
-		geo.geometry.aabbs.sType = VK_STRUCTURE_TYPE_GEOMETRY_AABB_NV;
-
-		geo.geometry.triangles = tris;
-		geo.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_NV;
-
-		geometries.emplace_back(geo);
+		primitiveCounts.emplace_back(mesh.numIndices / 3);
 	}
+	
+	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = {};
+	buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+	buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+	buildInfo.pGeometries = geometries.data();
+	buildInfo.geometryCount = uint32_t(geometries.size());
 
-	VkAccelerationStructureInfoNV accStructInfo{};
-	accStructInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_INFO_NV;
-	accStructInfo.pNext = nullptr;
-	accStructInfo.flags = NULL;
-
-	accStructInfo.instanceCount = 0;
-	accStructInfo.geometryCount = geometries.size();
-	accStructInfo.pGeometries = geometries.data();
-	accStructInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_NV;
-
-	VkAccelerationStructureCreateInfoNV  accStructCreateInfo{};
-	accStructCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_NV;
-	accStructCreateInfo.pNext = nullptr;
-
-	accStructCreateInfo.compactedSize = 0;
-	accStructCreateInfo.info = accStructInfo;
-
-	auto resultAccStruct = vkCreateAccelerationStructure(theirVulkanFramework.GetDevice(), &accStructCreateInfo, nullptr, &geoStructure);
-	if (resultAccStruct)
-	{
-		return {resultAccStruct, geoStructure};
-	}
-
-	// SCRATCH AND OBJ BUFFERS
-	auto [memReqObj, memIndexObj] =
-		GetMemReq(geoStructure,
-				   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				   VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_OBJECT_NV);
-	auto [memReqScratch, memIndexScratch] =
-		GetMemReq(geoStructure,
-				   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				   VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_NV);
-
-	auto [resultScratch, scratchBuffer, scratchMem] =
+	VkAccelerationStructureBuildSizesInfoKHR sizeInfo;
+	sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+	vkGetAccelerationStructureBuildSizes(
+		theirVulkanFramework.GetDevice(),
+		VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+		&buildInfo,
+		primitiveCounts.data(),
+		&sizeInfo);
+	
+	auto [resultScratch, scratchBuffer, scratchMemory] = 
 		theirBufferAllocator.CreateBuffer(
 			allocSub,
-			VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			nullptr,
-			memReqScratch.memoryRequirements.size,
+			sizeInfo.buildScratchSize,
 			myOwners,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-		);
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	if (resultScratch)
 	{
-		return {resultScratch, geoStructure};
+		return {resultScratch, nullptr};
 	}
-	auto [resultObj, objBuffer, objMem] =
+	allocSub.AddResourceBuffer(scratchBuffer, scratchMemory);
+	
+	VkBufferDeviceAddressInfo addressInfo = {};
+	addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+	addressInfo.buffer = scratchBuffer;
+	auto scratchAddress = vkGetBufferDeviceAddress(theirVulkanFramework.GetDevice(), &addressInfo);
+	
+	auto [resultAccStruct, accStructBuffer, accStructMemory] =
 		theirBufferAllocator.CreateBuffer(
 			allocSub,
-			VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT 
+			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT 
+			| VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
 			nullptr,
-			memReqObj.memoryRequirements.size,
+			sizeInfo.accelerationStructureSize,
 			myOwners,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-		);;
-	if (resultObj)
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	if (resultAccStruct)
 	{
-		return {resultObj, geoStructure};
+		return{resultAccStruct, nullptr};
 	}
 
-	// BIND MEM TO ACC STRUCT
-	VkBindAccelerationStructureMemoryInfoNV memInfo{};
-	memInfo.sType = VK_STRUCTURE_TYPE_BIND_ACCELERATION_STRUCTURE_MEMORY_INFO_NV;
-	memInfo.pNext = nullptr;
+	VkAccelerationStructureCreateInfoKHR createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+	createInfo.buffer = accStructBuffer;
+	createInfo.size = sizeInfo.accelerationStructureSize;
+	createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 
-	memInfo.accelerationStructure = geoStructure;
-	memInfo.deviceIndexCount = 0;
-	memInfo.pDeviceIndices = nullptr;
-	memInfo.memory = objMem;
-	memInfo.memoryOffset = 0;
-
-	auto resMemBind = vkBindAccelerationStructureMemory(theirVulkanFramework.GetDevice(), 1, &memInfo);
-	if (resMemBind)
+	VkAccelerationStructureKHR geoStruct = nullptr;
+	auto resultCreate = vkCreateAccelerationStructure(theirVulkanFramework.GetDevice(), &createInfo, nullptr, &geoStruct);
+	if (resultCreate)
 	{
-		return {resMemBind, geoStructure};
+		return { resultCreate, nullptr };
 	}
 
-	// BUILD ACC STRUCT
-	VkMemoryBarrier barrier;
-	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-	barrier.pNext = nullptr;
-	barrier.srcAccessMask =
-		VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
-	barrier.dstAccessMask =
-		VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
+	VkAccelerationStructureDeviceAddressInfoKHR accStructAddressInfo = {};
+	accStructAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+	accStructAddressInfo.accelerationStructure = geoStruct;
+	auto geoStructAddress = vkGetAccelerationStructureDeviceAddress(theirVulkanFramework.GetDevice(), &accStructAddressInfo);
 
-	const auto& cmdBuffer = allocSub.Record();
-	vkCmdBuildAccelerationStructure(cmdBuffer,
-									 &accStructInfo,
-									 nullptr,
-									 0,
-									 false,
-									 geoStructure,
-									 nullptr,
-									 scratchBuffer,
-									 0);
+	buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+	buildInfo.dstAccelerationStructure = geoStruct;
+	buildInfo.scratchData = {scratchAddress};
+
+	const auto cmdBuffer = allocSub.Record();
+	auto pRangeInfos = geoRangeInfos.data();
+	vkCmdBuildAccelerationStructures(cmdBuffer, 1, &buildInfo, &pRangeInfos);
+	//VkMemoryBarrier barrier;
+	//barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	//barrier.pNext = nullptr;
+	//barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+	//barrier.dstAccessMask =	VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+	VkBufferMemoryBarrier barrier = {};
+	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+	barrier.buffer = accStructBuffer;
+	barrier.size = sizeInfo.accelerationStructureSize;
+	
 	vkCmdPipelineBarrier(cmdBuffer,
-						  VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV,
-						  VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV,
-						  NULL,
-						  1,
-						  &barrier,
-						  0,
-						  nullptr,
-						  0,
-						  nullptr);
-	
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+		NULL,
+		0,
+		nullptr,
+		1,
+		&barrier,
+		0,
+		nullptr);
 
-	allocSub.AddStagingBuffer({ scratchBuffer, scratchMem });
-	//vkDestroyBuffer(theirVulkanFramework.GetDevice(), scratchBuffer, nullptr);
-	//vkFreeMemory(theirVulkanFramework.GetDevice(), scratchMem, nullptr);
-	myQueuedRequests.push({geoStructure, objBuffer, objMem});
-	
-	return {resultAccStruct, geoStructure};
+	myQueuedRequests.push({
+		geoStruct,
+		{accStructBuffer, accStructMemory},
+		{},
+		{},
+		0,
+		geoStructAddress,
+		0,
+		0
+	});
+
+	return {VK_SUCCESS, geoStruct};
 }
 
-std::tuple<VkResult, VkAccelerationStructureNV>
+std::tuple<VkResult, VkAccelerationStructureKHR>
 AccelerationStructureAllocator::RequestInstanceStructure(
 	AllocationSubmission&	allocSub,
 	const RTInstances&		instanceDesc)
 {
-	// ACCELERATION STRUCTURES
-	VkAccelerationStructureNV instStructure;
-
-	VkAccelerationStructureInfoNV accStructInfo{};
-	accStructInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_INFO_NV;
-	accStructInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV;
-	accStructInfo.pNext = nullptr;
-
-	accStructInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV;
-	accStructInfo.instanceCount = instanceDesc.size();
-
-	accStructInfo.geometryCount = 0;
-	accStructInfo.pGeometries = nullptr;
-
-	VkAccelerationStructureCreateInfoNV createInfo;
-	createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_NV;
-	createInfo.pNext = nullptr;
-
-	createInfo.info = accStructInfo;
-	createInfo.compactedSize = 0;
-
-	auto resultInstStruct = vkCreateAccelerationStructure(theirVulkanFramework.GetDevice(), &createInfo, nullptr, &instStructure);
-
-	// SCRATCH AND OBJ BUFFERS
-	auto [memReqObj, memIndexObj] =
-		GetMemReq(instStructure,
-				   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				   VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_OBJECT_NV);
-	auto [memReqScratch, memIndexScratch] =
-		GetMemReq(instStructure,
-				   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				   VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_BUILD_SCRATCH_NV);
-	assert(memReqScratch.memoryRequirements.size <= myInstanceScratchSize && "scratch mem req size larger than initially calculated max size");
+	auto [resultInstances, instancesBuffer, instancesMemory] =
+		theirBufferAllocator.CreateBuffer(
+			allocSub,
+			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR 
+			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+			| VK_BUFFER_USAGE_TRANSFER_DST_BIT
+			,
+			instanceDesc.data(),
+			uint32_t(instanceDesc.size() * sizeof RTInstances::value_type),
+			myOwners,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	if (resultInstances)
+	{
+		return {resultInstances, nullptr};
+	}
 	
-	auto [resultObj, objBuffer, objMem] = theirBufferAllocator.CreateBuffer(
-																				allocSub,
-																				VK_BUFFER_USAGE_RAY_TRACING_BIT_NV,
-																			 nullptr,
-																			 myInstanceObjMaxSize,
-																			 myOwners,
-																			 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);;
-	if (resultObj)
+	VkBufferDeviceAddressInfo addressInfo = {};
+	addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+	addressInfo.buffer = instancesBuffer;
+	auto instancesAddress = vkGetBufferDeviceAddress(theirVulkanFramework.GetDevice(), &addressInfo);
+
+	VkAccelerationStructureGeometryKHR geometry = {};
+	geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+	geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+	geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+	geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+	geometry.geometry.instances.data = {instancesAddress};
+	geometry.geometry.instances.arrayOfPointers = false;
+
+	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = {};
+	buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+	buildInfo.geometryCount = 1;
+	buildInfo.pGeometries = &geometry;
+	
+	const uint32_t primitiveCount = uint32_t(instanceDesc.size());
+	VkAccelerationStructureBuildSizesInfoKHR sizesInfo;
+	sizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+	vkGetAccelerationStructureBuildSizes(
+		theirVulkanFramework.GetDevice(),
+		VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+		&buildInfo,
+		&primitiveCount,
+		&sizesInfo);
+
+	auto [resultAccStruct, accStructBuffer, accStructMemory] =
+		theirBufferAllocator.CreateBuffer(
+			allocSub,
+			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
+			nullptr,
+			sizesInfo.accelerationStructureSize,
+			myOwners,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	if (resultAccStruct)
 	{
-		return {resultObj, instStructure};
+		return {resultAccStruct, nullptr};
 	}
 
-	// INSTANCE BUFFER
-	size_t bufferWidth = instanceDesc.size() * sizeof GeometryInstance;
-
-	void* mappedData;
-	vkMapMemory(theirVulkanFramework.GetDevice(), myInstanceDescMemory, 0, bufferWidth, NULL, &mappedData);
-	memcpy(mappedData, instanceDesc.data(), instanceDesc.size() * sizeof GeometryInstance);
-	vkUnmapMemory(theirVulkanFramework.GetDevice(), myInstanceDescMemory);
-
-	// BIND MEM TO ACC STRUCT
-	VkBindAccelerationStructureMemoryInfoNV memInfo{};
-	memInfo.sType = VK_STRUCTURE_TYPE_BIND_ACCELERATION_STRUCTURE_MEMORY_INFO_NV;
-	memInfo.pNext = nullptr;
-
-	memInfo.accelerationStructure = instStructure;
-	memInfo.deviceIndexCount = 0;
-	memInfo.pDeviceIndices = nullptr;
-	memInfo.memory = objMem;
-	memInfo.memoryOffset = 0;
-
-	auto resMemBind = vkBindAccelerationStructureMemory(theirVulkanFramework.GetDevice(), 1, &memInfo);
-	if (resMemBind)
+	VkAccelerationStructureCreateInfoKHR createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
+	createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+	createInfo.buffer = accStructBuffer;
+	createInfo.size = sizesInfo.accelerationStructureSize;
+	VkAccelerationStructureKHR instanceStructure = nullptr;
+	auto resultCreate = vkCreateAccelerationStructure(theirVulkanFramework.GetDevice(), &createInfo, nullptr, &instanceStructure);
+	if (resultCreate)
 	{
-		return {resMemBind, instStructure};
+		return{resultCreate, nullptr};
 	}
 
-	// BUILD ACC STRUCT
-	VkMemoryBarrier barrier;
-	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-	barrier.pNext = nullptr;
-	barrier.srcAccessMask =
-		VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
-	barrier.dstAccessMask =
-		VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
-
-	const auto& cmdBuffer = allocSub.Record();
-	vkCmdBuildAccelerationStructure(cmdBuffer,
-		&accStructInfo,
-		myInstanceDescBuffer, 0,
+	// BUILD
+	auto [resultScratch, scratchBuffer, scratchMemory] =
+		theirBufferAllocator.CreateBuffer(
+			allocSub,
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			nullptr,
+			sizesInfo.buildScratchSize,
+			myOwners,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	if (resultScratch)
+	{
+		return {resultScratch, nullptr};
+	}
+	addressInfo.buffer = scratchBuffer;
+	auto scratchAddress = vkGetBufferDeviceAddress(theirVulkanFramework.GetDevice(), &addressInfo);
+	
+	BuildInstanceStructure(
+		allocSub,
 		false,
-		instStructure,
-		nullptr,
-		myInstanceScratchBuffer, 0);
-	vkCmdPipelineBarrier(cmdBuffer,
-		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV,
-		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV,
-		NULL,
-		1,
-		&barrier,
-		0,
-		nullptr,
-		0,
-		nullptr);
+		instanceDesc,
+		instancesBuffer,
+		instanceDesc.size() * sizeof VkAccelerationStructureInstanceKHR,
+		instancesAddress,
+		scratchAddress,
+		instanceStructure);
 
-	myQueuedRequests.push({instStructure, objBuffer, objMem});
+	VkAccelerationStructureDeviceAddressInfoKHR accStructAddressInfo{};
+	accStructAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+	accStructAddressInfo.accelerationStructure = instanceStructure;
+	auto instStructureAddress = vkGetAccelerationStructureDeviceAddress(theirVulkanFramework.GetDevice(), &accStructAddressInfo);
 
-	return {resultInstStruct, instStructure};
+	myQueuedRequests.push({
+		instanceStructure,
+		{accStructBuffer, accStructMemory},
+		{scratchBuffer, scratchMemory},
+		{instancesBuffer, instancesMemory},
+		instStructureAddress,
+		scratchAddress,
+		instancesAddress,
+		instanceDesc.size() * sizeof RTInstances::value_type
+	});
+	
+	return {VK_SUCCESS, instanceStructure};
 }
-
-VkBuffer
-AccelerationStructureAllocator::GetUnderlyingBuffer(VkAccelerationStructureNV accStruct)
-{
-	return myAllocatedAccelerationStructures[accStruct].buffer;
-}
-
 void
 AccelerationStructureAllocator::UpdateInstanceStructure(
-	VkAccelerationStructureNV	instanceStructure, 
+	VkAccelerationStructureKHR	instanceStructure, 
 	const RTInstances&			instanceDesc)
 {
-	VkAccelerationStructureInfoNV accStructInfo{};
-	accStructInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_INFO_NV;
-	accStructInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_NV;
-	accStructInfo.pNext = nullptr;
-
-	accStructInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV;
-	accStructInfo.instanceCount = instanceDesc.size();
-
-	accStructInfo.geometryCount = 0;
-	accStructInfo.pGeometries = nullptr;
-
-	auto [memReqScratch, memIndexScratch] =
-		GetMemReq(instanceStructure,
-				   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				   VK_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_TYPE_UPDATE_SCRATCH_NV);
-	assert(memReqScratch.memoryRequirements.size <= myInstanceScratchSize && "scratch mem req size larger than initially calculated max size");
-
-	void* mappedData;
-	vkMapMemory(theirVulkanFramework.GetDevice(), myInstanceDescMemory, 0, myInstanceDescSize, NULL, &mappedData);
-	memcpy(mappedData, instanceDesc.data(), instanceDesc.size() * sizeof GeometryInstance);
-	vkUnmapMemory(theirVulkanFramework.GetDevice(), myInstanceDescMemory);
-
-	AllocationSubmission allocSub = theirAllocationSubmitter.StartAllocSubmission();
-	vkCmdBuildAccelerationStructure(
-		allocSub.Record(),
-		&accStructInfo,
-		myInstanceDescBuffer, 0,
-		false,
-		instanceStructure,
-		nullptr,
-		myInstanceScratchBuffer, 0);
-	theirAllocationSubmitter.QueueAllocSubmission(std::move(allocSub));
+	if (!myAllocatedAccelerationStructures.contains(instanceStructure))
+	{
+		return;
+	}
+	auto& accStruct = myAllocatedAccelerationStructures[instanceStructure];
+	auto allocSub = theirAllocationSubmitter.StartAllocSubmission();
 	
+	BuildInstanceStructure(
+		allocSub,
+		false,
+		instanceDesc,
+		accStruct.instancesBuffer.buffer,
+		accStruct.instancesBufferSize,
+		accStruct.instancesAddress,
+		accStruct.scratchAddress,
+		instanceStructure);
+		
+	theirAllocationSubmitter.QueueAllocSubmission(std::move(allocSub));
 }
 
 void
 AccelerationStructureAllocator::QueueDestroy(
-	VkAccelerationStructureNV accStruct, 
+	VkAccelerationStructureKHR accStruct, 
 	std::shared_ptr<std::counting_semaphore<NumSwapchainImages>> waitSignal)
 {
 	myQueuedDestroys.push({accStruct, 0, waitSignal});
@@ -464,9 +367,7 @@ AccelerationStructureAllocator::DoCleanUp(
 				continue;
 			}
 			auto allocAccStruct = myAllocatedAccelerationStructures[queuedDestroy.structure];
-			vkFreeMemory(theirVulkanFramework.GetDevice(), allocAccStruct.memory, nullptr);
-			vkDestroyBuffer(theirVulkanFramework.GetDevice(), allocAccStruct.buffer, nullptr);
-			vkDestroyAccelerationStructure(theirVulkanFramework.GetDevice(), allocAccStruct.structure, nullptr);
+			FreeAllocatedStructure(allocAccStruct);
 			myAllocatedAccelerationStructures.erase(queuedDestroy.structure);
 		}
 		for (auto&& failedDestroy : myFailedDestroys)
@@ -490,30 +391,111 @@ AccelerationStructureAllocator::GetOwners() const
 	return myOwners;
 }
 
-std::tuple<VkMemoryRequirements2, MemTypeIndex>
-AccelerationStructureAllocator::GetMemReq(
-	VkAccelerationStructureNV						accStruct,
-	VkMemoryPropertyFlags							memPropFlags,
-	VkAccelerationStructureMemoryRequirementsTypeNV accMemType)
+void
+AccelerationStructureAllocator::FreeAllocatedStructure(
+	const AllocatedAccelerationStructure& allocatedStructure) const
 {
-	VkAccelerationStructureMemoryRequirementsInfoNV accMemReqInfo{};
-	accMemReqInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NV;
-	accMemReqInfo.pNext = nullptr;
-	accMemReqInfo.accelerationStructure = accStruct;
-	accMemReqInfo.type = accMemType;
+	vkDestroyBuffer(theirVulkanFramework.GetDevice(), allocatedStructure.structureBuffer.buffer, nullptr);
+	vkFreeMemory(theirVulkanFramework.GetDevice(), allocatedStructure.structureBuffer.memory, nullptr);
+	vkDestroyBuffer(theirVulkanFramework.GetDevice(), allocatedStructure.instancesBuffer.buffer, nullptr);
+	vkFreeMemory(theirVulkanFramework.GetDevice(), allocatedStructure.instancesBuffer.memory, nullptr);
+	vkDestroyBuffer(theirVulkanFramework.GetDevice(), allocatedStructure.scratchBuffer.buffer, nullptr);
+	vkFreeMemory(theirVulkanFramework.GetDevice(), allocatedStructure.scratchBuffer.memory, nullptr);
+	vkDestroyAccelerationStructure(theirVulkanFramework.GetDevice(), allocatedStructure.structure, nullptr);
+}
 
-	VkMemoryRequirements2 memReq2{};
-	vkGetAccelerationStructureMemoryRequirements(theirVulkanFramework.GetDevice(), &accMemReqInfo, &memReq2);
-
-	MemTypeIndex chosenIndex = UINT_MAX;
-	for (auto& index : myMemoryTypes[memPropFlags])
+void
+AccelerationStructureAllocator::BuildInstanceStructure(
+	AllocationSubmission&		allocSub,
+	bool						update,
+	const RTInstances&			instanceDesc,
+	VkBuffer					instancesBuffer,
+	size_t						instancesBufferSize,
+	VkDeviceAddress				instancesBufferAddress,
+	VkDeviceAddress				scratchBufferAddress,
+	VkAccelerationStructureKHR	instanceStructure)
+{
+	if (!instanceDesc.empty())
 	{
-		if ((1 << index) & memReq2.memoryRequirements.memoryTypeBits)
-		{
-			chosenIndex = index;
-			break;
-		}
-	}
+		VkBufferCopy copy;
+		copy.size = instanceDesc.size() * sizeof RTInstances::value_type;
+		copy.size = copy.size > instancesBufferSize ? instancesBufferSize : copy.size;
+		copy.srcOffset = 0;
+		copy.dstOffset = 0;
 
-	return {memReq2, chosenIndex};
+		auto [resultStaged, stagedBuffer] = CreateStagingBuffer(instanceDesc.data(), copy.size, myOwners.data(), myOwners.size());
+		vkCmdCopyBuffer(allocSub.Record(), stagedBuffer.buffer, instancesBuffer, 1, &copy);
+
+		allocSub.AddResourceBuffer(stagedBuffer.buffer, stagedBuffer.memory);
+	}
+	
+	VkAccelerationStructureGeometryKHR geometry = {};
+	geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+	geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+	geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+	geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+	geometry.geometry.instances.data = {instancesBufferAddress};
+	geometry.geometry.instances.arrayOfPointers = false;
+
+	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = {};
+	buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+	buildInfo.geometryCount = 1;
+	buildInfo.pGeometries = &geometry;
+	buildInfo.flags = 
+		VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+	buildInfo.mode = update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+	buildInfo.srcAccelerationStructure = update ? instanceStructure : nullptr;
+	buildInfo.dstAccelerationStructure = instanceStructure;
+	buildInfo.scratchData = {scratchBufferAddress};
+
+	VkAccelerationStructureBuildRangeInfoKHR buildRange = {};
+	buildRange.primitiveCount = uint32_t(instanceDesc.size());
+	std::vector ranges
+	{
+		buildRange
+	};
+	auto const pRanges = ranges.data();
+
+	auto cmdBuffer = allocSub.Record();
+	VkMemoryBarrier barrier;
+	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	barrier.pNext = nullptr;
+	barrier.srcAccessMask =
+		NULL;
+	barrier.dstAccessMask =
+		VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+	vkCmdPipelineBarrier(cmdBuffer,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+		NULL,
+		1,
+		&barrier,
+		0,
+		nullptr,
+		0,
+		nullptr);
+	vkCmdBuildAccelerationStructures(cmdBuffer, 1, &buildInfo, &pRanges);
+	/*barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+	barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+	vkCmdPipelineBarrier(cmdBuffer,
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV,
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV,
+		NULL,
+		1,
+		&barrier,
+		0,
+		nullptr,
+		0,
+		nullptr);
+	vkCmdPipelineBarrier(cmdBuffer,
+		VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+		VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+		NULL,
+		1,
+		&barrier,
+		0,
+		nullptr,
+		0,
+		nullptr);*/
 }

@@ -33,9 +33,9 @@ public:
 	void											RemoveImage2D(ImageID imageID);
 	void											UnloadImage2D(ImageID imageID);
 	void											LoadImage2D(
-														ImageID imageID,
+														ImageID						imageID,
 														class AllocationSubmission& allocSub,
-														const char* path);
+														const std::string&			path);
 	void											LoadImage2D(
 														ImageID imageID,
 														class AllocationSubmission& allocSub,
@@ -46,12 +46,12 @@ public:
 	void											LoadImage2DTiled(
 														ImageID imageID,
 														class AllocationSubmission& allocSub,
-														const char* path,
-														uint32_t	rows,
-														uint32_t	cols);
+														const std::string&			path,
+														uint32_t					rows,
+														uint32_t					cols);
 	CubeID											LoadImageCube(
 														class AllocationSubmission& allocSub,
-														const char* path);
+														const std::string&			path);
 	VkResult										LoadStorageImage(
 														uint32_t	index,
 														VkFormat	format,

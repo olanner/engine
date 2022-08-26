@@ -130,7 +130,7 @@ Shader::FetchBinaryData(const char* path) const
 		preAmble.append("#define MAX_NUM_INSTANCES ").append(std::to_string(MaxNumInstances)).append("\n");
 		preAmble.append("#define MAX_NUM_MESHES ").append(std::to_string(MaxNumMeshesLoaded)).append("\n");
 
-		retBin = VKCompile(path, glslang::EShTargetVulkan_1_1, glslang::EShTargetSpv_1_3, preAmble.c_str());
+		retBin = VKCompile(path, glslang::EShTargetVulkan_1_3, glslang::EShTargetSpv_1_5, preAmble.c_str());
 		if (!retBin.empty())
 		{
 			std::ofstream outBin;

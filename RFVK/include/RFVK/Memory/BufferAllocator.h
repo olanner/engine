@@ -48,8 +48,11 @@ public:
 	void											RequestBufferView(VkBuffer	buffer);
 
 	void											UpdateBufferData(
-														VkBuffer				buffer, 
-														const void*				data);
+														VkBuffer								buffer, 
+														const void*								data,
+														size_t									offset,
+														size_t									size,
+														const std::vector<QueueFamilyIndex>&	owners);
 	[[nodiscard]] std::tuple<VkResult, VkBuffer, VkDeviceMemory>
 													CreateBuffer(
 														AllocationSubmission&					allocSub,
@@ -57,8 +60,7 @@ public:
 														const void*								data,
 														size_t									size,
 														const std::vector<QueueFamilyIndex>&	owners,
-														VkMemoryPropertyFlags					memPropFlags,
-														bool									immediateTransfer = false);
+														VkMemoryPropertyFlags					memPropFlags);
 
 	void											QueueDestroy(
 														VkBuffer&&								buffer,

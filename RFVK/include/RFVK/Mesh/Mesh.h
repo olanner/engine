@@ -3,10 +3,12 @@
 
 struct MeshGeometry
 {
-	VkBuffer vertexBuffer;
-	VkBuffer indexBuffer;
-	uint32_t numVertices;
-	uint32_t numIndices;
+	VkBuffer		vertexBuffer = nullptr;
+	VkBuffer		indexBuffer = nullptr;
+	VkDeviceAddress vertexAddress = 0;
+	VkDeviceAddress indexAddress = 0;
+	uint32_t		numVertices = 0;
+	uint32_t		numIndices = 0;
 };
 
 void RecordMesh(

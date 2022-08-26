@@ -3,6 +3,7 @@
 
 #include "RFVK/VulkanFramework.h"
 #include "RFVK/Memory/ImageAllocator.h"
+#include "RFVK/Misc/stb/stb_image.h"
 
 ImageHandler::ImageHandler(
 	VulkanFramework&	vulkanFramework,
@@ -373,7 +374,7 @@ ImageHandler::ImageHandler(
 	
 	myImageSwizzleToFormat[neat::ImageSwizzle::Unknown] = VK_FORMAT_UNDEFINED;
 	
-	LoadImage2D(AddImage2D(), allocSub, "brdfFilament.dds");
+	LoadImage2D(AddImage2D(), allocSub, "brdfFilament.tga");
 	theirImageAllocator.Queue(std::move(allocSub));
 }
 
@@ -439,17 +440,26 @@ void
 ImageHandler::LoadImage2D(
 	ImageID					imageID,
 	AllocationSubmission&	allocSub,
-	const char*				path)
+	const std::string&		path)
 {
-	auto img = neat::ReadImage(path);
-
+		int x, y, channels;
+	auto img = stbi_load(path.c_str(), &x, &y, &channels, 4);
+	if (!img)
+	{
+		LOG("failed loading image, \"", path, "\"");
+		return;
+	}
+	std::vector<uint8_t> pixels;
+	pixels.insert(pixels.end(), img, img + x * y * 4);
+	stbi_image_free(img);
+	
 	return LoadImage2D(
 		imageID,
 		allocSub,
-		std::move(img.pixelData), 
-		{img.width, img.height}, 
-		myImageSwizzleToFormat[img.swizzle],
-		img.bitDepth / 8);
+		std::move(pixels), 
+		{x,y}, 
+		VK_FORMAT_R8G8B8A8_UNORM,
+		4);
 }
 
 void
@@ -520,11 +530,11 @@ void
 ImageHandler::LoadImage2DTiled(
 	ImageID					imageID,
 	AllocationSubmission&	allocSub,
-	const char*				path,
+	const std::string&		path,
 	uint32_t				rows,
 	uint32_t				cols)
 {
-	const auto img = neat::ReadImage(path);
+	const auto img = neat::ReadImage(path.c_str());
 	
 	std::vector<uint8_t> sortedData;
 	sortedData.reserve(img.pixelData.size());
@@ -554,8 +564,8 @@ ImageHandler::LoadImage2DTiled(
 
 CubeID
 ImageHandler::LoadImageCube(
-	AllocationSubmission& allocSub,
-	const char* path)
+	AllocationSubmission&	allocSub,
+	const std::string&		path)
 {
 	CubeID cubeID = myCubeIDKeeper.FetchFreeID();
 	if (BAD_ID(cubeID))
@@ -565,10 +575,15 @@ ImageHandler::LoadImageCube(
 	}
 	myImagesCube[uint32_t(cubeID)] = {};
 
-	auto img = neat::ReadImage(path);
+	auto img = neat::ReadImage(path.c_str());
 	if (img.layers != 6)
 	{
 		LOG(path, "is not a cube map image");
+		return CubeID(INVALID_ID);
+	}
+	if (int(img.error))
+	{
+		LOG("failed loading image, ", path);
 		return CubeID(INVALID_ID);
 	}
 

@@ -105,10 +105,14 @@
     <ClInclude Include="include\RFVK\Debug\DebugUtils.h" />
     <ClInclude Include="include\RFVK\Image\CubeFilterer.h" />
     <ClInclude Include="include\RFVK\Misc\HandlerBase.h" />
+    <ClInclude Include="include\RFVK\Misc\stb\stb_image.h" />
     <ClInclude Include="include\RFVK\Pipelines\GenBlendStates.h" />
     <ClInclude Include="include\RFVK\Pipelines\GenRasterStates.h" />
     <ClInclude Include="include\RFVK\Pipelines\Pipeline.h" />
     <ClInclude Include="include\RFVK\Pipelines\PipelineBuilder.h" />
+    <ClInclude Include="include\RFVK\Ray Tracing\AccelerationStructureHandler.h" />
+    <ClInclude Include="include\RFVK\Ray Tracing\NVRayTracing.h" />
+    <ClInclude Include="include\RFVK\Ray Tracing\RTMeshRenderer.h" />
     <ClInclude Include="include\RFVK\SharedPrecompiled.h" />
     <ClInclude Include="include\RFVK\RenderPass\RenderPass.h" />
     <ClInclude Include="include\RFVK\RenderPass\RenderPassBuilder.h" />
@@ -124,9 +128,6 @@
     <ClInclude Include="include\RFVK\Mesh\MeshRendererBase.h" />
     <ClInclude Include="include\RFVK\Pipelines\FullscreenPipeline.h" />
     <ClInclude Include="include\RFVK\Ray Tracing\AccelerationStructureAllocator.h" />
-    <ClInclude Include="include\RFVK\Ray Tracing\AccelerationStructureHandler.h" />
-    <ClInclude Include="include\RFVK\Ray Tracing\NVRayTracing.h" />
-    <ClInclude Include="include\RFVK\Ray Tracing\RTMeshRenderer.h" />
     <ClInclude Include="include\RFVK\Scene\SceneGlobals.h" />
     <ClInclude Include="include\RFVK\Memory\AllocatorBase.h" />
     <ClInclude Include="include\RFVK\Memory\ImageAllocator.h" />
@@ -149,6 +150,7 @@
   <ItemGroup>
     <ClCompile Include="include\RFVK\Image\CubeFilterer.cpp" />
     <ClCompile Include="include\RFVK\Misc\HandlerBase.cpp" />
+    <ClCompile Include="include\RFVK\Misc\stb\stb_impl.cpp" />
     <ClCompile Include="include\RFVK\Presenter\Presenter.cpp" />
     <ClCompile Include="include\RFVK\Memory\AllocatorBase.cpp" />
     <ClCompile Include="include\RFVK\Memory\BufferAllocator.cpp" />

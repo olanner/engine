@@ -163,7 +163,12 @@ UniformHandler::UpdateUniformData(
 	{
 		return;
 	}
-	theirBufferAllocator.UpdateBufferData(myUniforms[int(id)], data);
+	theirBufferAllocator.UpdateBufferData(
+		myUniforms[int(id)], 
+		data,
+		0,
+		0,
+		myOwners);
 }
 
 std::tuple<VkDescriptorSetLayout, VkDescriptorSet>

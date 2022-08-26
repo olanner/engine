@@ -5,8 +5,16 @@
 
 struct InstanceStructure
 {
-	VkWriteDescriptorSetAccelerationStructureNV info;
-	VkAccelerationStructureNV					structure;
+	std::array<VkAccelerationStructureKHR, NumSwapchainImages>
+													structures;
+	std::array<VkWriteDescriptorSetAccelerationStructureKHR, NumSwapchainImages>
+													infos;
+};
+
+struct GeometryStructure
+{
+	VkAccelerationStructureKHR						structure;
+	VkDeviceAddress									address;
 };
 
 class AccelerationStructureHandler : public HandlerBase
@@ -17,11 +25,12 @@ public:
 										class AccelerationStructureAllocator&	accStructAllocator);
 									~AccelerationStructureHandler();
 
+	GeoStructID						AddGeometryStructure();
 	VkResult						LoadGeometryStructure(
-										MeshID						meshID,
+										GeoStructID					geoStructID,
 										class AllocationSubmission& allocSub,
 										const struct MeshGeometry&	mesh);
-	void							UnloadGeometryStructure(MeshID meshID);
+	void							UnloadGeometryStructure(GeoStructID geoID);
 	void							SignalUnload(
 										int		swapchainIndex,
 										VkFence fence);
@@ -30,15 +39,16 @@ public:
 										class AllocationSubmission& allocSub,
 										const RTInstances&			instances);
 	void							UpdateInstanceStructure(
+										int					swapchainIndex,
 										InstanceStructID	id, 
 										const RTInstances&	instances);
 
 	VkDescriptorSetLayout			GetInstanceStructuresLayout() const;
-	VkDescriptorSet					GetInstanceStructuresSet() const;
 
-	VkAccelerationStructureNV		GetGeometryStruct(MeshID id);
+	GeometryStructure				operator[](GeoStructID geoStructID);
 
 	void							BindInstanceStructures(
+										int					swapchainIndex,
 										VkCommandBuffer		commandBuffer,
 										VkPipelineLayout	pipelineLayout,
 										uint32_t			setIndex) const;
@@ -49,19 +59,22 @@ public:
 private:
 	AccelerationStructureAllocator& theirAccStructAllocator;
 
-	VkAccelerationStructureNV		myDefaultGeoStructure;
-	std::array<VkAccelerationStructureNV, MaxNumMeshesLoaded>
-									myGeometryStructures;
+	VkDescriptorPool				myDescriptorPool = nullptr;
 	std::array<conc_queue<shared_semaphore<NumSwapchainImages>>, NumSwapchainImages>
 									myQueuedUnloadSignals;
 
-	VkDescriptorPool				myDescriptorPool;
+	GeometryStructure				myDefaultGeoStructure = {};
+	std::array<GeometryStructure, MaxNumMeshesLoaded>
+									myGeometryStructures = {};
+	IDKeeper<GeoStructID>			myFreeGeoIDs;
 
-	VkDescriptorSetLayout			myInstanceStructDescriptorSetLayout;
-	VkDescriptorSet					myInstanceStructDescriptorSet;
+
+	VkDescriptorSetLayout			myInstanceStructDescriptorSetLayout = nullptr;
+	std::array<VkDescriptorSet, NumSwapchainImages>
+									myInstanceStructDescriptorSets = {};
+
 	std::array<InstanceStructure, MaxNumInstanceStructures>
-									myInstanceStructures;
-	concurrency::concurrent_priority_queue<InstanceStructID, std::greater<>>
-									myFreeIDs;
+									myInstanceStructures = {};
+	IDKeeper<InstanceStructID>		myFreeInstanceIDs;
 
 };

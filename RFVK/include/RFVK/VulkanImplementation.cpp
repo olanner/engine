@@ -31,12 +31,7 @@ VulkanImplementation::VulkanImplementation()
 
 VulkanImplementation::~VulkanImplementation()
 {
-	while (vkQueueWaitIdle(myPresentationQueue))
-	{
-	}
-	while (vkQueueWaitIdle(myTransferQueue))
-	{
-	}
+	vkDeviceWaitIdle(myVulkanFramework.GetDevice());
 	
 	for (uint32_t i = 0; i < NumSwapchainImages; ++i)
 	{
@@ -227,7 +222,6 @@ VulkanImplementation::SubmitTransferCmds()
 	while (vkGetFenceStatus(myVulkanFramework.GetDevice(), myTransferFences[mySwapchainImageIndex]))
 	{
 	}
-	vkResetFences(myVulkanFramework.GetDevice(), 1, &myTransferFences[mySwapchainImageIndex]);
 	
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -239,11 +233,12 @@ VulkanImplementation::SubmitTransferCmds()
 	while ((allocSub = myAllocationSubmitter->AcquireNextAllocSubmission(), allocSub.has_value())
 		&& count++ < cMaxAllocPerFrame)
 	{
-		auto [cmdBuffer, event] = allocSub->Submit(myTransferFences[mySwapchainImageIndex]);
+		auto [cmdBuffer, event] = allocSub->Submit(myWorkerSystemsFences[mySwapchainImageIndex]);
 		vkCmdExecuteCommands(myTransferCmdBuffer[mySwapchainImageIndex], 1, &cmdBuffer);
 		vkCmdSetEvent(myTransferCmdBuffer[mySwapchainImageIndex], event, VK_PIPELINE_STAGE_TRANSFER_BIT);
 		myAllocationSubmitter->QueueRelease(std::move(allocSub.value()));
 	}
+	myAllocationSubmitter->TryReleasing();
 	
 	vkEndCommandBuffer(myTransferCmdBuffer[mySwapchainImageIndex]);
 
@@ -256,6 +251,7 @@ VulkanImplementation::SubmitTransferCmds()
 	transferSubmitInfo.signalSemaphoreCount = 1;
 	transferSubmitInfo.pSignalSemaphores = &myHasTransferredSemaphore[mySwapchainImageIndex];
 
+	vkResetFences(myVulkanFramework.GetDevice(), 1, &myTransferFences[mySwapchainImageIndex]);
 	auto result = vkQueueSubmit(myTransferQueue, 1, &transferSubmitInfo, myTransferFences[mySwapchainImageIndex]);
 	assert(!result && "failed submission");
 }
@@ -316,8 +312,6 @@ VulkanImplementation::BeginFrame()
 	const int swapchainIndexToUpdate = (fnr + 1) % NumSwapchainImages;
 	myImageHandler->UpdateDescriptors(swapchainIndexToUpdate, myWorkerSystemsFences[swapchainIndexToUpdate]);
 	myMeshHandler->UpdateDescriptors(swapchainIndexToUpdate, myWorkerSystemsFences[swapchainIndexToUpdate]);
-	myAllocationSubmitter->TryReleasing();
-	myAllocationSubmitter->FreeUsedCommandBuffers(myVulkanFramework.GetMainThread(), 64);
 	myImageAllocator->DoCleanUp(128);
 	myBufferAllocator->DoCleanUp(128);
 	myAccelerationStructureAllocator->DoCleanUp(128);
@@ -334,6 +328,7 @@ void
 VulkanImplementation::EndFrame()
 {
 	myVulkanFramework.Present(myFrameDoneSemaphore[mySwapchainImageIndex], myPresentationQueue);
+	
 }
 
 void
@@ -446,6 +441,7 @@ void
 VulkanImplementation::ToggleFeature(
 	rflx::Features feature)
 {
+	while (vkDeviceWaitIdle(myVulkanFramework.GetDevice()))
 	if (feature == rflx::Features::FEATURE_CORE)
 	{
 		LOG("cannot toggle core features!");

@@ -80,7 +80,16 @@ VulkanFramework::Init(
 	VK_FALLTHROUGH(InitDepthImage(windowRes));
 	VK_FALLTHROUGH(InitFramebuffers(windowRes));
 
-	vkBindAccelerationStructureMemory = (decltype(vkBindAccelerationStructureMemoryNV)*) vkGetDeviceProcAddr(myDevice, "vkBindAccelerationStructureMemoryNV");
+	vkCreateAccelerationStructure = (decltype(vkCreateAccelerationStructureKHR)*)vkGetDeviceProcAddr(myDevice, "vkCreateAccelerationStructureKHR");
+	vkDestroyAccelerationStructure = (decltype(vkDestroyAccelerationStructureKHR)*)vkGetDeviceProcAddr(myDevice, "vkDestroyAccelerationStructureKHR");
+	vkCmdBuildAccelerationStructures = (decltype(vkCmdBuildAccelerationStructuresKHR)*)vkGetDeviceProcAddr(myDevice, "vkCmdBuildAccelerationStructuresKHR");
+	vkGetAccelerationStructureDeviceAddress = (decltype(vkGetAccelerationStructureDeviceAddressKHR)*)vkGetDeviceProcAddr(myDevice, "vkGetAccelerationStructureDeviceAddressKHR");
+	vkGetAccelerationStructureBuildSizes = (decltype(vkGetAccelerationStructureBuildSizesKHR)*)vkGetDeviceProcAddr(myDevice, "vkGetAccelerationStructureBuildSizesKHR");
+	vkGetRayTracingShaderGroupHandles = (decltype(vkGetRayTracingShaderGroupHandlesKHR)*)vkGetDeviceProcAddr(myDevice, "vkGetRayTracingShaderGroupHandlesKHR");
+	vkCmdTraceRays = (decltype(vkCmdTraceRaysKHR)*)vkGetDeviceProcAddr(myDevice, "vkCmdTraceRaysKHR");;
+	vkCreateRayTracingPipelines = (decltype(vkCreateRayTracingPipelinesKHR)*)vkGetDeviceProcAddr(myDevice, "vkCreateRayTracingPipelinesKHR");;
+	
+	/*vkBindAccelerationStructureMemory = (decltype(vkBindAccelerationStructureMemoryNV)*) vkGetDeviceProcAddr(myDevice, "vkBindAccelerationStructureMemoryNV");
 	vkCmdBuildAccelerationStructure = (decltype(vkCmdBuildAccelerationStructureNV)*) vkGetDeviceProcAddr(myDevice, "vkCmdBuildAccelerationStructureNV");
 	vkCmdCopyAccelerationStructure = (decltype(vkCmdCopyAccelerationStructureNV)*) vkGetDeviceProcAddr(myDevice, "vkCmdCopyAccelerationStructureNV");
 	vkCmdTraceRays = (decltype(vkCmdTraceRaysNV)*) vkGetDeviceProcAddr(myDevice, "vkCmdTraceRaysNV");
@@ -91,7 +100,7 @@ VulkanFramework::Init(
 	vkDestroyAccelerationStructure = (decltype(vkDestroyAccelerationStructureNV)*) vkGetDeviceProcAddr(myDevice, "vkDestroyAccelerationStructureNV");
 	vkGetAccelerationStructureHandle = (decltype(vkGetAccelerationStructureHandleNV)*) vkGetDeviceProcAddr(myDevice, "vkGetAccelerationStructureHandleNV");
 	vkGetAccelerationStructureMemoryRequirements = (decltype(vkGetAccelerationStructureMemoryRequirementsNV)*) vkGetDeviceProcAddr(myDevice, "vkGetAccelerationStructureMemoryRequirementsNV");
-	vkGetRayTracingShaderGroupHandles = (decltype(vkGetRayTracingShaderGroupHandlesNV)*) vkGetDeviceProcAddr(myDevice, "vkGetRayTracingShaderGroupHandlesNV");
+	vkGetRayTracingShaderGroupHandles = (decltype(vkGetRayTracingShaderGroupHandlesNV)*) vkGetDeviceProcAddr(myDevice, "vkGetRayTracingShaderGroupHandlesN*/
 
 	if (gUseDebugLayers)
 	{
@@ -327,6 +336,8 @@ VulkanFramework::InitInstance()
 		const char* layerNames[]
 		{
 			"VK_LAYER_KHRONOS_validation",
+			//"VK_LAYER_LUNARG_parameter_validation",
+			//"VK_LAYER_LUNARG_object_tracker",
 			//"VK_LAYER_LUNARG_standard_validation"
 		};
 		instanceInfo.enabledLayerCount = ARRAYSIZE(layerNames);
@@ -551,9 +562,12 @@ VulkanFramework::InitDevice()
 	{
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 		VK_KHR_MAINTENANCE3_EXTENSION_NAME,
-		VK_NV_RAY_TRACING_EXTENSION_NAME,
 		VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
-		//VK_EXT_FILTER_CUBIC_EXTENSION_NAME,
+		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+		VK_KHR_RAY_QUERY_EXTENSION_NAME,
+		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+		
 	};
 
 	//vkGetDeviceProcAddr(myDevice, "vkCreateAccelerationStructureNV");
@@ -561,11 +575,8 @@ VulkanFramework::InitDevice()
 
 
 	// DEVICE INFO
-	VkDeviceCreateInfo deviceInfo;
+	VkDeviceCreateInfo deviceInfo = {};
 	deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	deviceInfo.pNext = nullptr;
-	deviceInfo.flags = NULL;
-
 	deviceInfo.queueCreateInfoCount = static_cast<uint32_t>(queueInfos.size());
 	deviceInfo.pQueueCreateInfos = queueInfos.data();
 	deviceInfo.enabledExtensionCount = ARRAYSIZE(extensionNames);
@@ -573,9 +584,24 @@ VulkanFramework::InitDevice()
 	deviceInfo.enabledLayerCount = 0;
 	deviceInfo.ppEnabledLayerNames = nullptr;
 
-	VkPhysicalDeviceFeatures features;
-	vkGetPhysicalDeviceFeatures(myPhysicalDevices[myChosenPhysicalDevice], &features);
-	deviceInfo.pEnabledFeatures = &features;
+	VkPhysicalDeviceFeatures2 features = {};
+	features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	VkPhysicalDeviceBufferDeviceAddressFeatures featuresBufferAddress = {};
+	featuresBufferAddress.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayPipeFeatures = {};
+	rayPipeFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+	VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = {};
+	rayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = {};
+	accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+	
+	features.pNext = &featuresBufferAddress;
+	featuresBufferAddress.pNext = &rayPipeFeatures;
+	rayPipeFeatures.pNext = &rayQueryFeatures;
+	rayQueryFeatures.pNext = &accelerationStructureFeatures;
+	vkGetPhysicalDeviceFeatures2(myPhysicalDevices[myChosenPhysicalDevice], &features);
+
+	deviceInfo.pNext = &features;
 
 	// CREATE DEVICE
 	auto resultDevice = vkCreateDevice(myPhysicalDevices[myChosenPhysicalDevice], &deviceInfo, nullptr, &myDevice);

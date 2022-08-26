@@ -1,11 +1,13 @@
 #pragma once
 
-struct StagingBuffer
+struct BufferXMemory
 {
 	VkBuffer		buffer;
 	VkDeviceMemory	memory;
 };
 
+constexpr int MaxNumAllocationSubmissions = 128;
+enum class AllocationSubmissionID;
 class AllocationSubmission
 {
 	friend class AllocationSubmitter;
@@ -29,7 +31,9 @@ public:
 											AllocationSubmission(AllocationSubmission&& moveFrom) noexcept;
 	AllocationSubmission&					operator=(AllocationSubmission&& moveFrom) noexcept;
 	
-	void									AddStagingBuffer(StagingBuffer&& stagingBuffer);
+	void									AddResourceBuffer(
+												VkBuffer buffer,
+												VkDeviceMemory memory);
 	_nodiscard VkCommandBuffer				Record() const;
 	std::tuple<VkCommandBuffer, VkEvent>	Submit(VkFence fence);
 	std::tuple<bool, VkCommandBuffer>		Release();
@@ -43,15 +47,14 @@ private:
 												VkCommandPool	cmdPool);
 	void									End();
 
-	neat::ThreadID							myThreadID;
+	neat::ThreadID							myThreadID = neat::ThreadID(INVALID_ID);
 	Status									myStatus = Status::Fresh;
 	VkDevice								myDevice = nullptr;
 	VkCommandPool							myCommandPool = nullptr;
 	VkCommandBuffer							myCommandBuffer = nullptr;
 	VkFence									myExecutedFence = nullptr;
-	std::shared_ptr<VkEvent>				myExecutedEvent;
-	std::vector<StagingBuffer>				myStagingBuffers;
-	
+	std::shared_ptr<VkEvent>				myExecutedEvent = nullptr;
+	std::vector<BufferXMemory>				myBufferXMemorys;
 };
 
 class AllocationSubmitter final
@@ -89,6 +92,10 @@ private:
 	conc_queue<AllocationSubmission>	myQueuedReleases;
 	conc_map<neat::ThreadID, conc_queue<VkCommandBuffer>>
 										myQueuedCommandBufferDeallocs;
+
+	IDKeeper<AllocationSubmissionID>	myAllocSubIDs;
+	std::array<AllocationSubmission, MaxNumAllocationSubmissions>
+										myAllocationSubmissions;
 	
 	
 };
@@ -123,7 +130,7 @@ protected:
 											VkImage					image, 
 											VkMemoryPropertyFlags	memPropFlags);
 
-	[[nodiscard]] std::tuple<VkResult, StagingBuffer>
+	[[nodiscard]] std::tuple<VkResult, BufferXMemory>
 										CreateStagingBuffer(
 											const void*				data,
 											size_t					size,

@@ -82,7 +82,7 @@ private:
 
 	void											RecordImageAlloc(
 														VkCommandBuffer			cmdBuffer,
-														StagingBuffer&			outStagingBuffer,
+														BufferXMemory&			outStagingBuffer,
 														VkImage					image,
 														uint32_t				width,
 														uint32_t				height,

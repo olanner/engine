@@ -24,8 +24,8 @@ LoadRawMesh(
 		uint32_t totalNumIndices = 0;
 		for (uint32_t aiMeshIndex = 0; aiMeshIndex < scene->mNumMeshes; ++aiMeshIndex)
 		{
-			totalNumVertices += scene->mMeshes[0]->mNumVertices;
-			totalNumIndices += scene->mMeshes[0]->mNumFaces * 3;
+			totalNumVertices += scene->mMeshes[aiMeshIndex]->mNumVertices;
+			totalNumIndices += scene->mMeshes[aiMeshIndex]->mNumFaces * 3;
 		}
 		rawMesh.vertices.resize(totalNumVertices);
 		rawMesh.indices.resize(totalNumIndices);

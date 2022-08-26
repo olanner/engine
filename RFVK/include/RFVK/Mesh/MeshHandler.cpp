@@ -275,7 +275,7 @@ void
 MeshHandler::LoadMesh(
 	MeshID meshID,
 	class AllocationSubmission& allocSub,
-	const char*					path, 
+	const std::string&			path,
 	std::vector<ImageID>&&		imageIDs)
 {
 	if (BAD_ID(meshID))
@@ -304,7 +304,7 @@ MeshHandler::LoadMesh(
 
 
 	// BUFFER ALLOC
-	const auto rawMesh = LoadRawMesh(path, mesh.imageIDs);
+	const auto rawMesh = LoadRawMesh(path.c_str(), mesh.imageIDs);
 
 	/*for (auto& v : raw.vertices)
 	{
@@ -334,6 +334,13 @@ MeshHandler::LoadMesh(
 	mesh.geo.indexBuffer = iBuffer;
 	mesh.geo.numVertices = uint32_t(rawMesh.vertices.size());
 	mesh.geo.numIndices = uint32_t(rawMesh.indices.size());
+
+	VkBufferDeviceAddressInfo addressInfo = {};
+	addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+	addressInfo.buffer = vBuffer;
+	mesh.geo.vertexAddress = vkGetBufferDeviceAddress(theirVulkanFramework.GetDevice(), &addressInfo);
+	addressInfo.buffer = iBuffer;
+	mesh.geo.indexAddress = vkGetBufferDeviceAddress(theirVulkanFramework.GetDevice(), &addressInfo);
 
 	// DESCRIPTOR WRITE
 	WriteMeshDescriptorData(meshID, allocSub);
@@ -392,9 +399,9 @@ MeshHandler::LoadImagesFromDoc(
 				}
 				else if (member.IsString())
 				{
-					const std::string& path = member.GetString();
+					const std::string path = member.GetString();
 					const ImageID imgID = theirImageHandler.AddImage2D();
-					theirImageHandler.LoadImage2D(imgID, allocSub, path.c_str());
+					theirImageHandler.LoadImage2D(imgID, allocSub, path);
 					imgIDs[meshIndex].x = BAD_ID(imgID) ? float(myMissingImageIDs[0]) : float(imgID);
 				}
 			}
@@ -417,9 +424,9 @@ MeshHandler::LoadImagesFromDoc(
 				}
 				else if (member.IsString())
 				{
-					const std::string& path = member.GetString();
+					const std::string path = member.GetString();
 					const ImageID imgID = theirImageHandler.AddImage2D();
-					theirImageHandler.LoadImage2D(imgID, allocSub, path.c_str());
+					theirImageHandler.LoadImage2D(imgID, allocSub, path);
 					imgIDs[meshIndex].y = BAD_ID(imgID) ? float(myMissingImageIDs[1]) : float(imgID);
 				}
 			}
@@ -442,9 +449,9 @@ MeshHandler::LoadImagesFromDoc(
 				}
 				else if (member.IsString())
 				{
-					const std::string& path = member.GetString();
+					const std::string path = member.GetString();
 					const ImageID imgID = theirImageHandler.AddImage2D();
-					theirImageHandler.LoadImage2D(imgID, allocSub, path.c_str());
+					theirImageHandler.LoadImage2D(imgID, allocSub, path);
 					imgIDs[meshIndex].z = BAD_ID(imgID) ? float(myMissingImageIDs[2]) : float(imgID);
 				}
 			}

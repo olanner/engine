@@ -15,6 +15,7 @@
 #include "Handles/CubeHandle.h"
 #include "Handles/ImageHandle.h"
 #include "RFVK/Memory/AllocatorBase.h"
+#include "RFVK/Ray Tracing/AccelerationStructureAllocator.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "RFVK_Debugx64.lib")
@@ -118,12 +119,13 @@ rflx::Reflex::Start(
 		ourVKImplementation->myPresQueueIndex);
 	
 	ourVKImplementation->RegisterWorkerSystem(mr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
-	ourVKImplementation->RegisterWorkerSystem(rtmr, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV, VK_QUEUE_COMPUTE_BIT);
+	ourVKImplementation->RegisterWorkerSystem(rtmr, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_QUEUE_COMPUTE_BIT);
 	ourVKImplementation->RegisterWorkerSystem(tr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
 
 	ourVKImplementation->LockWorkerSystems();
-	ourVKImplementation->ToggleFeature(Features::FEATURE_DEFERRED);
 
+	ourVKImplementation->ToggleFeature(Features::FEATURE_DEFERRED);
+	
 	ourVKImplementation->RegisterThread(myThreadID);
 	if (BAD_ID(myThreadID))
 	{
@@ -171,8 +173,8 @@ rflx::Reflex::EndFrame()
 
 rflx::MeshHandle
 rflx::Reflex::CreateMesh(
-	const char* path,
-	std::vector<ImageHandle>&& imgHandles)
+	const std::string&			path,
+	std::vector<ImageHandle>&&	imgHandles)
 {
 	std::vector<ImageID> imgIDs;
 	for (auto& handle : imgHandles)
@@ -181,20 +183,22 @@ rflx::Reflex::CreateMesh(
 	}
 
 	auto& allocSub = gAllocationSubmissions[int(myThreadID)];
-	MeshID id = gMeshHandler->AddMesh();
+	const MeshID id = gMeshHandler->AddMesh();
 	gMeshHandler->LoadMesh(id, allocSub, path, std::move(imgIDs));
 	const auto mesh = (*gMeshHandler)[id];
-	gAccStructHandler->LoadGeometryStructure(id, allocSub, mesh.geo);
+
+	const GeoStructID geoID = gAccStructHandler->AddGeometryStructure();
+	gAccStructHandler->LoadGeometryStructure(geoID, allocSub, mesh.geo);
 	
-	MeshHandle ret(*this, id, path);
+	MeshHandle ret(*this, id, geoID, path);
 
 	return ret;
 }
 
 rflx::ImageHandle
 rflx::Reflex::CreateImage(
-	const char* path,
-	Vec2f		tiling)
+	const std::string&	path,
+	Vec2f				tiling)
 {
 	const ImageID id = gImageHandler->AddImage2D();
 	gImageHandler->LoadImage2DTiled(id, gAllocationSubmissions[int(myThreadID)], path, tiling.y, tiling.x);
@@ -222,7 +226,7 @@ neat::ThreadID rflx::Reflex::GetThreadID() const
 
 rflx::CubeHandle
 rflx::Reflex::CreateImageCube(
-	const char* path)
+	const std::string& path)
 {
 	CubeHandle handle(gImageHandler->LoadImageCube(gAllocationSubmissions[int(myThreadID)], path));
 
@@ -236,13 +240,13 @@ rflx::Reflex::CreateImageCube(
 void
 rflx::Reflex::BeginPush()
 {
+	gRTMeshRenderer->myWorkScheduler.BeginPush(myThreadID);
+	gMeshRenderer->myWorkScheduler.BeginPush(myThreadID);
 	if (ourVKImplementation->CheckFeature(Features::FEATURE_RAY_TRACING))
 	{
-		gRTMeshRenderer->myWorkScheduler.BeginPush(myThreadID);
 	}
 	else
 	{
-		gMeshRenderer->myWorkScheduler.BeginPush(myThreadID);
 	}
 
 	gSpriteRenderer->myWorkScheduler.BeginPush(myThreadID);
@@ -268,6 +272,7 @@ rflx::Reflex::PushRenderCommand(
 
 	if (ourVKImplementation->CheckFeature(Features::FEATURE_RAY_TRACING))
 	{
+		cmd.geoID = handle.myGeoID;
 		gRTMeshRenderer->myWorkScheduler.PushWork(myThreadID, cmd);
 	}
 	else
@@ -351,16 +356,16 @@ rflx::Reflex::EndPush()
 {
 	if (ourVKImplementation->CheckFeature(Features::FEATURE_RAY_TRACING))
 	{
-		gRTMeshRenderer->myWorkScheduler.EndPush(myThreadID);
 	}
 	else
 	{
-		gMeshRenderer->myWorkScheduler.EndPush(myThreadID);
 	}
+	gRTMeshRenderer->myWorkScheduler.EndPush(myThreadID);
+	gMeshRenderer->myWorkScheduler.EndPush(myThreadID);
 
 	gSpriteRenderer->myWorkScheduler.EndPush(myThreadID);
 	ourVKImplementation->myAllocationSubmitter->QueueAllocSubmission(std::move(gAllocationSubmissions[int(myThreadID)]));
-	ourVKImplementation->myAllocationSubmitter->FreeUsedCommandBuffers(myThreadID, 64);
+	ourVKImplementation->myAllocationSubmitter->FreeUsedCommandBuffers(myThreadID, 128);
 }
 
 void

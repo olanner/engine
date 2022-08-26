@@ -2,7 +2,8 @@
 #include "ImageReader.h"
 
 #include "DDSReader.h"
-#include "libtga/tga.h"
+#include "tga-main/tga.h"
+
 namespace neat
 {
 void OpenTGA(Image & outImg, const char* path);
@@ -13,10 +14,11 @@ ReadImage(
 	const char* path,
 	bool		alphaPadding)
 {
-	Image ret;
+	Image ret = {};
 	if (strstr(path, ".tga"))
 	{
-		OpenTGA(ret, path);
+		
+		int v = 0;
 	}
 	else if (strstr(path, ".dds"))
 	{
@@ -27,6 +29,7 @@ ReadImage(
 		ret.error = ImageError::UnsupportedFileFormat;
 		return ret;
 	}
+
 
 	if (alphaPadding)
 	{
@@ -60,71 +63,117 @@ ReadImage(
 
 void
 OpenTGA(
-	Image&	outImg, 
-	const char*		path)
+	Image&		outImg, 
+	const char*	path)
 {
 	outImg.fileFormat = ImageFileFormat::Targa;
-	
-	TGA* tga = TGAOpen(path, "r");
-	if (!tga)
+	FILE* f = std::fopen(path, "rb");
+	tga::StdioFileInterface file(f);
+	tga::Decoder decoder(&file);
+	tga::Header header;
+	if (!decoder.readHeader(header))
 	{
 		outImg.error = ImageError::FileReadError;
-		return;
-	}
-	tga->error = nullptr;
-	
-	TGAData tgaData;
-	int error = TGAReadImage(tga, &tgaData);
-	if (error)
-	{
-		outImg.error = ImageError::FileReadError;
-		return;
-	}
-	
-	if (tgaData.flags & TGA_RGB
-		&& tga->hdr.alpha == 8)
-	{
-		outImg.swizzle = ImageSwizzle::RGBA;
-	}
-	else 
-	if (tgaData.flags & TGA_BGR
-		&& tga->hdr.alpha == 8)
-	{
-		outImg.swizzle = ImageSwizzle::BGRA;
-	}
-	else 
-	if (tgaData.flags & TGA_RGB
-		&& tga->hdr.alpha == 0)
-	{
-		outImg.swizzle = ImageSwizzle::RGB;
-	}
-	else 
-	if (tgaData.flags & TGA_BGR
-		&& tga->hdr.alpha == 0)
-	{
-		outImg.swizzle = ImageSwizzle::BGR;
-	}
-	else
-	{
-		outImg.error = ImageError::UnsupportedImageFormat;
 		return;
 	}
 
-	outImg.width = tga->hdr.width;
-	outImg.height = tga->hdr.height;
+	tga::Image image = {};
+	image.bytesPerPixel = header.bytesPerPixel();
+	image.rowstride = header.width * header.bytesPerPixel();
+	
+	outImg.pixelData.resize(image.rowstride * header.height);
+	image.pixels = outImg.pixelData.data();
+
+	if (!decoder.readImage(header, image, nullptr))
+	{
+		outImg.error = ImageError::FileReadError;
+		return;
+	}
+	//decoder.postProcessImage(header, image);
+
+	outImg.bitDepth = header.bitsPerPixel;
+	outImg.alphaDepth = decoder.hasAlpha() * 8;
+	outImg.colorDepth = outImg.bitDepth - decoder.hasAlpha() * 8;
+	outImg.width = header.width;
+	outImg.height = header.height;
 	outImg.layers = 1;
-	outImg.bitDepth = tga->hdr.depth;
-	outImg.colorDepth = tga->hdr.depth - tga->hdr.alpha;
-	outImg.alphaDepth = tga->hdr.alpha;
-
-	for (int row = outImg.height - 1; row >= 0; --row)
+	if (header.isRgb())
 	{
-		const uint32_t bWidth = outImg.height * outImg.bitDepth / 8;
-		const uint32_t index = row * bWidth;
-		outImg.pixelData.insert(outImg.pixelData.end(), tgaData.img_data + index, tgaData.img_data + index + bWidth);
+		outImg.swizzle = decoder.hasAlpha() ? ImageSwizzle::RGBA : ImageSwizzle::RGB;
 	}
+
+	// Optional post-process to fix the alpha channel in
+	// some TGA files where alpha=0 for all pixels when
+	// it shouldn't.
 	
-	TGAClose(tga);
+	//outImg.fileFormat = ImageFileFormat::Targa;
+	//
+	//TGA* tga = TGAOpen(path, "r");
+	//if (!tga)
+	//{
+	//	outImg.error = ImageError::FileReadError;
+	//	return;
+	//}
+	//tga->error = nullptr;
+
+	//
+	//TGAData tgaData = {};
+	//int error = TGAReadImage(tga, &tgaData);
+	//if (error)
+	//{
+	//	outImg.error = ImageError::FileReadError;
+	//	return;
+	//}
+	//
+	//if (tgaData.flags & TGA_RGB
+	//	&& tga->hdr.alpha == 8)
+	//{
+	//	outImg.swizzle = ImageSwizzle::RGBA;
+	//}
+	//else 
+	//if (tgaData.flags & TGA_BGR
+	//	&& tga->hdr.alpha == 8)
+	//{
+	//	outImg.swizzle = ImageSwizzle::BGRA;
+	//}
+	//else 
+	//if (tgaData.flags & TGA_RGB
+	//	&& tga->hdr.alpha == 0)
+	//{
+	//	outImg.swizzle = ImageSwizzle::RGB;
+	//}
+	//else 
+	//if (tgaData.flags & TGA_BGR
+	//	&& tga->hdr.alpha == 0)
+	//{
+	//	outImg.swizzle = ImageSwizzle::BGR;
+	//}
+	//else
+	//{
+	//	outImg.error = ImageError::UnsupportedImageFormat;
+	//	return;
+	//}
+
+	//outImg.width = tga->hdr.width;
+	//outImg.height = tga->hdr.height;
+	//outImg.layers = 1;
+	//outImg.bitDepth = tga->hdr.depth;
+	//outImg.colorDepth = tga->hdr.depth - tga->hdr.alpha;
+	//outImg.alphaDepth = tga->hdr.alpha;
+
+	//for (int row = outImg.height - 1; row >= 0; --row)
+	//{
+	//	const uint32_t bWidth = outImg.height * outImg.bitDepth / 8;
+	//	const uint32_t index = row * bWidth;
+	//	
+	//}
+	////outImg.pixelData.resize(TGA_IMG_DATA_SIZE(tga));
+	////memcpy_s(outImg.pixelData.data(), outImg.pixelData.size(), tgaData.img_data, TGA_IMG_DATA_SIZE(tga));
+	////outImg.pixelData.insert(outImg.pixelData.end(), tgaData.img_data, tgaData.img_data + );
+	//
+
+	//
+	//TGAClose(tga);
 	outImg.error = ImageError::None;
 }
 

@@ -83,12 +83,12 @@ public:
 		{
 			myReflexInterface.BeginPush();
 			auto boyHandle = myReflexInterface.CreateMesh("Assets/test_boy/test_boy.fbx");
+			//auto sceneHandle = myReflexInterface.CreateMesh("Assets/scene/scene.dae");
 			myReflexInterface.EndPush();
 			while (IsRunning())
 			{
 				InputHandler::BeginFrame();
 				myReflexInterface.BeginPush();
-				Sleep(1000 / 120);
 				myTimer.Tick();
 				auto dt = myTimer.GetDeltaTime();
 
@@ -127,6 +127,7 @@ public:
 				
 				const auto tt = myTimer.GetTotalTime();
 				myReflexInterface.PushRenderCommand(boyHandle, {}, {1,1,1}, {0,1,0}, tt * 3.14f * 0.66f);
+				//myReflexInterface.PushRenderCommand(sceneHandle);
 
 				auto fps = std::to_string(int(1.f / dt));
 				myReflexInterface.PushRenderCommand(
@@ -138,6 +139,7 @@ public:
 				
 				myReflexInterface.EndPush();
 				InputHandler::EndFrame();
+				Sleep(1);
 			}
 		};
 	}
@@ -194,7 +196,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 #ifdef _DEBUG
 	if (std::string(_bstr_t(lpCmdLine)).find("vkdebug") != std::string::npos)
 	{
-		//system("pause");
+		system("pause");
 	}
 #endif
 	return retVal;

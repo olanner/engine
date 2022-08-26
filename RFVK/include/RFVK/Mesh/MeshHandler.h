@@ -30,7 +30,7 @@ public:
 	void										LoadMesh(
 													MeshID meshID,
 													class AllocationSubmission& allocSub,
-													const char*					path,
+													const std::string&			path,
 													std::vector<ImageID>&&		imageIDs = {});
 
 	VkDescriptorSetLayout						GetMeshDataLayout();

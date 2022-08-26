@@ -6,28 +6,30 @@
 
 MeshID rflx::MeshHandle::GetID() const
 {
-	return myID;
+	return myMeshID;
 }
 
 void
 rflx::MeshHandle::Load() const
 {
-	gMeshHandler->LoadMesh(myID, gAllocationSubmissions[int(theirReflex.GetThreadID())], myPath.c_str());
-	gAccStructHandler->LoadGeometryStructure(myID, gAllocationSubmissions[int(theirReflex.GetThreadID())], (*gMeshHandler)[myID].geo);
+	gMeshHandler->LoadMesh(myMeshID, gAllocationSubmissions[int(theirReflex.GetThreadID())], myPath);
+	gAccStructHandler->LoadGeometryStructure(myGeoID, gAllocationSubmissions[int(theirReflex.GetThreadID())], (*gMeshHandler)[myMeshID].geo);
 }
 
 void rflx::MeshHandle::Unload() const
 {
-	gMeshHandler->UnloadMesh(myID);
-	gAccStructHandler->UnloadGeometryStructure(myID);
+	gMeshHandler->UnloadMesh(myMeshID);
+	gAccStructHandler->UnloadGeometryStructure(myGeoID);
 }
 
 rflx::MeshHandle::MeshHandle(
 	Reflex& reflex,
-	MeshID id, 
+	MeshID id,
+	GeoStructID	geoID,
 	std::string path)
 	: theirReflex(reflex)
-	, myID(id)
+	, myMeshID(id)
+	, myGeoID(geoID)
 	, myPath(std::move(path))
 {
 }

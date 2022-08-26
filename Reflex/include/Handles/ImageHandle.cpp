@@ -25,7 +25,7 @@ void
 rflx::ImageHandle::Load() const
 {
 	const int threadID = int(theirReflex.GetThreadID());
-	gImageHandler->LoadImage2D(myID, gAllocationSubmissions[threadID], myPath.c_str());
+	gImageHandler->LoadImage2D(myID, gAllocationSubmissions[threadID], myPath);
 }
 
 void
