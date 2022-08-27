@@ -44,7 +44,7 @@ FontHandler::~FontHandler()
 
 FontID
 FontHandler::AddFont(
-	AllocationSubmission& allocSub,
+	AllocationSubmissionID allocSubID,
 	const char* path)
 {
 	const FontID id = myFontIDKeeper.FetchFreeID();
@@ -79,7 +79,7 @@ FontHandler::AddFont(
 	font.imgArrID = theirImageHandler.AddImage2D();
 	theirImageHandler.LoadImage2D(
 		font.imgArrID,
-		allocSub, 
+		allocSubID,
 		std::move(fontData), 
 		{res,res}, 
 		VK_FORMAT_R8G8B8A8_UNORM, 

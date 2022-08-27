@@ -3,6 +3,8 @@
 #include "NVRayTracing.h"
 #include "RFVK/Misc/HandlerBase.h"
 
+
+
 struct InstanceStructure
 {
 	std::array<VkAccelerationStructureKHR, NumSwapchainImages>
@@ -28,7 +30,7 @@ public:
 	GeoStructID						AddGeometryStructure();
 	VkResult						LoadGeometryStructure(
 										GeoStructID					geoStructID,
-										class AllocationSubmission& allocSub,
+										AllocationSubmissionID		allocSubID,
 										const struct MeshGeometry&	mesh);
 	void							UnloadGeometryStructure(GeoStructID geoID);
 	void							SignalUnload(
@@ -36,7 +38,7 @@ public:
 										VkFence fence);
 
 	InstanceStructID				AddInstanceStructure(
-										class AllocationSubmission& allocSub,
+										AllocationSubmissionID		allocSubID,
 										const RTInstances&			instances);
 	void							UpdateInstanceStructure(
 										int					swapchainIndex,

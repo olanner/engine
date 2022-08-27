@@ -42,9 +42,11 @@ AccelerationStructureAllocator::~AccelerationStructureAllocator()
 
 std::tuple<VkResult, VkAccelerationStructureKHR>
 AccelerationStructureAllocator::RequestGeometryStructure(
-	AllocationSubmission&					allocSub,
+	AllocationSubmissionID					allocSubID,
 	const std::vector<struct MeshGeometry>&	meshes)
 {
+
+	
 	std::vector<VkAccelerationStructureGeometryKHR> geometries;
 	std::vector<VkAccelerationStructureBuildRangeInfoKHR> geoRangeInfos;
 	std::vector<uint32_t> primitiveCounts;
@@ -89,7 +91,7 @@ AccelerationStructureAllocator::RequestGeometryStructure(
 	
 	auto [resultScratch, scratchBuffer, scratchMemory] = 
 		theirBufferAllocator.CreateBuffer(
-			allocSub,
+			allocSubID,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 			nullptr,
 			sizeInfo.buildScratchSize,
@@ -99,6 +101,8 @@ AccelerationStructureAllocator::RequestGeometryStructure(
 	{
 		return {resultScratch, nullptr};
 	}
+
+	auto& allocSub = theirAllocationSubmitter[allocSubID];
 	allocSub.AddResourceBuffer(scratchBuffer, scratchMemory);
 	
 	VkBufferDeviceAddressInfo addressInfo = {};
@@ -108,7 +112,7 @@ AccelerationStructureAllocator::RequestGeometryStructure(
 	
 	auto [resultAccStruct, accStructBuffer, accStructMemory] =
 		theirBufferAllocator.CreateBuffer(
-			allocSub,
+			allocSubID,
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT 
 			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT 
 			| VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
@@ -185,12 +189,12 @@ AccelerationStructureAllocator::RequestGeometryStructure(
 
 std::tuple<VkResult, VkAccelerationStructureKHR>
 AccelerationStructureAllocator::RequestInstanceStructure(
-	AllocationSubmission&	allocSub,
+	AllocationSubmissionID	allocSubID,
 	const RTInstances&		instanceDesc)
 {
 	auto [resultInstances, instancesBuffer, instancesMemory] =
 		theirBufferAllocator.CreateBuffer(
-			allocSub,
+			allocSubID,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR 
 			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
 			| VK_BUFFER_USAGE_TRANSFER_DST_BIT
@@ -235,7 +239,7 @@ AccelerationStructureAllocator::RequestInstanceStructure(
 
 	auto [resultAccStruct, accStructBuffer, accStructMemory] =
 		theirBufferAllocator.CreateBuffer(
-			allocSub,
+			allocSubID,
 			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
 			nullptr,
 			sizesInfo.accelerationStructureSize,
@@ -261,7 +265,7 @@ AccelerationStructureAllocator::RequestInstanceStructure(
 	// BUILD
 	auto [resultScratch, scratchBuffer, scratchMemory] =
 		theirBufferAllocator.CreateBuffer(
-			allocSub,
+			allocSubID,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 			nullptr,
 			sizesInfo.buildScratchSize,
@@ -275,7 +279,7 @@ AccelerationStructureAllocator::RequestInstanceStructure(
 	auto scratchAddress = vkGetBufferDeviceAddress(theirVulkanFramework.GetDevice(), &addressInfo);
 	
 	BuildInstanceStructure(
-		allocSub,
+		allocSubID,
 		false,
 		instanceDesc,
 		instancesBuffer,
@@ -312,10 +316,10 @@ AccelerationStructureAllocator::UpdateInstanceStructure(
 		return;
 	}
 	auto& accStruct = myAllocatedAccelerationStructures[instanceStructure];
-	auto allocSub = theirAllocationSubmitter.StartAllocSubmission();
+	auto allocSubID = theirAllocationSubmitter.StartAllocSubmission();
 	
 	BuildInstanceStructure(
-		allocSub,
+		allocSubID,
 		false,
 		instanceDesc,
 		accStruct.instancesBuffer.buffer,
@@ -324,7 +328,7 @@ AccelerationStructureAllocator::UpdateInstanceStructure(
 		accStruct.scratchAddress,
 		instanceStructure);
 		
-	theirAllocationSubmitter.QueueAllocSubmission(std::move(allocSub));
+	theirAllocationSubmitter.QueueAllocSubmission(std::move(allocSubID));
 }
 
 void
@@ -406,7 +410,7 @@ AccelerationStructureAllocator::FreeAllocatedStructure(
 
 void
 AccelerationStructureAllocator::BuildInstanceStructure(
-	AllocationSubmission&		allocSub,
+	AllocationSubmissionID		allocSubID,
 	bool						update,
 	const RTInstances&			instanceDesc,
 	VkBuffer					instancesBuffer,
@@ -415,6 +419,8 @@ AccelerationStructureAllocator::BuildInstanceStructure(
 	VkDeviceAddress				scratchBufferAddress,
 	VkAccelerationStructureKHR	instanceStructure)
 {
+	auto& allocSub = theirAllocationSubmitter[allocSubID];
+	
 	if (!instanceDesc.empty())
 	{
 		VkBufferCopy copy;

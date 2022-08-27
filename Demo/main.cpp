@@ -139,7 +139,10 @@ public:
 				
 				myReflexInterface.EndPush();
 				InputHandler::EndFrame();
-				Sleep(1);
+				const unsigned long count = GetTickCount64();
+				while ((GetTickCount64() - count) < 7)
+				{
+				}
 			}
 		};
 	}

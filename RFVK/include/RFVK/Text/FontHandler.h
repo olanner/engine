@@ -30,7 +30,7 @@ public:
 												~FontHandler();
 
 	FontID										AddFont(
-													class AllocationSubmission& allocSub,
+													AllocationSubmissionID allocSubID,
 													const char* path);
 	
 	

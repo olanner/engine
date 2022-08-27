@@ -27,8 +27,8 @@ ImageAllocator::~ImageAllocator()
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImage2D(
-	AllocationSubmission& allocSub,
-	const uint8_t* initialData,
+	AllocationSubmissionID	allocSubID,
+	const uint8_t*			initialData,
 	size_t					initialDataNumBytes,
 	const ImageRequestInfo& requestInfo)
 {
@@ -104,6 +104,7 @@ ImageAllocator::RequestImage2D(
 	vkBindImageMemory(theirVulkanFramework.GetDevice(), image, memory, 0);
 
 	// FIRST IMAGE ALLOC
+	auto& allocSub = theirAllocationSubmitter[allocSubID];
 	auto cmdBuffer = allocSub.Record();
 	if (initialData)
 	{
@@ -149,7 +150,7 @@ ImageAllocator::RequestImage2D(
 	}
 
 	QueueRequest(
-		allocSub,
+		allocSubID,
 		{
 			view,
 			image,
@@ -161,7 +162,7 @@ ImageAllocator::RequestImage2D(
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImageCube(
-	AllocationSubmission& allocSub,
+	AllocationSubmissionID allocSubID,
 	std::vector<uint8_t>	initialData,
 	size_t					initialDataBytesPerLayer,
 	const ImageRequestInfo& requestInfo)
@@ -237,12 +238,13 @@ ImageAllocator::RequestImageCube(
 	vkBindImageMemory(theirVulkanFramework.GetDevice(), image, memory, 0);
 
 	// FIRST IMAGE ALLOC
+	auto& allocSub = theirAllocationSubmitter[allocSubID];
 	auto cmdBuffer = allocSub.Record();
 	if (!initialData.empty())
 	{
 		for (int i = 0; i < 6; ++i)
 		{
-			BufferXMemory stagingBuffer;
+			BufferXMemory stagingBuffer = {};
 			RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, i, &initialData[i * initialDataBytesPerLayer], initialDataBytesPerLayer, owners.data(), owners.size());
 			allocSub.AddResourceBuffer(stagingBuffer.buffer, stagingBuffer.memory);
 		}
@@ -284,7 +286,7 @@ ImageAllocator::RequestImageCube(
 	}
 
 	QueueRequest(
-		allocSub,
+		allocSubID,
 		{
 			view,
 			image,
@@ -296,7 +298,7 @@ ImageAllocator::RequestImageCube(
 
 std::tuple<VkResult, VkImageView>
 ImageAllocator::RequestImageArray(
-	AllocationSubmission& allocSub,
+	AllocationSubmissionID allocSubID,
 	std::vector<uint8_t>	initialData,
 	uint32_t				numLayers,
 	const ImageRequestInfo& requestInfo)
@@ -371,6 +373,7 @@ ImageAllocator::RequestImageArray(
 	vkBindImageMemory(theirVulkanFramework.GetDevice(), image, memory, 0);
 
 	// IMAGE ALLOC
+	auto& allocSub = theirAllocationSubmitter[allocSubID];
 	auto cmdBuffer = allocSub.Record();
 
 	if (!initialData.empty())
@@ -379,7 +382,7 @@ ImageAllocator::RequestImageArray(
 		uint64_t byteOffset = 0;
 		for (uint32_t layer = 0; layer < numLayers; ++layer)
 		{
-			BufferXMemory stagingBuffer;
+			BufferXMemory stagingBuffer = {};
 			RecordImageAlloc(cmdBuffer, stagingBuffer, image, requestInfo.width, requestInfo.height, layer, initialData.data() + byteOffset, numImgBytes, owners.data(), owners.size());
 			allocSub.AddResourceBuffer(stagingBuffer.buffer, stagingBuffer.memory);
 			byteOffset += numImgBytes;
@@ -422,7 +425,7 @@ ImageAllocator::RequestImageArray(
 	}
 
 	QueueRequest(
-		allocSub,
+		allocSubID,
 		{
 			view,
 			image,
@@ -506,9 +509,10 @@ ImageAllocator::GetImage(
 
 void
 ImageAllocator::QueueRequest(
-	AllocationSubmission&	allocSub, 
+	AllocationSubmissionID	allocSubID, 
 	AllocatedImage			toQueue)
 {
+	auto& allocSub = theirAllocationSubmitter[allocSubID];
 	if (allocSub.GetOwningThread() == theirVulkanFramework.GetMainThread())
 	{
 		myAllocatedImages[toQueue.view] = toQueue;

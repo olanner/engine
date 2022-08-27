@@ -36,19 +36,19 @@ public:
 													~ImageAllocator();
 
 	std::tuple<VkResult, VkImageView>				RequestImage2D(
-														AllocationSubmission&	allocSub,
+														AllocationSubmissionID	allocSubID,
 														const uint8_t*			initialData,
 														size_t					initialDataNumBytes,
 														const ImageRequestInfo&	requestInfo);
 
 	std::tuple<VkResult, VkImageView>				RequestImageCube(
-														AllocationSubmission&	allocSub,
+														AllocationSubmissionID	allocSubID,
 														std::vector<uint8_t>	initialData,
 														size_t					initialDataBytesPerLayer,
 														const ImageRequestInfo&	requestInfo);
 
 	std::tuple<VkResult, VkImageView>				RequestImageArray(
-														AllocationSubmission&	allocSub,
+														AllocationSubmissionID	allocSubID,
 														std::vector<uint8_t>	initialData, 
 														uint32_t				numLayers, 
 														const ImageRequestInfo& requestInfo);
@@ -67,7 +67,7 @@ public:
 
 private:
 	void											QueueRequest(
-														AllocationSubmission&	allocSub,
+														AllocationSubmissionID	allocSubID,
 														AllocatedImage			toQueue);
 	
 	VkImageMemoryBarrier							CreateTransition(

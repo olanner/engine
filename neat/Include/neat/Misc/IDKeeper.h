@@ -58,7 +58,7 @@ inline void IDKeeper<IDType>::ReturnID( const IDType& id )
 	{
 		std::scoped_lock<std::mutex> lock( myOccupiedTamperMutex );
 		auto iter = std::find(myOccupiedIDs.begin(), myOccupiedIDs.end(), id);
-		if (iter != myOccupiedIDs.end())
+		if (iter == myOccupiedIDs.end())
 		{
 			assert(false && "attempting to return unoccupied id");
 		}

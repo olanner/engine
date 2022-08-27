@@ -7,14 +7,13 @@ struct BufferXMemory
 };
 
 constexpr int MaxNumAllocationSubmissions = 128;
-enum class AllocationSubmissionID;
 class AllocationSubmission
 {
 	friend class AllocationSubmitter;
 	friend class ::concurrency::concurrent_queue<AllocationSubmission>;
 	
-	AllocationSubmission(const AllocationSubmission& copyFrom) = default;
-	AllocationSubmission& operator=(const AllocationSubmission & copyFrom) = default;
+	//AllocationSubmission(const AllocationSubmission& copyFrom) = default;
+	//AllocationSubmission& operator=(const AllocationSubmission & copyFrom) = default;
 	
 	enum class Status
 	{
@@ -26,10 +25,10 @@ class AllocationSubmission
 		PendingRelease,
 	};
 	
-public:
 											AllocationSubmission() = default;
-											AllocationSubmission(AllocationSubmission&& moveFrom) noexcept;
-	AllocationSubmission&					operator=(AllocationSubmission&& moveFrom) noexcept;
+public:
+	//										AllocationSubmission(AllocationSubmission&& moveFrom) noexcept;
+	//AllocationSubmission&					operator=(AllocationSubmission&& moveFrom) noexcept;
 	
 	void									AddResourceBuffer(
 												VkBuffer buffer,
@@ -61,24 +60,24 @@ class AllocationSubmitter final
 {
 public:
 	
-										AllocationSubmitter(
-											class VulkanFramework&	vulkanFramework,
-											QueueFamilyIndex		transferFamilyIndex);
-										~AllocationSubmitter();
+											AllocationSubmitter(
+												class VulkanFramework&	vulkanFramework,
+												QueueFamilyIndex		transferFamilyIndex);
+											~AllocationSubmitter();
 	
-	void								RegisterThread(neat::ThreadID threadID);
-	_nodiscard AllocationSubmission		StartAllocSubmission();
-	_nodiscard AllocationSubmission		StartAllocSubmission(neat::ThreadID threadID);
-	void								QueueAllocSubmission(AllocationSubmission&& allocationSubmission);
+	void									RegisterThread(neat::ThreadID threadID);
+	_nodiscard AllocationSubmissionID		StartAllocSubmission();
+	_nodiscard AllocationSubmissionID		StartAllocSubmission(neat::ThreadID threadID);
+	void									QueueAllocSubmission(AllocationSubmissionID&& allocationSubmissionID);
 
-	std::optional<AllocationSubmission>	AcquireNextAllocSubmission();
-	void								QueueRelease(AllocationSubmission&& allocationSubmission);
+	std::optional<AllocationSubmissionID>	AcquireNextAllocSubmission();
+	void									QueueRelease(AllocationSubmissionID&& allocationSubmissionID);
 	
-	void								TryReleasing();
-	void								FreeUsedCommandBuffers(
-											neat::ThreadID	threadID,
-											int				maxCount);
-
+	void									TryReleasing();
+	void									FreeUsedCommandBuffers(
+												neat::ThreadID	threadID,
+												int				maxCount);
+	AllocationSubmission&					operator[](AllocationSubmissionID id);
 
 private:
 	VulkanFramework&					theirVulkanFramework;
@@ -86,17 +85,18 @@ private:
 	
 	conc_map<neat::ThreadID, VkCommandPool>
 										myCommandPools;
-	conc_map<neat::ThreadID, AllocationSubmission>
+	conc_map<neat::ThreadID, AllocationSubmissionID>
 										myTransferSubmissions;
-	conc_queue<AllocationSubmission>	myQueuedSubmissions;
-	conc_queue<AllocationSubmission>	myQueuedReleases;
+	conc_queue<AllocationSubmissionID>	myQueuedSubmissions;
+	conc_queue<AllocationSubmissionID>	myQueuedReleases;
 	conc_map<neat::ThreadID, conc_queue<VkCommandBuffer>>
 										myQueuedCommandBufferDeallocs;
 
 	IDKeeper<AllocationSubmissionID>	myAllocSubIDs;
 	std::array<AllocationSubmission, MaxNumAllocationSubmissions>
 										myAllocationSubmissions;
-	
+	conc_map<neat::ThreadID,std::array<VkCommandBuffer, MaxNumAllocationSubmissions>>
+										myCommandBuffers;
 	
 };
 
@@ -111,11 +111,12 @@ public:
 											QueueFamilyIndex			transferFamilyIndex);
 	virtual								~AllocatorBase();
 
-	_nodiscard AllocationSubmission		Start() const;
-	_nodiscard AllocationSubmission		Start(neat::ThreadID threadID) const;
-	void								Queue(AllocationSubmission&& allocationSubmission) const;
+	_nodiscard AllocationSubmissionID		Start() const;
+	_nodiscard AllocationSubmissionID		Start(neat::ThreadID threadID) const;
+	void									Queue(AllocationSubmissionID&& allocationSubmissionID) const;
+	AllocationSubmission&					GetAllocationSubmission(AllocationSubmissionID allocationSubmissionID) const;
 
-	virtual void						DoCleanUp(int limit) = 0;
+	virtual void							DoCleanUp(int limit) = 0;
 
 protected:
 	bool								IsExclusive(

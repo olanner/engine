@@ -16,4 +16,5 @@ enum class UniformID;
 enum class GeoStructID;
 enum class InstanceStructID;
 enum class FontID;
+enum class AllocationSubmissionID;
 

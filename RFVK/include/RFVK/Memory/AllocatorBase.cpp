@@ -36,13 +36,13 @@ AllocatorBase::~AllocatorBase()
 {
 }
 
-AllocationSubmission
+AllocationSubmissionID
 AllocatorBase::Start() const
 {
 	return theirAllocationSubmitter.StartAllocSubmission();
 }
 
-AllocationSubmission
+AllocationSubmissionID
 AllocatorBase::Start(
 	neat::ThreadID threadID) const
 {
@@ -51,15 +51,22 @@ AllocatorBase::Start(
 
 void
 AllocatorBase::Queue(
-	AllocationSubmission&& allocationSubmission) const
+	AllocationSubmissionID&& allocationSubmissionID) const
 {
-	return theirAllocationSubmitter.QueueAllocSubmission(std::move(allocationSubmission));
+	return theirAllocationSubmitter.QueueAllocSubmission(std::move(allocationSubmissionID));
 }
 
-std::optional<AllocationSubmission>
+AllocationSubmission& 
+AllocatorBase::GetAllocationSubmission(
+	AllocationSubmissionID allocationSubmissionID) const
+{
+	return theirAllocationSubmitter[allocationSubmissionID];
+}
+
+std::optional<AllocationSubmissionID>
 AllocationSubmitter::AcquireNextAllocSubmission()
 {
-	if (AllocationSubmission allocSub; myQueuedSubmissions.try_pop(allocSub))
+	if (AllocationSubmissionID allocSub; myQueuedSubmissions.try_pop(allocSub))
 	{
 		return std::optional(std::move(allocSub));
 	}
@@ -68,27 +75,29 @@ AllocationSubmitter::AcquireNextAllocSubmission()
 
 void
 AllocationSubmitter::QueueRelease(
-	AllocationSubmission&& allocationSubmission)
+	AllocationSubmissionID&& allocationSubmissionID)
 {
-	myQueuedReleases.push(std::move(allocationSubmission));
+	myQueuedReleases.push(std::move(allocationSubmissionID));
 }
 
 void
 AllocationSubmitter::TryReleasing()
 {
-	AllocationSubmission allocSub;
+	AllocationSubmissionID allocSubID;
 	int count = 0;
-	constexpr int cMaxRelease = 32;
-	while (myQueuedReleases.try_pop(allocSub)
+	constexpr int cMaxRelease = 128;
+	while (myQueuedReleases.try_pop(allocSubID)
 		&& count++ < cMaxRelease)
 	{
+		auto& allocSub = myAllocationSubmissions[int(allocSubID)];
 		const auto threadID =  allocSub.GetOwningThread();
 		const auto [success, cmdBuffer] = allocSub.Release();
 		if (!success)
 		{
-			myQueuedReleases.push(std::move(allocSub));
+			myQueuedReleases.push(std::move(allocSubID));
 			continue;
 		}
+		myAllocSubIDs.ReturnID(allocSubID);
 		myQueuedCommandBufferDeallocs[threadID].push(cmdBuffer);
 	}
 }
@@ -112,16 +121,30 @@ AllocationSubmitter::FreeUsedCommandBuffers(
 	}
 }
 
-AllocationSubmission
-AllocationSubmitter::StartAllocSubmission()
+AllocationSubmission& 
+AllocationSubmitter::operator[](
+	AllocationSubmissionID id)
 {
-	AllocationSubmission sub;
-	const auto cmdPool = myCommandPools[theirVulkanFramework.GetMainThread()];
-	sub.Start(theirVulkanFramework.GetMainThread(), theirVulkanFramework.GetDevice(), cmdPool);
-	return sub;
+	return myAllocationSubmissions[int(id)];
 }
 
-AllocationSubmission
+AllocationSubmissionID
+AllocationSubmitter::StartAllocSubmission()
+{
+	auto id = myAllocSubIDs.FetchFreeID();
+	if (BAD_ID(id))
+	{
+		return id;
+	}
+	const auto threadID = theirVulkanFramework.GetMainThread();
+	auto& allocSub = myAllocationSubmissions[int(id)];
+	const auto cmdPool = myCommandPools[threadID];
+	allocSub.Start(threadID, theirVulkanFramework.GetDevice(), cmdPool);
+
+	return id;
+}
+
+AllocationSubmissionID
 AllocationSubmitter::StartAllocSubmission(
 	neat::ThreadID threadID)
 {
@@ -130,18 +153,24 @@ AllocationSubmitter::StartAllocSubmission(
 		RegisterThread(threadID);
 		LOG("start called from unregistered thread!");
 	}
+	auto id = myAllocSubIDs.FetchFreeID();
+	if (BAD_ID(id))
+	{
+		return id;
+	}
+	auto& allocSub = myAllocationSubmissions[int(id)];
 	const auto cmdPool = myCommandPools[threadID];
-	AllocationSubmission sub;
-	sub.Start(threadID, theirVulkanFramework.GetDevice(), cmdPool);
-	return sub;
+	allocSub.Start(threadID, theirVulkanFramework.GetDevice(), cmdPool);
+
+	return id;
 }
 
 void
 AllocationSubmitter::QueueAllocSubmission(
-	AllocationSubmission&& allocationSubmission)
+	AllocationSubmissionID&& allocationSubmissionID)
 {
-	allocationSubmission.End();
-	myQueuedSubmissions.push(std::move(allocationSubmission));
+	myAllocationSubmissions[int(allocationSubmissionID)].End();
+	myQueuedSubmissions.push(std::move(allocationSubmissionID));
 }
 
 AllocationSubmitter::AllocationSubmitter(
@@ -149,6 +178,8 @@ AllocationSubmitter::AllocationSubmitter(
 	QueueFamilyIndex transferFamilyIndex)
 	: theirVulkanFramework(vulkanFramework)
 	, myTransferFamily(transferFamilyIndex)
+	, myAllocSubIDs(MaxNumAllocationSubmissions)
+	, myAllocationSubmissions({})
 {
 	// COMMAND POOL
 	VkCommandPoolCreateInfo cmdPoolInfo{};
@@ -174,13 +205,16 @@ void AllocationSubmitter::RegisterThread(neat::ThreadID threadID)
 	VkCommandPoolCreateInfo cmdPoolInfo{};
 	cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	cmdPoolInfo.queueFamilyIndex = myTransferFamily;
+	cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
 	VkCommandPool pool;
-	auto resultPool = vkCreateCommandPool(theirVulkanFramework.GetDevice(), &cmdPoolInfo, nullptr, &pool);
-	if (!resultPool)
+	auto result = vkCreateCommandPool(theirVulkanFramework.GetDevice(), &cmdPoolInfo, nullptr, &pool);
+	if (result)
 	{
-		myCommandPools.insert({threadID, pool});
+		assert(!result && "failed allocating thread allocation command buffers pool");
+		return;
 	}
+	myCommandPools.insert({threadID, pool});
 }
 
 bool
@@ -348,12 +382,18 @@ AllocationSubmission::Start(
 	cmdBufferAlloc.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
 
 	auto result = vkAllocateCommandBuffers(myDevice, &cmdBufferAlloc, &myCommandBuffer);
+	DebugSetObjectName(
+		std::string("allocation submission cmd buffer, thread : ").append(std::to_string(int(myThreadID))).c_str(),
+		myCommandBuffer,
+		VK_OBJECT_TYPE_COMMAND_BUFFER,
+		myDevice);
 
 	VkCommandBufferInheritanceInfo inheritInfo = {};
 	inheritInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
 	VkCommandBufferBeginInfo beginInfo = {};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.pInheritanceInfo = &inheritInfo;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 	vkBeginCommandBuffer(myCommandBuffer, &beginInfo);
 
 	VkEventCreateInfo eventInfo{};
@@ -374,34 +414,34 @@ AllocationSubmission::End()
 	myStatus = Status::PendingSubmit;
 }
 
-AllocationSubmission::AllocationSubmission(
-	AllocationSubmission&& moveFrom) noexcept
-	: myThreadID(std::exchange(moveFrom.myThreadID, neat::ThreadID(-1)))
-	, myStatus(std::exchange(moveFrom.myStatus, Status::Fresh))
-	, myDevice(std::exchange(moveFrom.myDevice, nullptr))
-	, myCommandPool(std::exchange(moveFrom.myCommandPool, nullptr))
-	, myCommandBuffer(std::exchange(moveFrom.myCommandBuffer, nullptr))
-	, myExecutedFence(std::exchange(moveFrom.myExecutedFence, nullptr))
-	, myExecutedEvent(std::move(moveFrom.myExecutedEvent))
-	, myBufferXMemorys(std::move(moveFrom.myBufferXMemorys))
-{
-}
-
-AllocationSubmission& 
-AllocationSubmission::operator=(
-	AllocationSubmission&& moveFrom) noexcept
-{
-	myThreadID = std::exchange(moveFrom.myThreadID, neat::ThreadID(-1));
-	myStatus = std::exchange(moveFrom.myStatus, Status::Fresh);
-	myDevice = std::exchange(moveFrom.myDevice, nullptr);
-	myCommandPool = std::exchange(moveFrom.myCommandPool, nullptr);
-	myCommandBuffer = std::exchange(moveFrom.myCommandBuffer, nullptr);
-	myExecutedFence = std::exchange(moveFrom.myExecutedFence, nullptr);
-	myExecutedEvent = std::move(moveFrom.myExecutedEvent);
-	myBufferXMemorys = std::move(moveFrom.myBufferXMemorys);
-
-	return *this;
-}
+//AllocationSubmission::AllocationSubmission(
+//	AllocationSubmission&& moveFrom) noexcept
+//	: myThreadID(std::exchange(moveFrom.myThreadID, neat::ThreadID(-1)))
+//	, myStatus(std::exchange(moveFrom.myStatus, Status::Fresh))
+//	, myDevice(std::exchange(moveFrom.myDevice, nullptr))
+//	, myCommandPool(std::exchange(moveFrom.myCommandPool, nullptr))
+//	, myCommandBuffer(std::exchange(moveFrom.myCommandBuffer, nullptr))
+//	, myExecutedFence(std::exchange(moveFrom.myExecutedFence, nullptr))
+//	, myExecutedEvent(std::move(moveFrom.myExecutedEvent))
+//	, myBufferXMemorys(std::move(moveFrom.myBufferXMemorys))
+//{
+//}
+//
+//AllocationSubmission& 
+//AllocationSubmission::operator=(
+//	AllocationSubmission&& moveFrom) noexcept
+//{
+//	myThreadID = std::exchange(moveFrom.myThreadID, neat::ThreadID(-1));
+//	myStatus = std::exchange(moveFrom.myStatus, Status::Fresh);
+//	myDevice = std::exchange(moveFrom.myDevice, nullptr);
+//	myCommandPool = std::exchange(moveFrom.myCommandPool, nullptr);
+//	myCommandBuffer = std::exchange(moveFrom.myCommandBuffer, nullptr);
+//	myExecutedFence = std::exchange(moveFrom.myExecutedFence, nullptr);
+//	myExecutedEvent = std::move(moveFrom.myExecutedEvent);
+//	myBufferXMemorys = std::move(moveFrom.myBufferXMemorys);
+//
+//	return *this;
+//}
 
 void
 AllocationSubmission::AddResourceBuffer(
@@ -460,7 +500,11 @@ AllocationSubmission::Release()
 	myExecutedEvent = nullptr;
 
 	myCommandPool = nullptr;
-	return { true, myCommandBuffer };
+	myStatus = Status::Fresh;
+	myDevice = nullptr;
+	VkCommandBuffer cmdBuffer = myCommandBuffer;
+	myCommandBuffer = nullptr;
+	return { true, cmdBuffer };
 }
 
 std::shared_ptr<VkEvent>

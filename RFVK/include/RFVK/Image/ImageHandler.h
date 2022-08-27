@@ -34,23 +34,23 @@ public:
 	void											UnloadImage2D(ImageID imageID);
 	void											LoadImage2D(
 														ImageID						imageID,
-														class AllocationSubmission& allocSub,
+														AllocationSubmissionID		allocSubID,
 														const std::string&			path);
 	void											LoadImage2D(
 														ImageID imageID,
-														class AllocationSubmission& allocSub,
+														AllocationSubmissionID		allocSubID,
 														std::vector<uint8_t>&&		pixelData,
 														Vec2f						dimension,
 														VkFormat					format = VK_FORMAT_R8G8B8A8_UNORM,
 														uint32_t					byteDepth = 4);
 	void											LoadImage2DTiled(
 														ImageID imageID,
-														class AllocationSubmission& allocSub,
+														AllocationSubmissionID		allocSubID,
 														const std::string&			path,
 														uint32_t					rows,
 														uint32_t					cols);
 	CubeID											LoadImageCube(
-														class AllocationSubmission& allocSub,
+														AllocationSubmissionID		allocSubID,
 														const std::string&			path);
 	VkResult										LoadStorageImage(
 														uint32_t	index,

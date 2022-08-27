@@ -12,8 +12,8 @@ MeshID rflx::MeshHandle::GetID() const
 void
 rflx::MeshHandle::Load() const
 {
-	gMeshHandler->LoadMesh(myMeshID, gAllocationSubmissions[int(theirReflex.GetThreadID())], myPath);
-	gAccStructHandler->LoadGeometryStructure(myGeoID, gAllocationSubmissions[int(theirReflex.GetThreadID())], (*gMeshHandler)[myMeshID].geo);
+	gMeshHandler->LoadMesh(myMeshID, gAllocationSubmissionIDs[int(theirReflex.GetThreadID())], myPath);
+	gAccStructHandler->LoadGeometryStructure(myGeoID, gAllocationSubmissionIDs[int(theirReflex.GetThreadID())], (*gMeshHandler)[myMeshID].geo);
 }
 
 void rflx::MeshHandle::Unload() const

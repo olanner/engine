@@ -298,10 +298,10 @@ std::vector<rflx::Features> RTMeshRenderer::GetImplementedFeatures() const
 
 ShaderBindingTable
 RTMeshRenderer::CreateShaderBindingTable(
-	AllocationSubmission&		allocSub,
-	size_t						handleSize,
-	uint32_t					firstGroup,
-	uint32_t					groupCount,
+	AllocationSubmissionID	allocSubID,
+	size_t					handleSize,
+	uint32_t				firstGroup,
+	uint32_t				groupCount,
 	VkPipeline)
 {
 	std::vector<char> handleData(handleSize * groupCount);
@@ -316,7 +316,7 @@ RTMeshRenderer::CreateShaderBindingTable(
 	}
 	auto [result, buffer, memory] =
 		theirBufferAllocator.CreateBuffer(
-			allocSub,
+			allocSubID,
 			VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR
 			| VK_BUFFER_USAGE_TRANSFER_DST_BIT
 			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,

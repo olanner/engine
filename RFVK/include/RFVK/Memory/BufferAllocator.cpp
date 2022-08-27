@@ -25,13 +25,13 @@ BufferAllocator::~BufferAllocator()
 
 std::tuple<VkResult, VkBuffer>
 BufferAllocator::RequestVertexBuffer(
-	AllocationSubmission& allocSub,
+	AllocationSubmissionID allocSubID,
 	const std::vector<Vertex3D>& vertices, 
 	const std::vector<QueueFamilyIndex>& owners)
 {
 	auto [result, buffer, memory] = 
 		CreateBuffer(
-			allocSub,
+			allocSubID,
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT 
 			| VK_BUFFER_USAGE_TRANSFER_DST_BIT
 			| VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
@@ -62,13 +62,13 @@ BufferAllocator::RequestVertexBuffer(
 
 std::tuple<VkResult, VkBuffer>
 BufferAllocator::RequestVertexBuffer(
-	AllocationSubmission&					allocSub,
+	AllocationSubmissionID					allocSubID,
 	const std::vector<struct Vertex2D>&		vertices,
 	const std::vector<QueueFamilyIndex>&	owners)
 {
 	auto [result, buffer, memory] = 
 		CreateBuffer(
-			allocSub,
+			allocSubID,
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT 
 			| VK_BUFFER_USAGE_TRANSFER_DST_BIT 
 			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT 
@@ -98,13 +98,13 @@ BufferAllocator::RequestVertexBuffer(
 
 std::tuple<VkResult, VkBuffer>
 BufferAllocator::RequestIndexBuffer(
-	AllocationSubmission&					allocSub,
+	AllocationSubmissionID					allocSubID,
 	const std::vector<uint32_t>&			indices,
 	const std::vector<QueueFamilyIndex>&	owners)
 {
 	auto [result, buffer, memory] = 
 		CreateBuffer(
-			allocSub,
+			allocSubID,
 			VK_BUFFER_USAGE_INDEX_BUFFER_BIT 
 			| VK_BUFFER_USAGE_TRANSFER_DST_BIT
 			| VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
@@ -135,14 +135,14 @@ BufferAllocator::RequestIndexBuffer(
 
 std::tuple<VkResult, VkBuffer>
 BufferAllocator::RequestUniformBuffer(
-	AllocationSubmission&					allocSub,
+	AllocationSubmissionID					allocSubID,
 	const void*								startData,
 	size_t									size,
 	const std::vector<QueueFamilyIndex>&	owners,
 	VkMemoryPropertyFlags					memPropFlags)
 {
 	auto [result, buffer, memory] = CreateBuffer(
-									allocSub,
+									allocSubID,
 									VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 									startData,
 									size,
@@ -181,7 +181,8 @@ BufferAllocator::UpdateBufferData(
 	const std::vector<QueueFamilyIndex>&	owners)
 {
 	// TODO: maybe do this better lol
-	auto allocSub = theirAllocationSubmitter.StartAllocSubmission();
+	auto allocSubID = theirAllocationSubmitter.StartAllocSubmission();
+	auto& allocSub = theirAllocationSubmitter[allocSubID];
 	const auto cmdBuffer = allocSub.Record();
 
 	size = 
@@ -217,13 +218,13 @@ BufferAllocator::UpdateBufferData(
 		1, &barrier,
 		0, nullptr);
 	
-	theirAllocationSubmitter.QueueAllocSubmission(std::move(allocSub));
+	theirAllocationSubmitter.QueueAllocSubmission(std::move(allocSubID));
 }
 
 
 std::tuple<VkResult, VkBuffer, VkDeviceMemory>
 BufferAllocator::CreateBuffer(
-	AllocationSubmission&					allocSub,
+	AllocationSubmissionID					allocSubID,
 	VkBufferUsageFlags						usage,
 	const void*								data,
 	size_t									size,
@@ -314,8 +315,9 @@ BufferAllocator::CreateBuffer(
 			copy.dstOffset = 0;
 
 			auto [resultStaged, stagedBuffer] = CreateStagingBuffer(data, size, owners.data(), owners.size());
+
+			auto& allocSub = theirAllocationSubmitter[allocSubID];
 			vkCmdCopyBuffer(allocSub.Record() , stagedBuffer.buffer, buffer, 1, &copy);
-			
 			allocSub.AddResourceBuffer(stagedBuffer.buffer, stagedBuffer.memory);
 		}
 		else

@@ -208,7 +208,7 @@ ImageHandler::ImageHandler(
 	}
 
 	// DO DEFAULT TEXTURES
-	auto allocSub = theirImageAllocator.Start();
+	auto allocSubID = theirImageAllocator.Start();
 
 	std::vector<Vec4uc> checkersPix(64*64);
 	for (uint32_t y = 0; y < 64; ++y)
@@ -235,7 +235,7 @@ ImageHandler::ImageHandler(
 		requestInfo.mips = NUM_MIPS(64);
 		requestInfo.owners = myOwners;
 		auto [resultAlbedo, albedoView] = theirImageAllocator.RequestImageArray(
-			allocSub,
+			allocSubID,
 			checkers,
 			1,
 			requestInfo);
@@ -281,7 +281,7 @@ ImageHandler::ImageHandler(
 		requestInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT;
 
 		auto [resultStorage, storageView] = theirImageAllocator.RequestImage2D(
-			allocSub,
+			allocSubID,
 			nullptr,
 			16,
 			requestInfo);
@@ -325,7 +325,7 @@ ImageHandler::ImageHandler(
 		requestInfo.mips = NUM_MIPS(64);
 		requestInfo.owners = myOwners;
 		auto [resultCube, cubeView] = theirImageAllocator.RequestImageCube(
-			allocSub,
+			allocSubID,
 			checkersCube,
 			checkersCube.size() / 6,
 			requestInfo
@@ -374,8 +374,8 @@ ImageHandler::ImageHandler(
 	
 	myImageSwizzleToFormat[neat::ImageSwizzle::Unknown] = VK_FORMAT_UNDEFINED;
 	
-	LoadImage2D(AddImage2D(), allocSub, "brdfFilament.tga");
-	theirImageAllocator.Queue(std::move(allocSub));
+	LoadImage2D(AddImage2D(), allocSubID, "brdfFilament.tga");
+	theirImageAllocator.Queue(std::move(allocSubID));
 }
 
 ImageHandler::~ImageHandler()
@@ -439,7 +439,7 @@ ImageHandler::UnloadImage2D(
 void
 ImageHandler::LoadImage2D(
 	ImageID					imageID,
-	AllocationSubmission&	allocSub,
+	AllocationSubmissionID	allocSubID,
 	const std::string&		path)
 {
 		int x, y, channels;
@@ -455,7 +455,7 @@ ImageHandler::LoadImage2D(
 	
 	return LoadImage2D(
 		imageID,
-		allocSub,
+		allocSubID,
 		std::move(pixels), 
 		{x,y}, 
 		VK_FORMAT_R8G8B8A8_UNORM,
@@ -465,7 +465,7 @@ ImageHandler::LoadImage2D(
 void
 ImageHandler::LoadImage2D(
 	ImageID					imageID,
-	AllocationSubmission&	allocSub,
+	AllocationSubmissionID	allocSubID,
 	std::vector<uint8_t>&&	pixelData,
 	Vec2f					dimension,
 	VkFormat				format,
@@ -487,7 +487,7 @@ ImageHandler::LoadImage2D(
 		requestInfo.owners = myOwners;
 		requestInfo.format = format;
 		std::tie(result, myImages2D[uint32_t(imageID)].view) = theirImageAllocator.RequestImageArray(
-			allocSub,
+			allocSubID,
 			pixelData,
 			layers,
 			requestInfo);
@@ -507,6 +507,7 @@ ImageHandler::LoadImage2D(
 	myImages2D[uint32_t(imageID)].info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	myImages2D[uint32_t(imageID)].info.imageView = myImages2D[uint32_t(imageID)].view;
 
+	auto& allocSub = theirImageAllocator.GetAllocationSubmission(allocSubID);
 	auto executedEvent = allocSub.GetExecutedEvent();
 	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
 	{
@@ -529,7 +530,7 @@ ImageHandler::LoadImage2D(
 void
 ImageHandler::LoadImage2DTiled(
 	ImageID					imageID,
-	AllocationSubmission&	allocSub,
+	AllocationSubmissionID	allocSubID,
 	const std::string&		path,
 	uint32_t				rows,
 	uint32_t				cols)
@@ -559,12 +560,12 @@ ImageHandler::LoadImage2DTiled(
 		}
 	}
 	
-	return LoadImage2D(imageID, allocSub, std::move(sortedData), {tileWidth, tileHeight}, myImageSwizzleToFormat[img.swizzle]);
+	return LoadImage2D(imageID, allocSubID, std::move(sortedData), {tileWidth, tileHeight}, myImageSwizzleToFormat[img.swizzle]);
 }
 
 CubeID
 ImageHandler::LoadImageCube(
-	AllocationSubmission&	allocSub,
+	AllocationSubmissionID	allocSubID,
 	const std::string&		path)
 {
 	CubeID cubeID = myCubeIDKeeper.FetchFreeID();
@@ -596,7 +597,7 @@ ImageHandler::LoadImageCube(
 		requestInfo.owners = myOwners;
 		std::tie(result, myImagesCube[int(cubeID)].view) = 
 			theirImageAllocator.RequestImageCube(
-			allocSub,
+			allocSubID,
 			img.pixelData,
 			img.pixelData.size() / 6,
 			requestInfo);
@@ -613,6 +614,7 @@ ImageHandler::LoadImageCube(
 	myImagesCube[uint32_t(cubeID)].info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	myImagesCube[uint32_t(cubeID)].info.imageView = myImagesCube[int(cubeID)].view;
 
+	auto& allocSub = theirImageAllocator.GetAllocationSubmission(allocSubID);
 	auto executedEvent = allocSub.GetExecutedEvent();
 	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
 	{
@@ -642,7 +644,7 @@ ImageHandler::LoadStorageImage(
 	uint32_t	width,
 	uint32_t	height)
 {
-	AllocationSubmission allocSub = theirImageAllocator.Start();
+	AllocationSubmissionID allocSubID = theirImageAllocator.Start();
 
 	ImageRequestInfo requestInfo;
 	requestInfo.width = width;
@@ -652,12 +654,12 @@ ImageHandler::LoadStorageImage(
 	requestInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT;
 	requestInfo.owners = myOwners;
 	auto [result, view] = theirImageAllocator.RequestImage2D(
-		allocSub,
+		allocSubID,
 		nullptr,
 		0,
 		requestInfo);
 
-	theirImageAllocator.Queue(std::move(allocSub));
+	theirImageAllocator.Queue(std::move(allocSubID));
 
 	VkDescriptorImageInfo imageInfo = {};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;

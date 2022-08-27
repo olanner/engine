@@ -26,20 +26,20 @@ public:
 	~BufferAllocator();
 
 	std::tuple<VkResult, VkBuffer>					RequestVertexBuffer(
-														AllocationSubmission&					allocSub,
+														AllocationSubmissionID					allocSubID,
 														const std::vector<struct Vertex3D>&		vertices, 
 														const std::vector<QueueFamilyIndex>&	owners);
 	std::tuple<VkResult, VkBuffer>					RequestVertexBuffer(
-														AllocationSubmission&					allocSub,
+														AllocationSubmissionID					allocSubID,
 														const std::vector<struct Vertex2D>&		vertices,
 														const std::vector<QueueFamilyIndex>&	owners);
 	
 	std::tuple<VkResult, VkBuffer>					RequestIndexBuffer(
-														AllocationSubmission&					allocSub,
+														AllocationSubmissionID					allocSubID,
 														const std::vector<uint32_t>&			indices,
 														const std::vector<QueueFamilyIndex>&	owners);
 	std::tuple<VkResult, VkBuffer>					RequestUniformBuffer(
-														AllocationSubmission&					allocSub,
+														AllocationSubmissionID					allocSubID,
 														const void*								startData,
 														size_t									size,
 														const std::vector<QueueFamilyIndex>&	owners,
@@ -55,7 +55,7 @@ public:
 														const std::vector<QueueFamilyIndex>&	owners);
 	[[nodiscard]] std::tuple<VkResult, VkBuffer, VkDeviceMemory>
 													CreateBuffer(
-														AllocationSubmission&					allocSub,
+														AllocationSubmissionID					allocSubID,
 														VkBufferUsageFlags						usage,
 														const void*								data,
 														size_t									size,

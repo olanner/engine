@@ -70,14 +70,14 @@ AccelerationStructureHandler::AccelerationStructureHandler(
 		assert(!failure && "failed allocating desc set");
 	}
 
-	auto allocSub = theirAccStructAllocator.Start();
+	auto allocSubID = theirAccStructAllocator.Start();
 	// FILL DEFAULT GEO STRUCTS
 	const auto rawMesh = LoadRawMesh("cube.dae", {});
 
 	VkBuffer vBuffer, iBuffer;
-	std::tie(failure, vBuffer) = theirAccStructAllocator.GetBufferAllocator().RequestVertexBuffer(allocSub, rawMesh.vertices, theirAccStructAllocator.GetOwners());
+	std::tie(failure, vBuffer) = theirAccStructAllocator.GetBufferAllocator().RequestVertexBuffer(allocSubID, rawMesh.vertices, theirAccStructAllocator.GetOwners());
 	assert(!failure && "failed allocating default vertex buffer");
-	std::tie(failure, iBuffer) = theirAccStructAllocator.GetBufferAllocator().RequestIndexBuffer(allocSub, rawMesh.indices, theirAccStructAllocator.GetOwners());
+	std::tie(failure, iBuffer) = theirAccStructAllocator.GetBufferAllocator().RequestIndexBuffer(allocSubID, rawMesh.indices, theirAccStructAllocator.GetOwners());
 	assert(!failure && "failed allocating default index buffer");
 
 	MeshGeometry defaultGeo = {};
@@ -93,7 +93,7 @@ AccelerationStructureHandler::AccelerationStructureHandler(
 	defaultGeo.indexAddress = vkGetBufferDeviceAddress(theirVulkanFramework.GetDevice(), &addressInfo);
 
 	const auto& meshes = { defaultGeo };
-	std::tie(failure, myDefaultGeoStructure.structure) = theirAccStructAllocator.RequestGeometryStructure(allocSub, { meshes });
+	std::tie(failure, myDefaultGeoStructure.structure) = theirAccStructAllocator.RequestGeometryStructure(allocSubID, { meshes });
 
 	VkAccelerationStructureDeviceAddressInfoKHR accAddressInfo = {};
 	accAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
@@ -112,7 +112,7 @@ AccelerationStructureHandler::AccelerationStructureHandler(
 	auto transform = glm::identity<Mat4rt>();
 	instance.transform = *(VkTransformMatrixKHR*)&transform;
 	
-	auto [resultInstanceStruct, instanceStruct] = theirAccStructAllocator.RequestInstanceStructure(allocSub, {instance});
+	auto [resultInstanceStruct, instanceStruct] = theirAccStructAllocator.RequestInstanceStructure(allocSubID, {instance});
 	assert(!resultInstanceStruct && "failed creating default instance structure");
 
 	for (uint32_t i = 0; i < MaxNumInstanceStructures; ++i)
@@ -144,7 +144,7 @@ AccelerationStructureHandler::AccelerationStructureHandler(
 		}
 	}
 	
-	theirAccStructAllocator.Queue(std::move(allocSub));
+	theirAccStructAllocator.Queue(std::move(allocSubID));
 }
 
 AccelerationStructureHandler::~AccelerationStructureHandler()
@@ -161,11 +161,11 @@ GeoStructID AccelerationStructureHandler::AddGeometryStructure()
 VkResult
 AccelerationStructureHandler::LoadGeometryStructure(
 	GeoStructID				geoStructID,
-	AllocationSubmission&	allocSub,
+	AllocationSubmissionID	allocSubID,
 	const MeshGeometry&		mesh)
 {
 	const auto& meshes = { mesh };
-	auto [failure, geoStruct] = theirAccStructAllocator.RequestGeometryStructure(allocSub, {meshes});
+	auto [failure, geoStruct] = theirAccStructAllocator.RequestGeometryStructure(allocSubID, {meshes});
 	if (failure)
 	{
 		return failure;
@@ -223,7 +223,7 @@ AccelerationStructureHandler::SignalUnload(
 
 InstanceStructID
 AccelerationStructureHandler::AddInstanceStructure(
-		AllocationSubmission& allocSub,
+		AllocationSubmissionID allocSubID,
 		const RTInstances& instances)
 {
 	InstanceStructID id = myFreeInstanceIDs.FetchFreeID();
@@ -235,7 +235,7 @@ AccelerationStructureHandler::AddInstanceStructure(
 	
 	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
 	{
-		auto [failure, structure] = theirAccStructAllocator.RequestInstanceStructure(allocSub, instances);
+		auto [failure, structure] = theirAccStructAllocator.RequestInstanceStructure(allocSubID, instances);
 		if (failure)
 		{
 			return InstanceStructID(INVALID_ID);

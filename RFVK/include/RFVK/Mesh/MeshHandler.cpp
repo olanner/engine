@@ -98,7 +98,7 @@ MeshHandler::MeshHandler(
 	}
 
 	// LOAD DEFAULT IMAGES
-	AllocationSubmission allocSub = theirImageHandler.GetImageAllocator().Start();
+	AllocationSubmissionID allocSubID = theirImageHandler.GetImageAllocator().Start();
 	{
 		std::vector<PixelValue> albedoPixels;
 		albedoPixels.resize(64 * 64);
@@ -120,7 +120,7 @@ MeshHandler::MeshHandler(
 		albedoData.resize(64 * 64 * 4);
 		memcpy(albedoData.data(), albedoPixels.data(), albedoData.size());
 		myMissingImageIDs[0] = theirImageHandler.AddImage2D();
-		theirImageHandler.LoadImage2D(myMissingImageIDs[0], allocSub, std::move(albedoData), { 64, 64 });
+		theirImageHandler.LoadImage2D(myMissingImageIDs[0], allocSubID, std::move(albedoData), { 64, 64 });
 	}
 	{
 		std::vector<PixelValue> materialPixels;
@@ -129,7 +129,7 @@ MeshHandler::MeshHandler(
 		materialData.resize(2 * 2 * 4);
 		memcpy(materialData.data(), materialPixels.data(), materialData.size());
 		myMissingImageIDs[1] = theirImageHandler.AddImage2D();
-		theirImageHandler.LoadImage2D(myMissingImageIDs[1], allocSub, std::move(materialData), { 2, 2 });
+		theirImageHandler.LoadImage2D(myMissingImageIDs[1], allocSubID, std::move(materialData), { 2, 2 });
 	}
 	{
 		std::vector<PixelValue> normalPixels;
@@ -138,16 +138,16 @@ MeshHandler::MeshHandler(
 		normalData.resize(2 * 2 * 4);
 		memcpy(normalData.data(), normalPixels.data(), normalData.size());
 		myMissingImageIDs[2] = theirImageHandler.AddImage2D();
-		theirImageHandler.LoadImage2D(myMissingImageIDs[2], allocSub, std::move(normalData), { 2, 2 }, VK_FORMAT_R8G8B8A8_UNORM);
+		theirImageHandler.LoadImage2D(myMissingImageIDs[2], allocSubID, std::move(normalData), { 2, 2 }, VK_FORMAT_R8G8B8A8_UNORM);
 	}
 
 	// FILL DEFAULT MESH DATA
 	const auto rawMesh = LoadRawMesh("cube.dae", { {myMissingImageIDs[0], myMissingImageIDs[1], myMissingImageIDs[2], 0} });
 	
 	VkBuffer vBuffer, iBuffer;
-	std::tie(failure, vBuffer) = theirBufferAllocator.RequestVertexBuffer(allocSub, rawMesh.vertices, myOwners);
+	std::tie(failure, vBuffer) = theirBufferAllocator.RequestVertexBuffer(allocSubID, rawMesh.vertices, myOwners);
 	assert(!failure && "failed allocating default vertex buffer");
-	std::tie(failure, iBuffer) = theirBufferAllocator.RequestIndexBuffer(allocSub, rawMesh.indices, myOwners);
+	std::tie(failure, iBuffer) = theirBufferAllocator.RequestIndexBuffer(allocSubID, rawMesh.indices, myOwners);
 	assert(!failure && "failed allocating default index buffer");
 	
 	Mesh defaultMesh = {};
@@ -209,7 +209,7 @@ MeshHandler::MeshHandler(
 	myDefaultMesh = defaultMesh;
 	myMeshes.fill(defaultMesh);
 	
-	theirImageHandler.GetImageAllocator().Queue(std::move(allocSub));
+	theirImageHandler.GetImageAllocator().Queue(std::move(allocSubID));
 }
 
 MeshHandler::~MeshHandler()
@@ -274,7 +274,7 @@ MeshHandler::UnloadMesh(
 void
 MeshHandler::LoadMesh(
 	MeshID meshID,
-	class AllocationSubmission& allocSub,
+	AllocationSubmissionID allocSubID,
 	const std::string&			path,
 	std::vector<ImageID>&&		imageIDs)
 {
@@ -290,7 +290,7 @@ MeshHandler::LoadMesh(
 	{
 		// IMAGE ALLOC
 		rapidjson::Document doc = OpenJsonDoc(std::filesystem::path(path).replace_extension("mx").string().c_str());
-		mesh.imageIDs = LoadImagesFromDoc(doc, allocSub);
+		mesh.imageIDs = LoadImagesFromDoc(doc, allocSubID);
 	}
 	else
 	{
@@ -315,12 +315,12 @@ MeshHandler::LoadMesh(
 	}*/
 
 	auto [resultV, vBuffer] = theirBufferAllocator.RequestVertexBuffer(
-		allocSub,
+		allocSubID,
 		rawMesh.vertices,
 		myOwners
 	);
 	auto [resultI, iBuffer] = theirBufferAllocator.RequestIndexBuffer(
-		allocSub,
+		allocSubID,
 		rawMesh.indices,
 		myOwners
 	);
@@ -343,7 +343,7 @@ MeshHandler::LoadMesh(
 	mesh.geo.indexAddress = vkGetBufferDeviceAddress(theirVulkanFramework.GetDevice(), &addressInfo);
 
 	// DESCRIPTOR WRITE
-	WriteMeshDescriptorData(meshID, allocSub);
+	WriteMeshDescriptorData(meshID, allocSubID);
 }
 
 Mesh
@@ -378,7 +378,8 @@ MeshHandler::BindMeshData(
 
 neat::static_vector<Vec4f, 64>
 MeshHandler::LoadImagesFromDoc(
-	const rapidjson::Document& doc, AllocationSubmission& allocSub) const
+	const rapidjson::Document& doc, 
+	AllocationSubmissionID allocSubID) const
 {
 	neat::static_vector<Vec4f, 64> imgIDs;
 
@@ -401,7 +402,7 @@ MeshHandler::LoadImagesFromDoc(
 				{
 					const std::string path = member.GetString();
 					const ImageID imgID = theirImageHandler.AddImage2D();
-					theirImageHandler.LoadImage2D(imgID, allocSub, path);
+					theirImageHandler.LoadImage2D(imgID, allocSubID, path);
 					imgIDs[meshIndex].x = BAD_ID(imgID) ? float(myMissingImageIDs[0]) : float(imgID);
 				}
 			}
@@ -426,7 +427,7 @@ MeshHandler::LoadImagesFromDoc(
 				{
 					const std::string path = member.GetString();
 					const ImageID imgID = theirImageHandler.AddImage2D();
-					theirImageHandler.LoadImage2D(imgID, allocSub, path);
+					theirImageHandler.LoadImage2D(imgID, allocSubID, path);
 					imgIDs[meshIndex].y = BAD_ID(imgID) ? float(myMissingImageIDs[1]) : float(imgID);
 				}
 			}
@@ -451,7 +452,7 @@ MeshHandler::LoadImagesFromDoc(
 				{
 					const std::string path = member.GetString();
 					const ImageID imgID = theirImageHandler.AddImage2D();
-					theirImageHandler.LoadImage2D(imgID, allocSub, path);
+					theirImageHandler.LoadImage2D(imgID, allocSubID, path);
 					imgIDs[meshIndex].z = BAD_ID(imgID) ? float(myMissingImageIDs[2]) : float(imgID);
 				}
 			}
@@ -463,8 +464,8 @@ MeshHandler::LoadImagesFromDoc(
 
 void
 MeshHandler::WriteMeshDescriptorData(
-	MeshID meshID, 
-	AllocationSubmission& allocSub)
+	MeshID					meshID, 
+	AllocationSubmissionID	allocSubID)
 {
 	{
 		auto [vBuffer, iBuffer] = std::tuple{ myMeshes[int(meshID)].geo.vertexBuffer,myMeshes[int(meshID)].geo.indexBuffer };
@@ -473,6 +474,7 @@ MeshHandler::WriteMeshDescriptorData(
 		myMeshes[uint32_t(meshID)].indexInfo.buffer = iBuffer;
 		myMeshes[uint32_t(meshID)].indexInfo.range = VK_WHOLE_SIZE;
 
+		auto& allocSub = theirBufferAllocator.GetAllocationSubmission(allocSubID);
 		const auto executedEvent = allocSub.GetExecutedEvent();
 		for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
 		{

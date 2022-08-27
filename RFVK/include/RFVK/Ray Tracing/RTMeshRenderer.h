@@ -37,11 +37,11 @@ public:
 
 private:
 	ShaderBindingTable					CreateShaderBindingTable(
-											class AllocationSubmission& allocSub,
-											size_t						handleSize,
-											uint32_t					firstGroup,
-											uint32_t					groupCount,
-											VkPipeline					pipeline
+											AllocationSubmissionID	allocSubID,
+											size_t					handleSize,
+											uint32_t				firstGroup,
+											uint32_t				groupCount,
+											VkPipeline				pipeline
 											);
 	uint32_t							AlignedSize(
 											uint32_t a,

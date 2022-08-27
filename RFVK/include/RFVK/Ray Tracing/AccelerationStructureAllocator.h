@@ -36,10 +36,10 @@ public:
 													~AccelerationStructureAllocator();
 
 	std::tuple<VkResult, VkAccelerationStructureKHR> RequestGeometryStructure(
-														AllocationSubmission&					allocSub,
+														AllocationSubmissionID					allocSubID,
 														const std::vector<struct MeshGeometry>&	meshes);
 	std::tuple<VkResult, VkAccelerationStructureKHR> RequestInstanceStructure(
-														AllocationSubmission&	allocSub,	
+														AllocationSubmissionID	allocSubID,	
 														const RTInstances&		instanceDesc);
 
 	void											UpdateInstanceStructure(
@@ -59,9 +59,9 @@ private:
 														const AllocatedAccelerationStructure& allocatedStructure) const;
 
 	void											BuildInstanceStructure(
-														AllocationSubmission& allocSub,
+														AllocationSubmissionID		allocSubID,
 														bool						update,
-														const RTInstances& instanceDesc,
+														const RTInstances&			instanceDesc,
 														VkBuffer					instancesBuffer,
 														size_t						instancesBufferSize,
 														VkDeviceAddress				instancesBufferAddress,

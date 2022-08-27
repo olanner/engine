@@ -98,6 +98,7 @@ VulkanImplementation::Initialize(
 	myImmediateTransferrer = std::make_unique<ImmediateTransferrer>(myVulkanFramework);
 
 	myAllocationSubmitter = std::make_unique<AllocationSubmitter>(myVulkanFramework, myTransQueueIndex);
+	myAllocationSubmitter->RegisterThread(myVulkanFramework.GetMainThread());
 	myBufferAllocator = std::make_unique<BufferAllocator>(myVulkanFramework, *myAllocationSubmitter, *myImmediateTransferrer, transQueueFamily);
 	myImageAllocator = std::make_unique<ImageAllocator>(myVulkanFramework, *myAllocationSubmitter, *myImmediateTransferrer, transQueueFamily);
 	myAccelerationStructureAllocator = std::make_unique<AccelerationStructureAllocator>(myVulkanFramework,
@@ -118,7 +119,11 @@ VulkanImplementation::Initialize(
 		auto [result, cmdBuffer] = myVulkanFramework.RequestCommandBuffer(myTransQueueIndex);
 		assert(!result && "failed requesting command buffer for primary transfer buffer");
 		myTransferCmdBuffer[swapchainIndex] = cmdBuffer;
-
+		DebugSetObjectName(
+			std::string("transfer cmd buffer : ").append(std::to_string(swapchainIndex)).c_str(),
+			cmdBuffer,
+			VK_OBJECT_TYPE_COMMAND_BUFFER,
+			myVulkanFramework.GetDevice());
 		VkFenceCreateInfo fenceInfo = {};
 		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
@@ -227,18 +232,20 @@ VulkanImplementation::SubmitTransferCmds()
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	vkBeginCommandBuffer(myTransferCmdBuffer[mySwapchainImageIndex], &beginInfo);
 
-	std::optional<AllocationSubmission> allocSub;
+	std::optional<AllocationSubmissionID> allocSubID;
 	int count = 0;
 	constexpr int cMaxAllocPerFrame = 128;
-	while ((allocSub = myAllocationSubmitter->AcquireNextAllocSubmission(), allocSub.has_value())
+	VkCommandBuffer prevBuffer = nullptr;
+	while ((allocSubID = myAllocationSubmitter->AcquireNextAllocSubmission()).has_value()
 		&& count++ < cMaxAllocPerFrame)
 	{
-		auto [cmdBuffer, event] = allocSub->Submit(myWorkerSystemsFences[mySwapchainImageIndex]);
+		auto& allocSub = (*myAllocationSubmitter)[allocSubID.value()];
+		auto [cmdBuffer, event] = allocSub.Submit(myWorkerSystemsFences[mySwapchainImageIndex]);
 		vkCmdExecuteCommands(myTransferCmdBuffer[mySwapchainImageIndex], 1, &cmdBuffer);
 		vkCmdSetEvent(myTransferCmdBuffer[mySwapchainImageIndex], event, VK_PIPELINE_STAGE_TRANSFER_BIT);
-		myAllocationSubmitter->QueueRelease(std::move(allocSub.value()));
+		myAllocationSubmitter->QueueRelease(std::move(allocSubID.value()));
+		prevBuffer = cmdBuffer;
 	}
-	myAllocationSubmitter->TryReleasing();
 	
 	vkEndCommandBuffer(myTransferCmdBuffer[mySwapchainImageIndex]);
 
@@ -328,7 +335,7 @@ void
 VulkanImplementation::EndFrame()
 {
 	myVulkanFramework.Present(myFrameDoneSemaphore[mySwapchainImageIndex], myPresentationQueue);
-	
+	myAllocationSubmitter->TryReleasing();
 }
 
 void

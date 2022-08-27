@@ -29,7 +29,7 @@ public:
 	void										UnloadMesh(MeshID meshID);
 	void										LoadMesh(
 													MeshID meshID,
-													class AllocationSubmission& allocSub,
+													AllocationSubmissionID		allocSubID,
 													const std::string&			path,
 													std::vector<ImageID>&&		imageIDs = {});
 
@@ -46,10 +46,10 @@ public:
 private:
 	neat::static_vector<Vec4f, 64>				LoadImagesFromDoc(
 													const rapidjson::Document& doc, 
-													AllocationSubmission& allocSub) const;
+													AllocationSubmissionID allocSubID) const;
 	void										WriteMeshDescriptorData(
 													MeshID meshID, 
-													AllocationSubmission& allocSub);
+													AllocationSubmissionID allocSubID);
 
 	BufferAllocator&							theirBufferAllocator;
 	ImageHandler&								theirImageHandler;

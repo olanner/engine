@@ -182,13 +182,13 @@ rflx::Reflex::CreateMesh(
 		imgIDs.emplace_back(handle.GetID());
 	}
 
-	auto& allocSub = gAllocationSubmissions[int(myThreadID)];
+	auto& allocSubID = gAllocationSubmissionIDs[int(myThreadID)];
 	const MeshID id = gMeshHandler->AddMesh();
-	gMeshHandler->LoadMesh(id, allocSub, path, std::move(imgIDs));
+	gMeshHandler->LoadMesh(id, allocSubID, path, std::move(imgIDs));
 	const auto mesh = (*gMeshHandler)[id];
 
 	const GeoStructID geoID = gAccStructHandler->AddGeometryStructure();
-	gAccStructHandler->LoadGeometryStructure(geoID, allocSub, mesh.geo);
+	gAccStructHandler->LoadGeometryStructure(geoID, allocSubID, mesh.geo);
 	
 	MeshHandle ret(*this, id, geoID, path);
 
@@ -201,7 +201,7 @@ rflx::Reflex::CreateImage(
 	Vec2f				tiling)
 {
 	const ImageID id = gImageHandler->AddImage2D();
-	gImageHandler->LoadImage2DTiled(id, gAllocationSubmissions[int(myThreadID)], path, tiling.y, tiling.x);
+	gImageHandler->LoadImage2DTiled(id, gAllocationSubmissionIDs[int(myThreadID)], path, tiling.y, tiling.x);
 	return ImageHandle(*this, id, path);
 }
 
@@ -215,7 +215,7 @@ rflx::Reflex::CreateImage(
 	memcpy(dataAligned.data(), data.data(), data.size() * sizeof PixelValue);
 	float dim = sqrtf(float(data.size()));
 	const ImageID id = gImageHandler->AddImage2D();
-	gImageHandler->LoadImage2D(id, gAllocationSubmissions[int(myThreadID)], std::move(dataAligned), { dim, dim });
+	gImageHandler->LoadImage2D(id, gAllocationSubmissionIDs[int(myThreadID)], std::move(dataAligned), { dim, dim });
 	return ImageHandle(*this, id, "");
 }
 
@@ -228,7 +228,7 @@ rflx::CubeHandle
 rflx::Reflex::CreateImageCube(
 	const std::string& path)
 {
-	CubeHandle handle(gImageHandler->LoadImageCube(gAllocationSubmissions[int(myThreadID)], path));
+	CubeHandle handle(gImageHandler->LoadImageCube(gAllocationSubmissionIDs[int(myThreadID)], path));
 
 	const float fDim = handle.GetDim();
 	const CubeDimension cubeDim = fDim == 2048 ? CubeDimension::Dim2048 : fDim == 1024 ? CubeDimension::Dim1024 : CubeDimension::Dim1;
@@ -251,7 +251,12 @@ rflx::Reflex::BeginPush()
 
 	gSpriteRenderer->myWorkScheduler.BeginPush(myThreadID);
 
-	gAllocationSubmissions[int(myThreadID)] = ourVKImplementation->myAllocationSubmitter->StartAllocSubmission(myThreadID);
+	AllocationSubmissionID id = ourVKImplementation->myAllocationSubmitter->StartAllocSubmission(myThreadID);
+	while (BAD_ID(id))
+	{
+		id = ourVKImplementation->myAllocationSubmitter->StartAllocSubmission(myThreadID);
+	}
+	gAllocationSubmissionIDs[int(myThreadID)] = id;
 }
 
 void
@@ -364,7 +369,7 @@ rflx::Reflex::EndPush()
 	gMeshRenderer->myWorkScheduler.EndPush(myThreadID);
 
 	gSpriteRenderer->myWorkScheduler.EndPush(myThreadID);
-	ourVKImplementation->myAllocationSubmitter->QueueAllocSubmission(std::move(gAllocationSubmissions[int(myThreadID)]));
+	ourVKImplementation->myAllocationSubmitter->QueueAllocSubmission(std::move(gAllocationSubmissionIDs[int(myThreadID)]));
 	ourVKImplementation->myAllocationSubmitter->FreeUsedCommandBuffers(myThreadID, 128);
 }
 
