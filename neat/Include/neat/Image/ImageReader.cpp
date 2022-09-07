@@ -15,12 +15,7 @@ ReadImage(
 	bool		alphaPadding)
 {
 	Image ret = {};
-	if (strstr(path, ".tga"))
-	{
-		
-		int v = 0;
-	}
-	else if (strstr(path, ".dds"))
+	if (strstr(path, ".dds"))
 	{
 		OpenDDS(ret, path);
 	}

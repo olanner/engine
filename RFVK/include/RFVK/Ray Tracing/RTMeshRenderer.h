@@ -2,13 +2,7 @@
 #pragma once
 #include "NVRayTracing.h"
 #include "RFVK/Mesh/MeshRendererBase.h"
-
-struct ShaderBindingTable
-{
-	VkBuffer						buffer;
-	VkDeviceMemory					memory;
-	VkStridedDeviceAddressRegionKHR stride;
-};
+#include "RFVK/Pipelines/Pipeline.h"
 
 class RTMeshRenderer final : public MeshRendererBase
 {
@@ -21,19 +15,18 @@ public:
 											class SceneGlobals&					sceneGlobals,
 											class BufferAllocator&				bufferAllocator,
 											class AccelerationStructureHandler& accStructHandler,
-											QueueFamilyIndex					cmdBufferFamily,
-											QueueFamilyIndex					transferFamily);
+											QueueFamilyIndices					familyIndices);
 										~RTMeshRenderer();
 
-	[[nodiscard]] std::tuple<VkSubmitInfo, VkFence>
+	neat::static_vector<WorkerSubmission, MaxWorkerSubmissions>
 										RecordSubmit(
-											uint32_t				swapchainImageIndex,
-											VkSemaphore*			waitSemaphores,
-											uint32_t				numWaitSemaphores,
-											VkPipelineStageFlags*	waitPipelineStages,
-											uint32_t				numWaitStages,
-											VkSemaphore*			signalSemaphore) override;
+											uint32_t	swapchainImageIndex, 
+											const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>&	
+														waitSemaphores, 
+											const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>&	
+														signalSemaphores) override;
 	std::vector<rflx::Features>			GetImplementedFeatures() const override;
+	int									GetSubmissionCount() override { return 1; }
 
 private:
 	ShaderBindingTable					CreateShaderBindingTable(
@@ -41,29 +34,20 @@ private:
 											size_t					handleSize,
 											uint32_t				firstGroup,
 											uint32_t				groupCount,
-											VkPipeline				pipeline
-											);
+											VkPipeline				pipeline);
 	uint32_t							AlignedSize(
 											uint32_t a,
-											uint32_t b
-												);
+											uint32_t b);
 	
 	BufferAllocator&					theirBufferAllocator;
 	AccelerationStructureHandler&		theirAccStructHandler;
 
-	std::vector<QueueFamilyIndex>		myOwners;
-
-	VkPipelineLayout					myRTPipelineLayout;
-	VkPipeline							myRTPipeLine;
-	class Shader*						myOpaqueShader;
+	std::array<VkPipelineStageFlags, MaxWorkerSubmissions>
+										myWaitStages;
+	Pipeline							myPipeline;
+	std::shared_ptr<class Shader>		myOpaqueShader;
 
 	std::array<ShaderBindingTable, 3>	myShaderBindingTables;
-	//VkBuffer						mySBTBuffer;
-	//VkDeviceMemory					mySBTMemory;
-	//VkDeviceAddress					mySBTAddress;
-	//VkStridedDeviceAddressRegionKHR myMissStride;
-	//VkStridedDeviceAddressRegionKHR myRGenStride;
-	//VkStridedDeviceAddressRegionKHR myCHitStride;
 
 	InstanceStructID					myInstancesID;
 	RTInstances							myInstances;

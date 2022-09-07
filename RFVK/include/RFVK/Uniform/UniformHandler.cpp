@@ -6,15 +6,15 @@
 UniformHandler::UniformHandler(
 	VulkanFramework&		vulkanFramework,
 	BufferAllocator&		bufferAllocator,
-	const QueueFamilyIndex* firstOwner,
-	uint32_t				numOwners)
+	QueueFamilyIndices		familyIndices)
 	: theirVulkanFramework(vulkanFramework)
 	, theirBufferAllocator(bufferAllocator)
 {
-	for (uint32_t i = 0; i < numOwners; ++i)
-	{
-		myOwners.emplace_back(firstOwner[i]);
-	}
+	myOwners = {
+		familyIndices[QUEUE_FAMILY_TRANSFER],
+		familyIndices[QUEUE_FAMILY_GRAPHICS],
+		familyIndices[QUEUE_FAMILY_COMPUTE],
+	};
 
 	for (uint32_t i = 0; i < MaxNumUniforms; ++i)
 	{

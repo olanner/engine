@@ -130,7 +130,7 @@ VKCompile(
 		{
 			""
 		};
-		shader.setStringsWithLengthsAndNames(&rawAmbled, &len, names, 1);
+		shader.setStrings(&rawAmbled, 1);
 	}
 	else
 	{
@@ -148,7 +148,7 @@ VKCompile(
 	// PRE PROCESS
 	DirStackFileIncluder includer;
 	auto folder = std::filesystem::path(shaderPath).parent_path().string();
-
+	
 	std::string preprocessed;
 
 	bool resultPreProcess = shader.preprocess(&glslang::DefaultTBuiltInResource,

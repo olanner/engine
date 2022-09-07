@@ -21,28 +21,27 @@ class MeshRenderer final : public MeshRendererBase
 {
 public:
 										MeshRenderer(
-											class VulkanFramework& vulkanFramework,
-											class UniformHandler& uniformHandler,
-											class MeshHandler& meshHandler,
-											class ImageHandler& imageHandler,
-											class SceneGlobals& sceneGlobals,
-											class RenderPassFactory& renderPassFactory,
-											QueueFamilyIndex cmdBufferFamily);
+											class VulkanFramework&		vulkanFramework,
+											class UniformHandler&		uniformHandler,
+											class MeshHandler&			meshHandler,
+											class ImageHandler&			imageHandler,
+											class SceneGlobals&			sceneGlobals,
+											class RenderPassFactory&	renderPassFactory,
+											QueueFamilyIndices			familyIndices);
 										~MeshRenderer();
 
-	[[nodiscard]] std::tuple<VkSubmitInfo, VkFence>
+	neat::static_vector<WorkerSubmission, MaxWorkerSubmissions>
 										RecordSubmit(
-											uint32_t				swapchainImageIndex,
-											VkSemaphore*			waitSemaphores,
-											uint32_t				numWaitSemaphores,
-											VkPipelineStageFlags*	waitPipelineStages,
-											uint32_t				numWaitStages,
-											VkSemaphore*			signalSemaphore) override;
+											uint32_t swapchainImageIndex, 
+											const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& waitSemaphores, 
+											const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& signalSemaphores) override;
 	std::vector<rflx::Features>			GetImplementedFeatures() const override;
+	int									GetSubmissionCount() override { return 1; }
 
 private:
 	RenderPassFactory&					theirRenderPassFactory;
-
+	const VkPipelineStageFlags			myWaitStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+	
 	std::unique_ptr<UniformInstances>	myInstanceData;
 	UniformID							myInstanceUniformID = UniformID(INVALID_ID);
 

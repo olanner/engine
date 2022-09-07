@@ -13,8 +13,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{3ec588ae-af95-423e-aa2c-43dc7d46a51b}</ProjectGuid>
-    <RootNamespace>Reflex</RootNamespace>
+    <ProjectGuid>{3dd720de-3ca6-4b06-a45a-56798776ea4d}</ProjectGuid>
+    <RootNamespace>RFVKDeferredRayTracing</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -47,13 +47,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(SolutionDir)RFVKDeferredRayTracing\include\;$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)RFVK\include\;$(SolutionDir)ext\glm\</IncludePath>
-    <LibraryPath>$(SolutionDir)..\Lib\;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)RFVK\include\;$(SolutionDir)ext\glm\</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir)RFVKDeferredRayTracing\include\;$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)RFVK\include\;$(SolutionDir)ext\glm\</IncludePath>
-    <LibraryPath>$(SolutionDir)..\Lib\;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)RFVK\include\;$(SolutionDir)ext\glm\</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -92,18 +90,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="include\Handles\CubeHandle.h" />
-    <ClInclude Include="include\Handles\HandlesInternal.h" />
-    <ClInclude Include="include\Handles\ImageHandle.h" />
-    <ClInclude Include="include\Handles\MeshHandle.h" />
-    <ClInclude Include="include\Reflex.h" />
+    <ClInclude Include="include\RFVKDeferredRayTracing\DeferredGeoRenderer.h" />
+    <ClInclude Include="include\RFVKDeferredRayTracing\Shared.h" />
+    <ClInclude Include="include\RFVKDeferredRayTracing\RayTracer.h" />
+    <ClInclude Include="include\RFVKDeferredRayTracing\DeferredRayTracer.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="include\Handles\CubeHandle.cpp" />
-    <ClCompile Include="include\Handles\ImageHandle.cpp" />
-    <ClCompile Include="include\Handles\MeshHandle.cpp" />
-    <ClCompile Include="include\Reflex.cpp" />
+    <ClCompile Include="include\RFVKDeferredRayTracing\DeferredGeoRenderer.cpp" />
+    <ClCompile Include="include\RFVKDeferredRayTracing\DeferredRayTracer.cpp" />
+    <ClCompile Include="include\RFVKDeferredRayTracing\RayTracer.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>

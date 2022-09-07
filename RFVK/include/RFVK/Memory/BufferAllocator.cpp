@@ -180,6 +180,8 @@ BufferAllocator::UpdateBufferData(
 	size_t									size,
 	const std::vector<QueueFamilyIndex>&	owners)
 {
+	assert(data && "invalid data to update buffer width");
+	
 	// TODO: maybe do this better lol
 	auto allocSubID = theirAllocationSubmitter.StartAllocSubmission();
 	auto& allocSub = theirAllocationSubmitter[allocSubID];

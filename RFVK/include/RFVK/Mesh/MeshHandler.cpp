@@ -11,20 +11,20 @@
 #include "RFVK/Memory/ImageAllocator.h"
 
 MeshHandler::MeshHandler(
-	VulkanFramework& vulkanFramework,
-	BufferAllocator& bufferAllocator,
-	ImageHandler& textureSetHandler,
-	const QueueFamilyIndex* firstOwner,
-	uint32_t				numOwners)
+	VulkanFramework&	vulkanFramework,
+	BufferAllocator&	bufferAllocator,
+	ImageHandler&		textureSetHandler,
+	QueueFamilyIndices	familyIndices)
 	: HandlerBase(vulkanFramework)
 	, theirBufferAllocator(bufferAllocator)
 	, theirImageHandler(textureSetHandler)
 	, myMeshIDKeeper(MaxNumMeshesLoaded)
 {
-	for (uint32_t i = 0; i < numOwners; ++i)
-	{
-		myOwners.emplace_back(firstOwner[i]);
-	}
+	myOwners = {
+		familyIndices[QUEUE_FAMILY_TRANSFER],
+		familyIndices[QUEUE_FAMILY_GRAPHICS],
+		familyIndices[QUEUE_FAMILY_COMPUTE],
+	};
 
 	VkDescriptorPoolSize poolSize;
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;

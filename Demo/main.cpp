@@ -28,7 +28,7 @@ public:
 	{
 		myStartFunc = [this, hWND, windowRes]()
 		{
-			myReflexInterface.Start(hWND, windowRes, "vkdebug");
+			myReflexInterface.Start(hWND, windowRes, "");
 			myTimer.Start();
 		};
 		myMainFunc = [this]()
@@ -83,7 +83,17 @@ public:
 		{
 			myReflexInterface.BeginPush();
 			auto boyHandle = myReflexInterface.CreateMesh("Assets/test_boy/test_boy.fbx");
-			//auto sceneHandle = myReflexInterface.CreateMesh("Assets/scene/scene.dae");
+			auto sceneHandle = myReflexInterface.CreateMesh("Assets/scene/scene.dae");
+			auto box = myReflexInterface.CreateImageCube("Assets/Cube Maps/stor_forsen.dds");
+
+			std::vector<PixelValue> pixels;
+			pixels.resize(16, {uint8_t(255), uint8_t(255), uint8_t(255), uint8_t(255)});
+			auto alb = myReflexInterface.CreateImage(std::move(pixels));
+			pixels = {};
+			pixels.resize(16, {uint8_t(128), uint8_t(255), 0, 0});
+			auto mat = myReflexInterface.CreateImage(std::move(pixels));
+			auto dragon = myReflexInterface.CreateMesh("Assets/Sascha/torusknot.obj", {alb, mat});
+			box.SetAsSkybox();
 			myReflexInterface.EndPush();
 			while (IsRunning())
 			{
@@ -109,7 +119,7 @@ public:
 				}
 				distance += InputHandler::IsHeld(VK_UP) * 128.f * dt;
 				distance -= InputHandler::IsHeld(VK_DOWN) * 128.f * dt;
-				myReflexInterface.SetView({ 0, y,0 }, { xRot, yRot }, distance);
+				myReflexInterface.SetView({ 0, y, 0 }, { xRot, yRot }, distance);
 
 				if (InputHandler::IsReleased('L'))
 				{
@@ -126,8 +136,8 @@ public:
 				}
 				
 				const auto tt = myTimer.GetTotalTime();
-				myReflexInterface.PushRenderCommand(boyHandle, {}, {1,1,1}, {0,1,0}, tt * 3.14f * 0.66f);
-				//myReflexInterface.PushRenderCommand(sceneHandle);
+				myReflexInterface.PushRenderCommand(dragon, {0.5,2,0}, {0.04f,0.04f,0.04f}, {0,1,0}, tt * 3.14f * 0.66f);
+				myReflexInterface.PushRenderCommand(sceneHandle);
 
 				auto fps = std::to_string(int(1.f / dt));
 				myReflexInterface.PushRenderCommand(
@@ -139,8 +149,8 @@ public:
 				
 				myReflexInterface.EndPush();
 				InputHandler::EndFrame();
-				const unsigned long count = GetTickCount64();
-				while ((GetTickCount64() - count) < 7)
+				const auto count = GetTickCount64();
+				while ((GetTickCount64() - count) < 5)
 				{
 				}
 			}

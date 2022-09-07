@@ -15,12 +15,14 @@
 #include "Handles/CubeHandle.h"
 #include "Handles/ImageHandle.h"
 #include "RFVK/Memory/AllocatorBase.h"
-#include "RFVK/Ray Tracing/AccelerationStructureAllocator.h"
+#include "RFVKDeferredRayTracing/DeferredRayTracer.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "RFVK_Debugx64.lib")
+#pragma comment(lib, "RFVKDeferredRayTracing_Debugx64.lib")
 #else
 #pragma comment(lib, "RFVK_Releasex64.lib")
+#pragma comment(lib, "RFVKDeferredRayTracing_Releasex64.lib")
 #endif
 
 uint32_t				rflx::Reflex::ourUses = 0;
@@ -28,8 +30,9 @@ VulkanImplementation*	rflx::Reflex::ourVKImplementation = nullptr;
 
 // FEATURES
 std::shared_ptr<MeshRenderer>						gMeshRenderer;
-std::shared_ptr<RTMeshRenderer>						gRTMeshRenderer;
+//std::shared_ptr<RTMeshRenderer>						gRTMeshRenderer;
 std::shared_ptr<SpriteRenderer>						gSpriteRenderer;
+std::shared_ptr<DeferredRayTracer>					gDeferredRayTracer;
 
 VulkanFramework* gVulkanFramework;
 
@@ -53,7 +56,7 @@ rflx::Reflex::~Reflex()
 
 		gSpriteRenderer = nullptr;
 		gMeshRenderer = nullptr;
-		gRTMeshRenderer = nullptr;
+		//gRTMeshRenderer = nullptr;
 
 		SAFE_DELETE(ourVKImplementation);
 	}
@@ -95,52 +98,61 @@ rflx::Reflex::Start(
 		*ourVKImplementation->myImageHandler,
 		*ourVKImplementation->mySceneGlobals,
 		*ourVKImplementation->myRenderPassFactory,
-		ourVKImplementation->myPresQueueIndex);
+		ourVKImplementation->myQueueFamilyIndices);
 
-	auto rtmr = std::make_shared<RTMeshRenderer>(ourVKImplementation->myVulkanFramework,
+	/*auto rtmr = std::make_shared<RTMeshRenderer>(ourVKImplementation->myVulkanFramework,
 		*ourVKImplementation->myUniformHandler,
 		*ourVKImplementation->myMeshHandler,
 		*ourVKImplementation->myImageHandler,
 		*ourVKImplementation->mySceneGlobals,
 		*ourVKImplementation->myBufferAllocator,
 		*ourVKImplementation->myAccStructHandler,
-		ourVKImplementation->myCompQueueIndex,
-		ourVKImplementation->myTransQueueIndex
-		);
+		ourVKImplementation->myQueueFamilyIndices
+		);*/
 
-	QueueFamilyIndex indices[]{ ourVKImplementation->myPresQueueIndex, ourVKImplementation->myTransQueueIndex };
-	auto tr = std::make_shared<SpriteRenderer>(ourVKImplementation->myVulkanFramework,
+	auto tr = std::make_shared<SpriteRenderer>(
+		ourVKImplementation->myVulkanFramework,
 		*ourVKImplementation->mySceneGlobals,
 		*ourVKImplementation->myImageHandler,
 		*ourVKImplementation->myRenderPassFactory,
 		*ourVKImplementation->myUniformHandler,
-		indices,
-		ARRAYSIZE(indices),
-		ourVKImplementation->myPresQueueIndex);
+		ourVKImplementation->myQueueFamilyIndices);
+
+	auto drt = std::make_shared<DeferredRayTracer>(
+		ourVKImplementation->myVulkanFramework,
+		*ourVKImplementation->myUniformHandler,
+		*ourVKImplementation->myMeshHandler,
+		*ourVKImplementation->myImageHandler,
+		*ourVKImplementation->mySceneGlobals,
+		*ourVKImplementation->myRenderPassFactory,
+		*ourVKImplementation->myBufferAllocator,
+		*ourVKImplementation->myAccStructHandler,
+		ourVKImplementation->myQueueFamilyIndices	);
 	
-	ourVKImplementation->RegisterWorkerSystem(mr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
-	ourVKImplementation->RegisterWorkerSystem(rtmr, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_QUEUE_COMPUTE_BIT);
-	ourVKImplementation->RegisterWorkerSystem(tr, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_QUEUE_GRAPHICS_BIT);
+	ourVKImplementation->RegisterWorkerSystem(mr);
+	//ourVKImplementation->RegisterWorkerSystem(rtmr);
+	ourVKImplementation->RegisterWorkerSystem(drt);
+	ourVKImplementation->RegisterWorkerSystem(tr);
 
 	ourVKImplementation->LockWorkerSystems();
-
-	ourVKImplementation->ToggleFeature(Features::FEATURE_DEFERRED);
-	
 	ourVKImplementation->RegisterThread(myThreadID);
 	if (BAD_ID(myThreadID))
 	{
 		return false;
 	}
 
+	ourVKImplementation->ToggleFeature(Features::FEATURE_RAY_TRACING);
+
 	gMeshRenderer = mr;
 	gSceneGlobals = ourVKImplementation->mySceneGlobals;
 	gMeshHandler = ourVKImplementation->myMeshHandler;
 	gAccStructHandler = ourVKImplementation->myAccStructHandler;
-	gRTMeshRenderer = rtmr;
+	//gRTMeshRenderer = rtmr;
 	gImageHandler = ourVKImplementation->myImageHandler;
 	gCubeFilterer = ourVKImplementation->myCubeFilterer;
 	gSpriteRenderer = tr;
 	gFontHandler = ourVKImplementation->myFontHandler;
+	gDeferredRayTracer = drt;
 
 	gVulkanFramework = &ourVKImplementation->myVulkanFramework;
 	return true;
@@ -228,11 +240,12 @@ rflx::CubeHandle
 rflx::Reflex::CreateImageCube(
 	const std::string& path)
 {
-	CubeHandle handle(gImageHandler->LoadImageCube(gAllocationSubmissionIDs[int(myThreadID)], path));
+	CubeHandle handle(gImageHandler->AddImageCube());
+	const auto signal = gImageHandler->LoadImageCube(handle.GetID(), gAllocationSubmissionIDs[int(myThreadID)], path);
 
 	const float fDim = handle.GetDim();
 	const CubeDimension cubeDim = fDim == 2048 ? CubeDimension::Dim2048 : fDim == 1024 ? CubeDimension::Dim1024 : CubeDimension::Dim1;
-	gCubeFilterer->PushFilterWork(handle.GetID(), cubeDim);
+	gCubeFilterer->PushFilterWork({handle.GetID(), cubeDim, signal});
 
 	return handle;
 }
@@ -240,16 +253,10 @@ rflx::Reflex::CreateImageCube(
 void
 rflx::Reflex::BeginPush()
 {
-	gRTMeshRenderer->myWorkScheduler.BeginPush(myThreadID);
+	//gRTMeshRenderer->myWorkScheduler.BeginPush(myThreadID);
 	gMeshRenderer->myWorkScheduler.BeginPush(myThreadID);
-	if (ourVKImplementation->CheckFeature(Features::FEATURE_RAY_TRACING))
-	{
-	}
-	else
-	{
-	}
-
 	gSpriteRenderer->myWorkScheduler.BeginPush(myThreadID);
+	gDeferredRayTracer->myWorkScheduler.BeginPush(myThreadID);
 
 	AllocationSubmissionID id = ourVKImplementation->myAllocationSubmitter->StartAllocSubmission(myThreadID);
 	while (BAD_ID(id))
@@ -257,6 +264,18 @@ rflx::Reflex::BeginPush()
 		id = ourVKImplementation->myAllocationSubmitter->StartAllocSubmission(myThreadID);
 	}
 	gAllocationSubmissionIDs[int(myThreadID)] = id;
+}
+
+void
+rflx::Reflex::EndPush()
+{
+	//gRTMeshRenderer->myWorkScheduler.EndPush(myThreadID);
+	gMeshRenderer->myWorkScheduler.EndPush(myThreadID);
+	gSpriteRenderer->myWorkScheduler.EndPush(myThreadID);
+	gDeferredRayTracer->myWorkScheduler.EndPush(myThreadID);
+
+	ourVKImplementation->myAllocationSubmitter->QueueAllocSubmission(std::move(gAllocationSubmissionIDs[int(myThreadID)]));
+	ourVKImplementation->myAllocationSubmitter->FreeUsedCommandBuffers(myThreadID, 128);
 }
 
 void
@@ -269,22 +288,14 @@ rflx::Reflex::PushRenderCommand(
 {
 	MeshRenderCommand cmd{};
 	cmd.id = handle.GetID();
+	cmd.geoID = handle.myGeoID;
 	
 	cmd.transform =
 		glm::translate(glm::identity<Mat4f>(), position) *
 		glm::rotate(glm::identity<Mat4f>(), rotation, forward) *
 		glm::scale(glm::identity<Mat4f>(), scale);
-
-	if (ourVKImplementation->CheckFeature(Features::FEATURE_RAY_TRACING))
-	{
-		cmd.geoID = handle.myGeoID;
-		gRTMeshRenderer->myWorkScheduler.PushWork(myThreadID, cmd);
-	}
-	else
-	{
-		gMeshRenderer->myWorkScheduler.PushWork(myThreadID, cmd);
-	}
-
+	gDeferredRayTracer->myWorkScheduler.PushWork(myThreadID, cmd);
+	gMeshRenderer->myWorkScheduler.PushWork(myThreadID, cmd);
 }
 
 void
@@ -354,23 +365,6 @@ rflx::Reflex::PushRenderCommand(
 	cmd.color = color;
 
 	gSpriteRenderer->myWorkScheduler.PushWork(myThreadID, cmd);
-}
-
-void
-rflx::Reflex::EndPush()
-{
-	if (ourVKImplementation->CheckFeature(Features::FEATURE_RAY_TRACING))
-	{
-	}
-	else
-	{
-	}
-	gRTMeshRenderer->myWorkScheduler.EndPush(myThreadID);
-	gMeshRenderer->myWorkScheduler.EndPush(myThreadID);
-
-	gSpriteRenderer->myWorkScheduler.EndPush(myThreadID);
-	ourVKImplementation->myAllocationSubmitter->QueueAllocSubmission(std::move(gAllocationSubmissionIDs[int(myThreadID)]));
-	ourVKImplementation->myAllocationSubmitter->FreeUsedCommandBuffers(myThreadID, 128);
 }
 
 void

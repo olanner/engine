@@ -12,19 +12,17 @@ public:
 														class RenderPassFactory&	renderPassFactory,
 														class ImageHandler&			imageHandler,
 														class SceneGlobals&			sceneGlobals,
-														QueueFamilyIndex			cmdBufferFamily,
-														QueueFamilyIndex			transferFamily);
+														QueueFamilyIndices			familyIndices);
 													~Presenter();
 
-	[[nodiscard]] std::tuple<VkSubmitInfo, VkFence> RecordSubmit(
-														uint32_t				swapchainImageIndex,
-														VkSemaphore*			waitSemaphores,
-														uint32_t				numWaitSemaphores,
-														VkPipelineStageFlags*	waitPipelineStages,
-														uint32_t				numWaitStages,
-														VkSemaphore*			signalSemaphore) override;
+	neat::static_vector<WorkerSubmission, MaxWorkerSubmissions>
+													RecordSubmit(
+														uint32_t swapchainImageIndex, 
+														const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& waitSemaphores, 
+														const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& signalSemaphores) override;
 	std::array<VkFence, NumSwapchainImages>			GetFences() override;
 	std::vector<rflx::Features>						GetImplementedFeatures() const override;
+	int												GetSubmissionCount() override { return 1; }
 
 private:
 	VulkanFramework&								theirVulkanFramework;
@@ -32,6 +30,8 @@ private:
 	ImageHandler&									theirImageHandler;
 	SceneGlobals&									theirSceneGlobals;
 
+	std::array<VkPipelineStageFlags, MaxWorkerSubmissions>
+													myWaitStages;
 	class Shader*									myPresentShader;
 	Pipeline										myPresentPipeline;
 	RenderPass										myPresentRenderPass;

@@ -14,14 +14,14 @@ CubeFilterer::CubeFilterer(
 	RenderPassFactory& renderPassFactory,
 	ImageAllocator& imageAllocator,
 	ImageHandler& imageHandler,
-	QueueFamilyIndex	cmdBufferFamily,
-	QueueFamilyIndex	transferFamily)
+	QueueFamilyIndices	familyIndices)
 	: theirVulkanFramework(vulkanFramework)
 	, theirRenderPassFactory(renderPassFactory)
 	, theirImageAllocator(imageAllocator)
 	, theirImageHandler(imageHandler)
 {
-	QueueFamilyIndex qIndices[]{myPresentationQueueIndex = cmdBufferFamily, transferFamily};
+	myWaitStages.fill(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+	myPresentationQueueIndex = familyIndices[QUEUE_FAMILY_GRAPHICS];
 
 	auto allocSub = theirImageAllocator.Start();
 	size_t sizes[6]{};
@@ -31,7 +31,7 @@ CubeFilterer::CubeFilterer(
 	requestInfo.width = 2048;
 	requestInfo.height = 2048;
 	requestInfo.mips = NUM_MIPS(2048);
-	requestInfo.owners = {cmdBufferFamily, transferFamily};
+	requestInfo.owners = {familyIndices[QUEUE_FAMILY_GRAPHICS], familyIndices[QUEUE_FAMILY_TRANSFER]};
 	requestInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
 	requestInfo.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	requestInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -62,7 +62,7 @@ CubeFilterer::CubeFilterer(
 	// COMMAND BUFFERS
 	for (uint32_t scIndex = 0; scIndex < NumSwapchainImages; ++scIndex)
 	{
-		auto [result, cmdBuffer] = theirVulkanFramework.RequestCommandBuffer(cmdBufferFamily);
+		auto [result, cmdBuffer] = theirVulkanFramework.RequestCommandBuffer(familyIndices[QUEUE_FAMILY_GRAPHICS]);
 		assert(!result && "failed command buffer request");
 		myCmdBuffers[scIndex] = cmdBuffer;
 	}
@@ -80,14 +80,11 @@ CubeFilterer::CubeFilterer(
 
 }
 
-std::tuple<VkSubmitInfo, VkFence>
+neat::static_vector<WorkerSubmission, MaxWorkerSubmissions>
 CubeFilterer::RecordSubmit(
-	uint32_t				swapchainImageIndex,
-	VkSemaphore* waitSemaphores,
-	uint32_t				numWaitSemaphores,
-	VkPipelineStageFlags* waitPipelineStages,
-	uint32_t				numWaitStages,
-	VkSemaphore* signalSemaphore)
+	uint32_t swapchainImageIndex,
+	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& waitSemaphores,
+	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& signalSemaphores)
 {
 	// RECORD
 	VkCommandBufferBeginInfo beginInfo{};
@@ -105,8 +102,14 @@ CubeFilterer::RecordSubmit(
 
 
 	FilterWork work{};
-	bool popped = myToDoFilterWork.try_pop(work);
-	if (popped)
+	bool hasWork = myToDoFilterWork.try_pop(work);
+	if (work.canFilter &&
+		!SemaphoreWait(*work.canFilter))
+	{
+		hasWork = false;
+		myToDoFilterWork.push(work);
+	}
+	if (hasWork)
 	{
 		for (uint32_t dim = uint32_t(work.cubeDim); dim < uint32_t(CubeDimension::Count); ++dim)
 		{
@@ -118,7 +121,6 @@ CubeFilterer::RecordSubmit(
 
 	if (!myHasFiltered)
 	{
-
 		myHasFiltered = true;
 	}
 
@@ -133,16 +135,16 @@ CubeFilterer::RecordSubmit(
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-	submitInfo.pWaitDstStageMask = waitPipelineStages;
+	submitInfo.pWaitDstStageMask = myWaitStages.data();
 
-	submitInfo.pWaitSemaphores = waitSemaphores;
-	submitInfo.waitSemaphoreCount = numWaitSemaphores;
+	submitInfo.pWaitSemaphores = waitSemaphores.data();
+	submitInfo.waitSemaphoreCount = waitSemaphores.size();
 	submitInfo.pCommandBuffers = &myCmdBuffers[swapchainImageIndex];
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pSignalSemaphores = signalSemaphore;
-	submitInfo.signalSemaphoreCount = signalSemaphore != nullptr;
+	submitInfo.pSignalSemaphores = signalSemaphores.data();
+	submitInfo.signalSemaphoreCount = signalSemaphores.size();
 
-	return {submitInfo, myCmdBufferFences[swapchainImageIndex]};
+	return {{myCmdBufferFences[swapchainImageIndex], submitInfo, VK_QUEUE_GRAPHICS_BIT}};
 }
 
 std::array<VkFence, NumSwapchainImages> CubeFilterer::GetFences()
@@ -157,10 +159,9 @@ std::vector<rflx::Features> CubeFilterer::GetImplementedFeatures() const
 
 void
 CubeFilterer::PushFilterWork(
-	CubeID			id,
-	CubeDimension	cubeDim)
+	FilterWork&& filterWork)
 {
-	myToDoFilterWork.push({id, cubeDim});
+	myToDoFilterWork.push(filterWork);
 }
 
 void

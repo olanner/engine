@@ -16,18 +16,17 @@ SpriteRenderer::SpriteRenderer(
 	ImageHandler&		imageHandler,
 	RenderPassFactory&	renderPassFactory,
 	UniformHandler&		uniformHandler,
-	QueueFamilyIndex*	firstOwner,
-	uint32_t			numOwners,
-	uint32_t			cmdBufferFamily)
+	QueueFamilyIndices	familyIndices)
 	: theirVulkanFramework(vulkanFramework)
 	, theirSceneGlobals(sceneGlobals)
 	, theirImageHandler(imageHandler)
 	, theirUniformHandler(uniformHandler)
 {
-	for (uint32_t ownerIndex = 0; ownerIndex < numOwners; ++ownerIndex)
-	{
-		myOwners.emplace_back(firstOwner[ownerIndex]);
-	}
+	myWaitStages.fill(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+	myOwners = {
+		familyIndices[QUEUE_FAMILY_TRANSFER],
+		familyIndices[QUEUE_FAMILY_GRAPHICS],
+	};
 
 	//	UNIFORM
 	mySpriteInstancesID = theirUniformHandler.RequestUniformBuffer(nullptr, MaxNumSpriteInstances * sizeof SpriteInstance);
@@ -90,7 +89,7 @@ SpriteRenderer::SpriteRenderer(
 	// COMMANDS
 	for (uint32_t i = 0; i < NumSwapchainImages; i++)
 	{
-		auto [resultBuffer, buffer] = theirVulkanFramework.RequestCommandBuffer(cmdBufferFamily);
+		auto [resultBuffer, buffer] = theirVulkanFramework.RequestCommandBuffer(familyIndices[QUEUE_FAMILY_TRANSFER]);
 		assert(!resultBuffer && "failed creating cmd buffer");
 		myCmdBuffers[i] = buffer;
 	}
@@ -107,14 +106,13 @@ SpriteRenderer::SpriteRenderer(
 
 }
 
-std::tuple<VkSubmitInfo, VkFence>
+neat::static_vector<WorkerSubmission, MaxWorkerSubmissions>
 SpriteRenderer::RecordSubmit(
-	uint32_t				swapchainImageIndex,
-	VkSemaphore*			waitSemaphores,
-	uint32_t				numWaitSemaphores,
-	VkPipelineStageFlags*	waitPipelineStages,
-	uint32_t				numWaitStages,
-	VkSemaphore*			signalSemaphore)
+	uint32_t	swapchainImageIndex,
+	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>&
+	waitSemaphores,
+	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>&
+	signalSemaphores)
 {
 	// RECORD
 	while (vkGetFenceStatus(theirVulkanFramework.GetDevice(), myCmdBufferFences[swapchainImageIndex]))
@@ -189,16 +187,16 @@ SpriteRenderer::RecordSubmit(
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.pNext = nullptr;
 
-	submitInfo.pWaitDstStageMask = waitPipelineStages;
+	submitInfo.pWaitDstStageMask = myWaitStages.data();
 
-	submitInfo.pWaitSemaphores = waitSemaphores;
-	submitInfo.waitSemaphoreCount = numWaitSemaphores;
+	submitInfo.pWaitSemaphores = waitSemaphores.data();
+	submitInfo.waitSemaphoreCount = waitSemaphores.size();
 	submitInfo.pCommandBuffers = &myCmdBuffers[swapchainImageIndex];
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pSignalSemaphores = signalSemaphore;
-	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = signalSemaphores.data();
+	submitInfo.signalSemaphoreCount = signalSemaphores.size();
 
-	return {submitInfo, myCmdBufferFences[swapchainImageIndex]};
+	return {{myCmdBufferFences[swapchainImageIndex], submitInfo, VK_QUEUE_GRAPHICS_BIT}};
 }
 
 std::array<VkFence, NumSwapchainImages>

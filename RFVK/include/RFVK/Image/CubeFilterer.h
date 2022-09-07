@@ -40,34 +40,31 @@ constexpr uint32_t CubeDimValues[uint32_t(CubeDimension::Count)]
 
 struct FilterWork
 {
-	CubeID id;
-	CubeDimension cubeDim;
+	CubeID									id;
+	CubeDimension							cubeDim;
+	shared_semaphore<NumSwapchainImages>	canFilter;
 };
 
 class CubeFilterer : public WorkerSystem
 {
 public:
 													CubeFilterer(
-														class VulkanFramework& vulkanFramework,
-														class RenderPassFactory& renderPassFactory,
-														class ImageAllocator& imageAllocator,
-														class ImageHandler& imageHandler,
-														QueueFamilyIndex cmdBufferFamily,
-														QueueFamilyIndex transferFamily);
+														class VulkanFramework&		vulkanFramework,
+														class RenderPassFactory&	renderPassFactory,
+														class ImageAllocator&		imageAllocator,
+														class ImageHandler&			imageHandler,
+														QueueFamilyIndices			familyIndices);
 
-	std::tuple<VkSubmitInfo, VkFence>				RecordSubmit(
-														uint32_t swapchainImageIndex,
-														VkSemaphore* waitSemaphores, 
-														uint32_t numWaitSemaphores,
-														VkPipelineStageFlags* waitPipelineStages, 
-														uint32_t numWaitStages,
-														VkSemaphore* signalSemaphore) override;
+	neat::static_vector<WorkerSubmission, MaxWorkerSubmissions>
+													RecordSubmit(
+														uint32_t swapchainImageIndex, 
+														const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& waitSemaphores, 
+														const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& signalSemaphores) override;
 	std::array<VkFence, NumSwapchainImages>			GetFences() override;
 	std::vector<rflx::Features>						GetImplementedFeatures() const override;
+	int												GetSubmissionCount() override { return 1; }
 
-	void											PushFilterWork(
-														CubeID			id, 
-														CubeDimension	cubeDim);
+	void											PushFilterWork(FilterWork&& filterWork);
 private:
 	void											CreateCubeFilterPass(CubeDimension cubeDim);
 
@@ -91,16 +88,16 @@ private:
 	ImageAllocator&									theirImageAllocator;
 	ImageHandler&									theirImageHandler;
 
+	std::array<VkPipelineStageFlags, MaxWorkerSubmissions>
+													myWaitStages;
 	class Shader*									myFilteringShader;
-
-	VkImageView										myCube;
-
-	std::array<std::array<VkImageView, 6>, uint32_t(CubeDimension::Count)>
-													mySplitCubes;
 	std::array<Pipeline, uint32_t(CubeDimension::Count)>
 													myFilteringPipeline;
 	std::array<RenderPass, uint32_t(CubeDimension::Count)>
 													myFilteringRenderPass;
+	std::array<std::array<VkImageView, 6>, uint32_t(CubeDimension::Count)>
+													mySplitCubes;
+	VkImageView										myCube;
 
 	std::array<VkCommandBuffer, NumSwapchainImages>	myCmdBuffers;
 	std::array<VkFence, NumSwapchainImages>			myCmdBufferFences;

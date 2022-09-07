@@ -113,6 +113,7 @@
     <ClInclude Include="include\RFVK\Ray Tracing\AccelerationStructureHandler.h" />
     <ClInclude Include="include\RFVK\Ray Tracing\NVRayTracing.h" />
     <ClInclude Include="include\RFVK\Ray Tracing\RTMeshRenderer.h" />
+    <ClInclude Include="include\RFVK\Ray Tracing\RTPipelineBuilder.h" />
     <ClInclude Include="include\RFVK\SharedPrecompiled.h" />
     <ClInclude Include="include\RFVK\RenderPass\RenderPass.h" />
     <ClInclude Include="include\RFVK\RenderPass\RenderPassBuilder.h" />
@@ -165,6 +166,7 @@
     <ClCompile Include="include\RFVK\Ray Tracing\AccelerationStructureAllocator.cpp" />
     <ClCompile Include="include\RFVK\Ray Tracing\AccelerationStructureHandler.cpp" />
     <ClCompile Include="include\RFVK\Ray Tracing\RTMeshRenderer.cpp" />
+    <ClCompile Include="include\RFVK\Ray Tracing\RTPipelineBuilder.cpp" />
     <ClCompile Include="include\RFVK\RenderPass\RenderPass.cpp" />
     <ClCompile Include="include\RFVK\RenderPass\RenderPassBuilder.cpp" />
     <ClCompile Include="include\RFVK\RenderPass\RenderPassFactory.cpp" />
@@ -177,7 +179,6 @@
     <ClCompile Include="include\RFVK\Uniform\UniformHandler.cpp" />
     <ClCompile Include="include\RFVK\VulkanFramework.cpp" />
     <ClCompile Include="include\RFVK\VulkanImplementation.cpp" />
-    <ClCompile Include="include\RFVK\WorkerSystem\WorkerSystem.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>

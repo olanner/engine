@@ -8,19 +8,17 @@
 ImageHandler::ImageHandler(
 	VulkanFramework&	vulkanFramework,
 	ImageAllocator&		imageAllocator,
-	QueueFamilyIndex*	firstOwner,
-	uint32_t			numOwners)
+	QueueFamilyIndices		familyIndices)
 	: HandlerBase(vulkanFramework)
 	, theirImageAllocator(imageAllocator)
 	, myImageIDKeeper(MaxNumImages)
 	, myCubeIDKeeper(MaxNumImagesCube)
 {
-	for (uint32_t i = 0; i < numOwners; ++i)
-	{
-		myOwners.emplace_back(firstOwner[i]);
-	}
-
-	
+	myOwners = {
+		familyIndices[QUEUE_FAMILY_TRANSFER],
+		familyIndices[QUEUE_FAMILY_GRAPHICS],
+		familyIndices[QUEUE_FAMILY_COMPUTE],
+	};
 
 	// IMAGE ARRAYS DESCRIPTOR
 	//LAYOUT
@@ -563,10 +561,7 @@ ImageHandler::LoadImage2DTiled(
 	return LoadImage2D(imageID, allocSubID, std::move(sortedData), {tileWidth, tileHeight}, myImageSwizzleToFormat[img.swizzle]);
 }
 
-CubeID
-ImageHandler::LoadImageCube(
-	AllocationSubmissionID	allocSubID,
-	const std::string&		path)
+CubeID ImageHandler::AddImageCube()
 {
 	CubeID cubeID = myCubeIDKeeper.FetchFreeID();
 	if (BAD_ID(cubeID))
@@ -574,18 +569,27 @@ ImageHandler::LoadImageCube(
 		LOG("no more free cube slots");
 		return CubeID(INVALID_ID);
 	}
-	myImagesCube[uint32_t(cubeID)] = {};
+    return cubeID;
+}
+
+shared_semaphore<NumSwapchainImages>
+ImageHandler::LoadImageCube(
+	CubeID					cubeID,
+	AllocationSubmissionID	allocSubID,
+	const std::string&		path)
+{
+	auto& imageCube = myImagesCube[int(cubeID)];
 
 	auto img = neat::ReadImage(path.c_str());
 	if (img.layers != 6)
 	{
 		LOG(path, "is not a cube map image");
-		return CubeID(INVALID_ID);
+		return nullptr;
 	}
 	if (int(img.error))
 	{
 		LOG("failed loading image, ", path);
-		return CubeID(INVALID_ID);
+		return nullptr;
 	}
 
 	VkResult result{};
@@ -595,7 +599,7 @@ ImageHandler::LoadImageCube(
 		requestInfo.height = img.height;
 		requestInfo.mips = NUM_MIPS(std::max(img.width, img.height));
 		requestInfo.owners = myOwners;
-		std::tie(result, myImagesCube[int(cubeID)].view) = 
+		std::tie(result, imageCube.view) = 
 			theirImageAllocator.RequestImageCube(
 			allocSubID,
 			img.pixelData,
@@ -606,16 +610,17 @@ ImageHandler::LoadImageCube(
 	if (result)
 	{
 		LOG("failed loading image cube, error code :", result);
-		return CubeID(INVALID_ID);
+		return nullptr;
 	}
 
-	myImagesCube[uint32_t(cubeID)].dim = img.width;
+	imageCube.dim = img.width;
 
-	myImagesCube[uint32_t(cubeID)].info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	myImagesCube[uint32_t(cubeID)].info.imageView = myImagesCube[int(cubeID)].view;
+	imageCube.info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageCube.info.imageView = imageCube.view;
 
 	auto& allocSub = theirImageAllocator.GetAllocationSubmission(allocSubID);
 	auto executedEvent = allocSub.GetExecutedEvent();
+	auto doneSignal = std::make_shared<shared_semaphore<NumSwapchainImages>::element_type>(0);
 	for (int swapchainIndex = 0; swapchainIndex < NumSwapchainImages; ++swapchainIndex)
 	{
 		VkWriteDescriptorSet write{};
@@ -624,17 +629,17 @@ ImageHandler::LoadImageCube(
 		write.dstArrayElement = uint32_t(cubeID);
 		write.descriptorCount = 1;
 		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-		write.pImageInfo = &myImagesCube[uint32_t(cubeID)].info;
+		write.pImageInfo = &imageCube.info;
 		write.dstSet = myImageSets[swapchainIndex];
 		QueueDescriptorUpdate(
 			swapchainIndex, 
 			executedEvent,
-			nullptr,
+			doneSignal,
 			write);
 		//myQueuedDescriptorWrites[swapchainIndex].push({executedEvent, write});
 	}
 
-	return cubeID;
+	return doneSignal;
 }
 
 VkResult

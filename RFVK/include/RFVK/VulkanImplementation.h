@@ -11,6 +11,8 @@ namespace rflx
 	class Reflex;
 }
 
+
+
 class VulkanImplementation
 {
 	friend class rflx::Reflex;
@@ -28,10 +30,7 @@ public:
 	void										Submit();
 	void										EndFrame();
 
-	void										RegisterWorkerSystem(
-													std::shared_ptr<WorkerSystem>	system,
-													VkPipelineStageFlags			waitStage,
-													VkQueueFlagBits					subQueueType);
+	void										RegisterWorkerSystem(std::shared_ptr<WorkerSystem> system);
 	void										LockWorkerSystems();
 	void										RegisterThread(neat::ThreadID threadID);
 	bool										CheckFeature(rflx::Features feature);
@@ -44,13 +43,13 @@ private:
 	void										SubmitWorkerCmds();
 
 	VulkanFramework								myVulkanFramework;
-	VkQueue										myPresentationQueue = nullptr;
+	VkQueue										myGraphicsQueue = nullptr;
 	VkQueue										myTransferQueue = nullptr;
 	VkQueue										myComputeQueue = nullptr;
-	std::array<QueueFamilyIndex, 3>				myQueueFamilyIndices = {};
-	QueueFamilyIndex							myPresQueueIndex = 0;
-	QueueFamilyIndex							myTransQueueIndex = 0;
-	QueueFamilyIndex							myCompQueueIndex = 0;
+	QueueFamilyIndices							myQueueFamilyIndices = {};
+	//QueueFamilyIndex							myPresQueueIndex = 0;
+	//QueueFamilyIndex							myTransQueueIndex = 0;
+	//QueueFamilyIndex							myCompQueueIndex = 0;
 	
 	std::array<VkCommandBuffer, NumSwapchainImages>
 												myTransferCmdBuffer = {};

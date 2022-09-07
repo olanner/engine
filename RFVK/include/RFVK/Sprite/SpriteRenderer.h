@@ -38,25 +38,24 @@ class SpriteRenderer : public WorkerSystem
 {
 public:
 															SpriteRenderer(
-																class VulkanFramework&	vulkanFramework,
-																class SceneGlobals&		sceneGlobals,
-																class ImageHandler&		imageHandler,
+																class VulkanFramework&		vulkanFramework,
+																class SceneGlobals&			sceneGlobals,
+																class ImageHandler&			imageHandler,
 																class RenderPassFactory&	renderPassFactory,
 																class UniformHandler&		uniformHandler,
-																QueueFamilyIndex* 			firstOwner, 
-																uint32_t					numOwners,
-																uint32_t					cmdBufferFamily);
+																QueueFamilyIndices			familyIndices);
 
-	std::tuple<VkSubmitInfo, VkFence>						RecordSubmit(
-																uint32_t					swapchainImageIndex,
-																VkSemaphore*				waitSemaphores,
-																uint32_t					numWaitSemaphores,
-																VkPipelineStageFlags*		waitPipelineStages,
-																uint32_t					numWaitStages,
-																VkSemaphore*				signalSemaphore) override;
+	neat::static_vector<WorkerSubmission, MaxWorkerSubmissions>
+															RecordSubmit(
+																uint32_t	swapchainImageIndex, 
+																const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& 
+																			waitSemaphores, 
+																const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& 
+																			signalSemaphores) override;
 	void													AddSchedule(neat::ThreadID threadID) override { myWorkScheduler.AddSchedule(threadID); }
 	std::array<VkFence, NumSwapchainImages>					GetFences() override;
 	std::vector<rflx::Features>								GetImplementedFeatures() const override;
+	int														GetSubmissionCount() override { return 1; }
 	
 	WorkScheduler<SpriteRenderCommand, 1024, 1024>			myWorkScheduler;
 
@@ -68,8 +67,9 @@ private:
 
 	neat::static_vector<QueueFamilyIndex, 8>				myOwners;
 
+	std::array<VkPipelineStageFlags, MaxWorkerSubmissions>
+															myWaitStages;
 	RenderPass												myRenderPass;
-
 	class Shader*											mySpriteShader;
 	Pipeline												mySpritePipeline;
 

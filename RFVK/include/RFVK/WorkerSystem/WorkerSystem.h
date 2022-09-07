@@ -9,31 +9,34 @@ struct WaitSemaphores
 	std::array<VkPipelineStageFlags, 16>	stages;
 };
 
+constexpr int MaxWorkerSubmissions = 8;
 struct SlottedWorkerSystem
 {
-	VkQueue subQueue;
-	VkPipelineStageFlags							waitStage;
-	std::array<VkSemaphore, NumSwapchainImages>		signalSemaphores;
+	std::array<neat::static_vector<VkSemaphore, MaxWorkerSubmissions>, NumSwapchainImages>
+													signalSemaphores;
 	std::shared_ptr<class WorkerSystem>				system;
 };
 
-void SubmitWorkerSystemCmds(
-		SlottedWorkerSystem&	workerSystem, 
-		VkDevice				device, 
-		uint32_t				swapchainIndex);
+struct WorkerSubmission
+{
+	VkFence			fence;
+	VkSubmitInfo	submitInfo;
+	VkQueueFlagBits desiredQueue;
+};
 class WorkerSystem
 {
 public:
-	[[nodiscard]] virtual std::tuple<VkSubmitInfo, VkFence> RecordSubmit(
+	[[nodiscard]] virtual neat::static_vector<WorkerSubmission, MaxWorkerSubmissions>
+															RecordSubmit(
 																uint32_t				swapchainImageIndex,
-																VkSemaphore*			waitSemaphores,
-																uint32_t				numWaitSemaphores,
-																VkPipelineStageFlags*	waitPipelineStages,
-																uint32_t				numWaitStages,
-																VkSemaphore*			signalSemaphore) = 0;
+																const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>&
+																						waitSemaphores,
+																const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>&
+																						signalSemaphores) = 0;
 	virtual void											AddSchedule(neat::ThreadID threadID) {}
 	virtual std::array<VkFence, NumSwapchainImages>			GetFences() = 0;
-	virtual std::vector<rflx::Features> GetImplementedFeatures() const = 0;
+	virtual int												GetSubmissionCount() = 0;
+	virtual std::vector<rflx::Features>						GetImplementedFeatures() const = 0;
 private:
 	
 	

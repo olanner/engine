@@ -1,47 +1,45 @@
 #include "pch.h"
-#include "RTMeshRenderer.h"
+#include "RayTracer.h"
 
-#include "AccelerationStructureHandler.h"
-#include "NVRayTracing.h"
 #include "RFVK/Image/ImageHandler.h"
 #include "RFVK/Memory/BufferAllocator.h"
 #include "RFVK/Mesh/MeshHandler.h"
 #include "RFVK/Scene/SceneGlobals.h"
 #include "RFVK/Shader/Shader.h"
 #include "RFVK/VulkanFramework.h"
-#include "RTPipelineBuilder.h"
+#include "RFVK/Ray Tracing/AccelerationStructureHandler.h"
+#include "RFVK/Ray Tracing/RTPipelineBuilder.h"
 
-RTMeshRenderer::RTMeshRenderer(
+RayTracer::RayTracer(
 	VulkanFramework&				vulkanFramework,
-	UniformHandler&					uniformHandler,
 	MeshHandler&					meshHandler,
 	ImageHandler&					imageHandler,
 	SceneGlobals&					sceneGlobals,
 	BufferAllocator&				bufferAllocator,
 	AccelerationStructureHandler&	accStructHandler,
+	const GBuffer&					gBuffer,
 	QueueFamilyIndices				familyIndices)
-	: MeshRendererBase(vulkanFramework,
-					  uniformHandler,
-					  meshHandler,
-					  imageHandler,
-					  sceneGlobals,
-						familyIndices[QUEUE_FAMILY_COMPUTE])
+	: theirVulkanFramework(vulkanFramework)
+	, theirMeshHandler(meshHandler)
+	, theirImageHandler(imageHandler)
+	, theirSceneGlobals(sceneGlobals)
 	, theirBufferAllocator(bufferAllocator)
 	, theirAccStructHandler(accStructHandler)
+	, myGBuffer(gBuffer)
 {
-	myWaitStages.fill(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+	
 	// SHADERS
 	char shaderPaths[][128]
 	{
-		"Shaders/ray_rgen.rgen",
+		"Shaders/drt_rgen.rgen",
 		"Shaders/ray_rmiss.rmiss",
 		"Shaders/shadow_rmiss.rmiss",
-		"Shaders/ray_rchit.rchit"
+		"Shaders/drt_rchit.rchit"
 	};
 	myOpaqueShader = std::make_shared<Shader>(shaderPaths,
-								 _ARRAYSIZE(shaderPaths),
-								 theirVulkanFramework
-	);
+		_ARRAYSIZE(shaderPaths),
+		theirVulkanFramework
+		);
 
 	// PIPELINE
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProps = {};
@@ -57,6 +55,8 @@ RTMeshRenderer::RTMeshRenderer(
 	builder.AddDescriptorSet(theirImageHandler.GetImageSetLayout());
 	builder.AddDescriptorSet(theirAccStructHandler.GetInstanceStructuresLayout());
 	builder.AddDescriptorSet(theirMeshHandler.GetMeshDataLayout());
+	builder.AddDescriptorSet(myGBuffer.layout);
+	
 	builder.AddShaderGroup(0, ShaderGroupType::RayGen);
 	builder.AddShaderGroup(1, ShaderGroupType::Miss);
 	builder.AddShaderGroup(2, ShaderGroupType::Miss);
@@ -65,10 +65,10 @@ RTMeshRenderer::RTMeshRenderer(
 	VkResult result;
 	std::tie(result, myPipeline) = builder.Construct(theirVulkanFramework.GetDevice(), rtProps);
 	assert(!result && "failed creating ray tracing pipeline");
-	
-	size_t shaderProgramSize = rtProps.shaderGroupBaseAlignment;
-	size_t shaderHandleAlignment = rtProps.shaderGroupHandleAlignment;
-	size_t shaderHandleSize = rtProps.shaderGroupHandleSize;
+
+	uint32_t shaderProgramSize = rtProps.shaderGroupBaseAlignment;
+	uint32_t shaderHandleAlignment = rtProps.shaderGroupHandleAlignment;
+	uint32_t shaderHandleSize = rtProps.shaderGroupHandleSize;
 	uint32_t alignedSize = AlignedSize(shaderHandleSize, shaderHandleAlignment);
 	auto allocSub = theirBufferAllocator.Start();
 
@@ -94,7 +94,7 @@ RTMeshRenderer::RTMeshRenderer(
 			3,
 			1,
 			myPipeline.pipeline);
-	
+
 	// STORE IMAGE
 	auto [w, h] = theirVulkanFramework.GetTargetResolution();
 	theirImageHandler.LoadStorageImage(0, VK_FORMAT_R32G32B32A32_SFLOAT, w, h);
@@ -108,15 +108,15 @@ RTMeshRenderer::RTMeshRenderer(
 	auto transform = glm::identity<Mat4rt>();
 	instance.transform = *(VkTransformMatrixKHR*)&transform;
 	instance.accelerationStructureReference = theirAccStructHandler[GeoStructID(0)].address;
-	
+
 	//RTInstances instances;
 	myInstances.resize(MaxNumInstances, {instance});
-	//myInstancesID = theirAccStructHandler.AddInstanceStructure(allocSub, myInstances);
+	myInstancesID = theirAccStructHandler.AddInstanceStructure(allocSub, myInstances);
 
 	theirBufferAllocator.Queue(std::move(allocSub));
 }
 
-RTMeshRenderer::~RTMeshRenderer()
+RayTracer::~RayTracer()
 {
 	vkDestroyPipeline(theirVulkanFramework.GetDevice(), myPipeline.pipeline, nullptr);
 	vkDestroyPipelineLayout(theirVulkanFramework.GetDevice(), myPipeline.layout, nullptr);
@@ -124,16 +124,13 @@ RTMeshRenderer::~RTMeshRenderer()
 	//vkFreeMemory(theirVulkanFramework.GetDevice(), mySBTMemory, nullptr);
 }
 
-neat::static_vector<WorkerSubmission, MaxWorkerSubmissions>
-RTMeshRenderer::RecordSubmit(
-	uint32_t	swapchainImageIndex,
-	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>&
-				waitSemaphores,
-	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>&
-				signalSemaphores)
+void
+RayTracer::Record(
+	int				swapchainIndex,
+	VkCommandBuffer	cmdBuffer,
+	const MeshRenderSchedule::AssembledWorkType&
+					assembledWork)
 {
-	// ACQUIRE RENDER COMMAND BUFFER
-	const auto& assembledWork = myWorkScheduler.AssembleScheduledWork();
 	// UPDATE INSTANCE STRUCTURE
 	myInstances.clear();
 	for (auto& cmd : assembledWork)
@@ -150,29 +147,26 @@ RTMeshRenderer::RecordSubmit(
 	}
 
 	// RECORD
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.pNext = nullptr;
-	beginInfo.flags = NULL;
 
-	beginInfo.pInheritanceInfo = nullptr;
-
-	while (vkGetFenceStatus(theirVulkanFramework.GetDevice(), myCmdBufferFences[swapchainImageIndex]))
-	{
-	}
-
-	theirAccStructHandler.UpdateInstanceStructure(swapchainImageIndex, myInstancesID, myInstances);
-	auto cmdBuffer = myCmdBuffers[swapchainImageIndex];
-	auto resultBegin = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+	theirAccStructHandler.UpdateInstanceStructure(swapchainIndex, myInstancesID, myInstances);
 
 	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, myPipeline.pipeline);
 
 	// DESCRIPTORS
 	theirSceneGlobals.BindGlobals(cmdBuffer, myPipeline.layout, 0, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 	theirImageHandler.BindSamplers(cmdBuffer, myPipeline.layout, 1, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
-	theirImageHandler.BindImages(swapchainImageIndex, cmdBuffer, myPipeline.layout, 2, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
-	theirAccStructHandler.BindInstanceStructures(swapchainImageIndex, cmdBuffer, myPipeline.layout, 3);
-	theirMeshHandler.BindMeshData(swapchainImageIndex, cmdBuffer, myPipeline.layout, 4, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+	theirImageHandler.BindImages(swapchainIndex, cmdBuffer, myPipeline.layout, 2, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+	theirAccStructHandler.BindInstanceStructures(swapchainIndex, cmdBuffer, myPipeline.layout, 3);
+	theirMeshHandler.BindMeshData(swapchainIndex, cmdBuffer, myPipeline.layout, 4, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+	vkCmdBindDescriptorSets(
+		cmdBuffer,
+		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+		myPipeline.layout,
+		5,
+		1,
+		&myGBuffer.set,
+		0,
+		nullptr);
 
 	auto [w, h] = theirVulkanFramework.GetTargetResolution();
 	VkStridedDeviceAddressRegionKHR callableStride = {};
@@ -183,39 +177,10 @@ RTMeshRenderer::RecordSubmit(
 		&myShaderBindingTables[2].stride,
 		&callableStride,
 		uint32_t(w), uint32_t(h), 1);
-
-	auto resultEnd = vkEndCommandBuffer(myCmdBuffers[swapchainImageIndex]);
-
-	if (resultBegin || resultEnd)
-	{
-		LOG("mesh renderer failed recording");
-		return {};
-	}
-
-	// FILL IN SUBMISSION
-	VkSubmitInfo submitInfo;
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pNext = nullptr;
-
-	submitInfo.pWaitDstStageMask = myWaitStages.data();
-
-	submitInfo.pWaitSemaphores = waitSemaphores.data();
-	submitInfo.waitSemaphoreCount = waitSemaphores.size();
-	submitInfo.pCommandBuffers = &myCmdBuffers[swapchainImageIndex];
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pSignalSemaphores = signalSemaphores.data();
-	submitInfo.signalSemaphoreCount = signalSemaphores.size();
-
-	return {{myCmdBufferFences[swapchainImageIndex], submitInfo, VK_QUEUE_COMPUTE_BIT}};
-}
-
-std::vector<rflx::Features> RTMeshRenderer::GetImplementedFeatures() const
-{
-    return {rflx::Features::FEATURE_RAY_TRACING};
 }
 
 ShaderBindingTable
-RTMeshRenderer::CreateShaderBindingTable(
+RayTracer::CreateShaderBindingTable(
 	AllocationSubmissionID	allocSubID,
 	size_t					handleSize,
 	uint32_t				firstGroup,
@@ -242,7 +207,7 @@ RTMeshRenderer::CreateShaderBindingTable(
 			handleData.size(),
 			{QUEUE_FAMILY_COMPUTE, QUEUE_FAMILY_TRANSFER},
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	
+
 	VkBufferDeviceAddressInfo addressInfo = {};
 	addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 	addressInfo.buffer = buffer;
@@ -254,7 +219,7 @@ RTMeshRenderer::CreateShaderBindingTable(
 	return {buffer, memory, stride};
 }
 
-uint32_t RTMeshRenderer::AlignedSize(uint32_t a, uint32_t b)
+uint32_t RayTracer::AlignedSize(uint32_t a, uint32_t b)
 {
 	return (a + b - 1) & ~(b - 1);
 }

@@ -7,6 +7,8 @@ template<typename WorkType, int WorkPerSchedule, int WorkMax>
 class WorkScheduler
 {
 public:
+	typedef neat::static_vector<WorkType, WorkMax> AssembledWorkType;
+	
 	void BeginPush(neat::ThreadID threadID)
 	{
 		std::scoped_lock lock(mySwapMutex);
@@ -17,7 +19,7 @@ public:
 		mySchedules[int(threadID)].Push(cmd);
 	}
 	void EndPush(neat::ThreadID threadID) {}
-	[[nodiscard]] neat::static_vector<WorkType, WorkMax>& AssembleScheduledWork()
+	[[nodiscard]] AssembledWorkType& AssembleScheduledWork()
 	{
 		std::scoped_lock lock(mySwapMutex);
 			
@@ -42,7 +44,7 @@ private:
 	std::mutex mySwapMutex;
 	std::vector<neat::ThreadID> myRegisteredSchedules;
 	std::array<neat::TripleBuffer<WorkType, WorkPerSchedule>, 8> mySchedules;
-	neat::static_vector<WorkType, WorkMax> myAssembledWork;
+	AssembledWorkType myAssembledWork;
 	
 };
 

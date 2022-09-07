@@ -18,8 +18,7 @@ public:
 													class VulkanFramework&	vulkanFramework,
 													class BufferAllocator&	bufferAllocator,
 													class ImageHandler&		textureSetHandler,
-													const QueueFamilyIndex* firstOwner,
-													uint32_t				numOwners);
+													QueueFamilyIndices		familyIndices);
 												~MeshHandler();
 
 	VkDescriptorSetLayout						GetImageArraySetLayout() const;

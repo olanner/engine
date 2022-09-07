@@ -25,8 +25,7 @@ public:
 													ImageHandler(
 														class VulkanFramework&	vulkanFramework,
 														class ImageAllocator&	imageAllocator,
-														QueueFamilyIndex*		firstOwner,
-														uint32_t				numOwners);
+														QueueFamilyIndices		familyIndices);
 													~ImageHandler();
 
 	ImageID											AddImage2D();
@@ -49,7 +48,9 @@ public:
 														const std::string&			path,
 														uint32_t					rows,
 														uint32_t					cols);
-	CubeID											LoadImageCube(
+	CubeID											AddImageCube();
+	shared_semaphore<NumSwapchainImages>			LoadImageCube(
+														CubeID						cubeID,
 														AllocationSubmissionID		allocSubID,
 														const std::string&			path);
 	VkResult										LoadStorageImage(

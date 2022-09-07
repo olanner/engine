@@ -15,19 +15,20 @@
 #include "RFVK/Scene/SceneGlobals.h"
 
 MeshRenderer::MeshRenderer(
-	VulkanFramework& vulkanFramework,
-	UniformHandler& uniformHandler,
-	MeshHandler& meshHandler,
-	ImageHandler& imageHandler,
-	SceneGlobals& sceneGlobals,
-	RenderPassFactory& renderPassFactory,
-	QueueFamilyIndex cmdBufferFamily)
-	: MeshRendererBase(vulkanFramework,
-					  uniformHandler,
-					  meshHandler,
-					  imageHandler,
-					  sceneGlobals,
-					  cmdBufferFamily)
+	VulkanFramework&	vulkanFramework,
+	UniformHandler&		uniformHandler,
+	MeshHandler&		meshHandler,
+	ImageHandler&		imageHandler,
+	SceneGlobals&		sceneGlobals,
+	RenderPassFactory&	renderPassFactory,
+	QueueFamilyIndices	familyIndices)
+	: MeshRendererBase(
+		vulkanFramework,
+		uniformHandler,
+		meshHandler,
+		imageHandler,
+		sceneGlobals,
+		familyIndices[QUEUE_FAMILY_GRAPHICS])
 	, theirRenderPassFactory(renderPassFactory)
 	, myInstanceData(new UniformInstances{})
 	, myDeferredRenderPass{}
@@ -154,15 +155,11 @@ MeshRenderer::~MeshRenderer()
 	SAFE_DELETE(myDeferredGeoShader);
 }
 
-std::tuple<VkSubmitInfo, VkFence>
+neat::static_vector<WorkerSubmission, MaxWorkerSubmissions>
 MeshRenderer::RecordSubmit(
-	uint32_t				swapchainImageIndex,
-	VkSemaphore*			waitSemaphores,
-	uint32_t				numWaitSemaphores,
-	VkPipelineStageFlags*	waitPipelineStages,
-	uint32_t				numWaitStages,
-	VkSemaphore*			signalSemaphore
-)
+	uint32_t														swapchainImageIndex,
+	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& waitSemaphores,
+	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& signalSemaphores)
 {
 	// ACQUIRE RENDER COMMAND BUFFER
 	auto& assembledWork = myWorkScheduler.AssembleScheduledWork();
@@ -210,9 +207,9 @@ MeshRenderer::RecordSubmit(
 	auto resultBegin = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
 	auto [w, h] = theirVulkanFramework.GetTargetResolution();
 	BeginRenderPass(cmdBuffer,
-					 myDeferredRenderPass,
-					 swapchainImageIndex,
-					 {0,0,w,h});
+		myDeferredRenderPass,
+		swapchainImageIndex,
+		{0,0,w,h});
 
 	vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, myDeferredGeoPipeline.pipeline);
 
@@ -221,16 +218,16 @@ MeshRenderer::RecordSubmit(
 	theirImageHandler.BindSamplers(cmdBuffer, myDeferredGeoPipeline.layout, 1);
 	theirImageHandler.BindImages(swapchainImageIndex, cmdBuffer, myDeferredGeoPipeline.layout, 2);
 	theirUniformHandler.BindUniform(myInstanceUniformID, cmdBuffer, myDeferredGeoPipeline.layout, 3);
-	
+
 	// MESHES
 	for (uint32_t i = 0; i < assembledWork.size();)
 	{
 		auto& cmd = assembledWork[i];
 		auto [first, num] = instanceControl[int(cmd.id)];
 		RecordMesh(cmdBuffer,
-					theirMeshHandler[cmd.id].geo,
-					first,
-					num
+			theirMeshHandler[cmd.id].geo,
+			first,
+			num
 		);
 		i += num;
 	}
@@ -261,16 +258,18 @@ MeshRenderer::RecordSubmit(
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.pNext = nullptr;
 
-	submitInfo.pWaitDstStageMask = waitPipelineStages;
+	std::array<VkPipelineStageFlags, MaxWorkerSubmissions> waitStages = {};
+	waitStages.fill(myWaitStage);
+	submitInfo.pWaitDstStageMask = waitStages.data();
 
-	submitInfo.pWaitSemaphores = waitSemaphores;
-	submitInfo.waitSemaphoreCount = numWaitSemaphores;
+	submitInfo.pWaitSemaphores = waitSemaphores.data();
+	submitInfo.waitSemaphoreCount = waitSemaphores.size();
 	submitInfo.pCommandBuffers = &myCmdBuffers[swapchainImageIndex];
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pSignalSemaphores = signalSemaphore;
-	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = signalSemaphores.data();
+	submitInfo.signalSemaphoreCount = signalSemaphores.size();
 
-	return {submitInfo, myCmdBufferFences[swapchainImageIndex]};
+	return {{myCmdBufferFences[swapchainImageIndex], submitInfo, VK_QUEUE_GRAPHICS_BIT}};
 }
 
 std::vector<rflx::Features> MeshRenderer::GetImplementedFeatures() const

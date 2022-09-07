@@ -27,3 +27,10 @@ inline std::function<decltype(vkCmdTraceRaysKHR)>							vkCmdTraceRays;
 inline std::function<decltype(vkCreateRayTracingPipelinesKHR)>				vkCreateRayTracingPipelines;
 
 using RTInstances = neat::static_vector<VkAccelerationStructureInstanceKHR, MaxNumInstances>;
+
+struct ShaderBindingTable
+{
+	VkBuffer						buffer;
+	VkDeviceMemory					memory;
+	VkStridedDeviceAddressRegionKHR stride;
+};

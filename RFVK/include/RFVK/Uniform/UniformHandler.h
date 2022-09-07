@@ -5,10 +5,9 @@ class UniformHandler
 {
 public:
 												UniformHandler(
-													class VulkanFramework& vulkanFramework,
-													class BufferAllocator& bufferAllocator,
-													const QueueFamilyIndex* firstOwner,
-													uint32_t numOwners);
+													class VulkanFramework&	vulkanFramework,
+													class BufferAllocator&	bufferAllocator,
+													QueueFamilyIndices		familyIndices);
 												~UniformHandler();
 
 	VkResult									Init();
