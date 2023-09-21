@@ -6,14 +6,11 @@ struct BufferXMemory
 	VkDeviceMemory	memory;
 };
 
-constexpr int MaxNumAllocationSubmissions = 128;
+constexpr int MaxNumAllocationSubmissions = 1024;
 class AllocationSubmission
 {
 	friend class AllocationSubmitter;
 	friend class ::concurrency::concurrent_queue<AllocationSubmission>;
-	
-	//AllocationSubmission(const AllocationSubmission& copyFrom) = default;
-	//AllocationSubmission& operator=(const AllocationSubmission & copyFrom) = default;
 	
 	enum class Status
 	{
@@ -27,9 +24,6 @@ class AllocationSubmission
 	
 											AllocationSubmission() = default;
 public:
-	//										AllocationSubmission(AllocationSubmission&& moveFrom) noexcept;
-	//AllocationSubmission&					operator=(AllocationSubmission&& moveFrom) noexcept;
-	
 	void									AddResourceBuffer(
 												VkBuffer buffer,
 												VkDeviceMemory memory);

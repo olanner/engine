@@ -1,54 +1,42 @@
 #include "pch.h"
 #include "InputHandler.h"
+#include <Windowsx.h>
 
-float InputHandler::ourWheelDelta = 0;
-
-std::array<bool, 256> InputHandler::ourKeyStates{};
-std::array<bool, 256> InputHandler::ourLastKeyStates{};
-
-float InputHandler::ourMPosX = 0;
-float InputHandler::ourMPosY = 0;
-float InputHandler::ourLastMPosX = 0;
-float InputHandler::ourLastMPosY = 0;
-
-float InputHandler::ourWindowX = 0;
-float InputHandler::ourWindowY = 0;
-
-bool InputHandler::TakeMessages( UINT msg, WPARAM wParam, LPARAM lParam )
+bool neat::InputHandler::TakeMessages( UINT msg, WPARAM wParam, LPARAM lParam )
 {
 	switch ( msg )
 	{
 		case WM_KEYDOWN:
-			ourKeyStates[wParam] = true;
+			myKeyStates[wParam] = true;
 			return true;
 		case WM_KEYUP:
-			ourKeyStates[wParam] = false;
+			myKeyStates[wParam] = false;
 			return true;
 		case WM_MOUSEMOVE:
-			ourMPosX = GET_X_LPARAM( lParam );
-			ourMPosY = GET_Y_LPARAM( lParam );
+			myMPosX = GET_X_LPARAM( lParam );
+			myMPosY = GET_Y_LPARAM( lParam );
 			return true;
 		case WM_LBUTTONDOWN:
-			ourKeyStates[VK_LBUTTON] = true;
+			myKeyStates[VK_LBUTTON] = true;
 			return true;
 		case WM_LBUTTONUP:
-			ourKeyStates[VK_LBUTTON] = false;
+			myKeyStates[VK_LBUTTON] = false;
 			return true;
 		case WM_MBUTTONDOWN:
-			ourKeyStates[VK_MBUTTON] = true;
+			myKeyStates[VK_MBUTTON] = true;
 			return true;
 		case WM_MBUTTONUP:
-			ourKeyStates[VK_MBUTTON] = false;
+			myKeyStates[VK_MBUTTON] = false;
 			return true;
 		case WM_RBUTTONDOWN:
-			ourKeyStates[VK_RBUTTON] = true;
+			myKeyStates[VK_RBUTTON] = true;
 			return true;
 		case WM_RBUTTONUP:
-			ourKeyStates[VK_RBUTTON] = false;
+			myKeyStates[VK_RBUTTON] = false;
 			return true;
 		case WM_MOUSEWHEEL:
-			ourWheelDelta = GET_WHEEL_DELTA_WPARAM( wParam ) ;
-			ourWheelDelta = 2 * ( ( ourWheelDelta - -120 ) / (120 - -120) ) - 1;
+			myWheelDelta = GET_WHEEL_DELTA_WPARAM( wParam ) ;
+			myWheelDelta = 2 * ( ( myWheelDelta - -120 ) / (120 - -120) ) - 1;
 			return true;
 
 		default: 
@@ -58,69 +46,69 @@ bool InputHandler::TakeMessages( UINT msg, WPARAM wParam, LPARAM lParam )
 	return true;
 }
 
-void InputHandler::BeginFrame()
+void neat::InputHandler::BeginFrame()
 {
 
 }
 
-void InputHandler::EndFrame()
+void neat::InputHandler::EndFrame()
 {
-	ourWheelDelta = 0.f;
-	ourLastKeyStates = ourKeyStates;
-	ourLastMPosX = ourMPosX;
-	ourLastMPosY = ourMPosY;
+	myWheelDelta = 0.f;
+	myLastKeyStates = myKeyStates;
+	myLastMPosX = myMPosX;
+	myLastMPosY = myMPosY;
 }
 
-void InputHandler::SetWindowSize( float x, float y )
+void neat::InputHandler::SetWindowSize( float x, float y )
 {
-	ourWindowX = x;
-	ourWindowY = y;
+	myWindowX = x;
+	myWindowY = y;
 }
 
-bool InputHandler::IsHeld( int key )
+bool neat::InputHandler::IsHeld( int key )
 {
-	return ourKeyStates[key];
+	return myKeyStates[key];
 }
 
-bool InputHandler::IsPressed( int key )
+bool neat::InputHandler::IsPressed( int key )
 {
-	return !ourLastKeyStates[key] && ourKeyStates[key];
+	return !myLastKeyStates[key] && myKeyStates[key];
 }
 
-bool InputHandler::IsReleased( int key )
+bool neat::InputHandler::IsReleased( int key )
 {
-	return ourLastKeyStates[key] && !ourKeyStates[key];
+	return myLastKeyStates[key] && !myKeyStates[key];
 }
 
-float InputHandler::GetWheelDelta()
+float neat::InputHandler::GetWheelDelta()
 {
-	return ourWheelDelta;
+	return myWheelDelta;
 }
 
-std::tuple<float, float> InputHandler::GetMousePos()
+std::tuple<float, float> neat::InputHandler::GetMousePos()
 {
-	return { ourMPosX, ourMPosY };
+	return { myMPosX, myMPosY };
 }
 
-std::tuple<float, float> InputHandler::GetMousePosDelta()
+std::tuple<float, float> neat::InputHandler::GetMousePosDelta()
 {
-	float dx = ourLastMPosX - ourMPosX;
-	float dy = ourLastMPosY - ourMPosY;
+	float dx = myLastMPosX - myMPosX;
+	float dy = myLastMPosY - myMPosY;
 	return { dx,dy };
 }
 
-std::tuple<float, float> InputHandler::GetScreenMousePos()
+std::tuple<float, float> neat::InputHandler::GetScreenMousePos()
 {
 	POINT p;
 	GetCursorPos( &p );
 	return { float( p.x ), float( p.y ) };
 }
 
-std::tuple<float, float> InputHandler::GetNormalMousePos()
+std::tuple<float, float> neat::InputHandler::GetNormalMousePos()
 {
-	if ( ourWindowX == 0 )
+	if ( myWindowX == 0 )
 	{
 		return { 0,0 };
 	}
-	return { ourMPosX / ourWindowX, ourMPosY / ourWindowY };
+	return { myMPosX / myWindowX, myMPosY / myWindowY };
 }

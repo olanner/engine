@@ -3,24 +3,21 @@
 
 namespace glui
 {
+	class GlueImplementation;
 	class Glue
 	{
+		static	uint32_t	ourUses;
+		static	GlueImplementation*
+							ourGlueImplementation;
 	public:
-				Glue();
-				~Glue();
+							Glue(neat::ThreadID threadID);
+							~Glue();
 
-		void	Tick(
-					float dt, 
-					float tt, 
-					int fnr);
-
-		void	Box(
-					const char* path,
-					uint32_t width,
-					uint32_t height);
+		void				Start();
+		void				Tick();
 
 	private:
-		
+		neat::ThreadID		myThreadID;
 		
 	};
 }

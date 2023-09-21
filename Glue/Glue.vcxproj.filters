@@ -2,14 +2,17 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClInclude Include="pch.h" />
-    <ClInclude Include="internal\Elements\Box.h" />
-    <ClInclude Include="internal\Grid.h" />
     <ClInclude Include="include\Glue\Glue.h" />
     <ClInclude Include="internal\GlueImplementation.h" />
+    <ClInclude Include="internal\Components\SlicedSpriteComponent.h" />
+    <ClInclude Include="internal\Entity.h" />
+    <ClInclude Include="internal\Systems\SlicedSpriteSystem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="include\Glue\Glue.cpp" />
-    <ClCompile Include="internal\Elements\Box.cpp" />
+    <ClCompile Include="internal\Components\SlicedSpriteComponent.cpp" />
+    <ClCompile Include="internal\Systems\SlicedSpriteSystem.cpp" />
+    <ClCompile Include="internal\GlueImplementation.cpp" />
   </ItemGroup>
 </Project>

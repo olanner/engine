@@ -158,8 +158,8 @@ MeshRenderer::~MeshRenderer()
 neat::static_vector<WorkerSubmission, MaxWorkerSubmissions>
 MeshRenderer::RecordSubmit(
 	uint32_t														swapchainImageIndex,
-	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& waitSemaphores,
-	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>& signalSemaphores)
+	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>&	waitSemaphores,
+	const neat::static_vector<VkSemaphore, MaxWorkerSubmissions>&	signalSemaphores)
 {
 	// ACQUIRE RENDER COMMAND BUFFER
 	auto& assembledWork = myWorkScheduler.AssembleScheduledWork();

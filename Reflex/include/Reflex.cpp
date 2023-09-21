@@ -213,7 +213,7 @@ rflx::Reflex::CreateImage(
 	Vec2f				tiling)
 {
 	const ImageID id = gImageHandler->AddImage2D();
-	gImageHandler->LoadImage2DTiled(id, gAllocationSubmissionIDs[int(myThreadID)], path, tiling.y, tiling.x);
+	gImageHandler->LoadImage2DTiled(id, gAllocationSubmissionIDs[int(myThreadID)], path, uint32_t(tiling.y), uint32_t(tiling.x));
 	return ImageHandle(*this, id, path);
 }
 
@@ -381,9 +381,11 @@ rflx::Reflex::SetScaleReference(
 	ImageHandle	handle,
 	Vec2f		coefficient)
 {
+	auto [w,h] = ourVKImplementation->myVulkanFramework.GetTargetResolution();
 	const Vec2f dim = handle.GetDimensions();
-	my2DScaleRef.x = 1.f / dim.x;
-	my2DScaleRef.y = 1.f / dim.y;
+	Vec2f pixelSize = {1.f / w, 1.f / h};
+	my2DScaleRef.x = dim.x * pixelSize.x;
+	my2DScaleRef.y = dim.y * pixelSize.y;
 
 	my2DScaleRef *= coefficient;
 }

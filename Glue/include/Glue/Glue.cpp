@@ -1,20 +1,39 @@
-// Glue.cpp : Defines the functions for the static library.
-//
-
 #include "pch.h"
 #include "Glue.h"
+#include "internal/GlueImplementation.h"
 
-// TODO: This is an example of a library function
+uint32_t	glui::Glue::ourUses = 0;
+glui::GlueImplementation*
+			glui::Glue::ourGlueImplementation = nullptr;
 
-glui::Glue::Glue()
+glui::Glue::Glue(
+	neat::ThreadID threadID)
+	: myThreadID(threadID)
 {
+	ourUses++;
 }
 
 glui::Glue::~Glue()
 {
+	ourUses--;
+	if (ourUses == 0)
+	{
+		delete ourGlueImplementation;
+		ourGlueImplementation = nullptr;
+	}
 }
 
-void glui::Glue::Tick(float dt, float tt, int fnr)
+void glui::Glue::Start()
 {
-	
+	if (ourGlueImplementation != nullptr)
+	{
+		return;
+	}
+	ourGlueImplementation = new GlueImplementation(myThreadID);
+}
+
+void
+glui::Glue::Tick()
+{
+	ourGlueImplementation->Tick();
 }

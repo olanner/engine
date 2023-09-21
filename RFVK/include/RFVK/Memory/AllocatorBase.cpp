@@ -205,7 +205,7 @@ void AllocationSubmitter::RegisterThread(neat::ThreadID threadID)
 	VkCommandPoolCreateInfo cmdPoolInfo{};
 	cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	cmdPoolInfo.queueFamilyIndex = myTransferFamily;
-	cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	//cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 
 	VkCommandPool pool;
 	auto result = vkCreateCommandPool(theirVulkanFramework.GetDevice(), &cmdPoolInfo, nullptr, &pool);
@@ -413,36 +413,6 @@ AllocationSubmission::End()
 	vkEndCommandBuffer(myCommandBuffer);
 	myStatus = Status::PendingSubmit;
 }
-
-//AllocationSubmission::AllocationSubmission(
-//	AllocationSubmission&& moveFrom) noexcept
-//	: myThreadID(std::exchange(moveFrom.myThreadID, neat::ThreadID(-1)))
-//	, myStatus(std::exchange(moveFrom.myStatus, Status::Fresh))
-//	, myDevice(std::exchange(moveFrom.myDevice, nullptr))
-//	, myCommandPool(std::exchange(moveFrom.myCommandPool, nullptr))
-//	, myCommandBuffer(std::exchange(moveFrom.myCommandBuffer, nullptr))
-//	, myExecutedFence(std::exchange(moveFrom.myExecutedFence, nullptr))
-//	, myExecutedEvent(std::move(moveFrom.myExecutedEvent))
-//	, myBufferXMemorys(std::move(moveFrom.myBufferXMemorys))
-//{
-//}
-//
-//AllocationSubmission& 
-//AllocationSubmission::operator=(
-//	AllocationSubmission&& moveFrom) noexcept
-//{
-//	myThreadID = std::exchange(moveFrom.myThreadID, neat::ThreadID(-1));
-//	myStatus = std::exchange(moveFrom.myStatus, Status::Fresh);
-//	myDevice = std::exchange(moveFrom.myDevice, nullptr);
-//	myCommandPool = std::exchange(moveFrom.myCommandPool, nullptr);
-//	myCommandBuffer = std::exchange(moveFrom.myCommandBuffer, nullptr);
-//	myExecutedFence = std::exchange(moveFrom.myExecutedFence, nullptr);
-//	myExecutedEvent = std::move(moveFrom.myExecutedEvent);
-//	myBufferXMemorys = std::move(moveFrom.myBufferXMemorys);
-//
-//	return *this;
-//}
-
 void
 AllocationSubmission::AddResourceBuffer(
 	VkBuffer		buffer,
@@ -455,7 +425,7 @@ AllocationSubmission::AddResourceBuffer(
 VkCommandBuffer
 AllocationSubmission::Record() const
 {
-	assert(myStatus == Status::Recording);
+	assert(myStatus == Status::Recording && "allocation submission not in recording mode!");
 	//assert(myCommandBuffer != nullptr && myExecutedEvent != nullptr && "Start() not called on allocation submission");
 	return myCommandBuffer;
 }
@@ -486,7 +456,7 @@ AllocationSubmission::Release()
 	{
 	}
 
-	for (auto& stagingBuffer : myBufferXMemorys)
+	for (const auto& stagingBuffer : myBufferXMemorys)
 	{
 		vkDestroyBuffer(myDevice, stagingBuffer.buffer, nullptr);
 		vkFreeMemory(myDevice, stagingBuffer.memory, nullptr);

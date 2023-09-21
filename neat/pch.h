@@ -11,5 +11,6 @@
 // STL
 #include <functional>
 #include <cassert>
+#include <string>
 
 #include "neat/defines.h"

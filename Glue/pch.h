@@ -4,6 +4,7 @@
 // STD + WINAPI
 #include <mutex>
 #include <windowsx.h>
+#include <array>
 
 // GLM
 #include "glm/glm.hpp"
@@ -13,3 +14,4 @@
 
 // NEAT
 #include "neat/Containers/static_vector.h"
+#include "neat/General/Thread.h"

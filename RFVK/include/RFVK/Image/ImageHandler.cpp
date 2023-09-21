@@ -440,16 +440,7 @@ ImageHandler::LoadImage2D(
 	AllocationSubmissionID	allocSubID,
 	const std::string&		path)
 {
-		int x, y, channels;
-	auto img = stbi_load(path.c_str(), &x, &y, &channels, 4);
-	if (!img)
-	{
-		LOG("failed loading image, \"", path, "\"");
-		return;
-	}
-	std::vector<uint8_t> pixels;
-	pixels.insert(pixels.end(), img, img + x * y * 4);
-	stbi_image_free(img);
+	auto [pixels, x, y, channels] = ReadImage(path);
 	
 	return LoadImage2D(
 		imageID,
@@ -498,8 +489,8 @@ ImageHandler::LoadImage2D(
 
 	myImages2D[uint32_t(imageID)].dim = dimension;
 	auto [sw, sh] = theirVulkanFramework.GetTargetResolution();
-	float s = std::max(dimension.x, dimension.y) / (sw / 2.f);
-	myImages2D[uint32_t(imageID)].scale = {s, s};
+	myImages2D[uint32_t(imageID)].scale = {dimension.x / sw, dimension.y / sh};
+	myImages2D[uint32_t(imageID)].scale.x *= sw / sh;
 	myImages2D[uint32_t(imageID)].layers = layers;
 	
 	myImages2D[uint32_t(imageID)].info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -533,15 +524,21 @@ ImageHandler::LoadImage2DTiled(
 	uint32_t				rows,
 	uint32_t				cols)
 {
-	const auto img = neat::ReadImage(path.c_str());
+	auto [pixels, width, height, channels] = ReadImage(path);
+
+	if (pixels.empty())
+	{
+		LOG("image file,", path, "was empty");
+		return;
+	}
 	
 	std::vector<uint8_t> sortedData;
-	sortedData.reserve(img.pixelData.size());
+	sortedData.reserve(pixels.size());
 
 	const uint32_t numTiles = rows * cols;
-	const uint32_t tileWidth = img.width / cols;
-	const uint32_t tileHeight = img.height / rows;
-	const uint32_t bytesPerTile = img.pixelData.size() / numTiles;
+	const uint32_t tileWidth = width / cols;
+	const uint32_t tileHeight = height / rows;
+	const uint32_t bytesPerTile = pixels.size() / numTiles;
 
 	for (uint32_t tile = 0; tile < numTiles; ++tile)
 	{
@@ -551,14 +548,19 @@ ImageHandler::LoadImage2DTiled(
 		{
 			uint32_t ix = x + byte % (tileWidth * 4);
 			uint32_t iy = y + byte / (tileWidth * 4);
-			uint32_t index = iy * (img.width * 4) + ix;
+			uint32_t index = iy * (width * 4) + ix;
 
-			sortedData.emplace_back(img.pixelData[index]);
+			sortedData.emplace_back(pixels[index]);
 
 		}
 	}
 	
-	return LoadImage2D(imageID, allocSubID, std::move(sortedData), {tileWidth, tileHeight}, myImageSwizzleToFormat[img.swizzle]);
+	return LoadImage2D(
+		imageID, 
+		allocSubID, 
+		std::move(sortedData), 
+		{tileWidth, tileHeight}, 
+VK_FORMAT_R8G8B8A8_UNORM);
 }
 
 CubeID ImageHandler::AddImageCube()
@@ -752,6 +754,23 @@ ImageHandler::operator[](CubeID id)
 		return {};
 	}
 	return myImagesCube[uint32_t(id)];
+}
+
+std::tuple<std::vector<uint8_t>, int, int, int>
+ImageHandler::ReadImage(
+	const std::string& path)
+{
+	int x, y, channels;
+	auto img = stbi_load(path.c_str(), &x, &y, &channels, 4);
+	if (!img)
+	{
+		LOG("failed loading image, \"", path, "\"");
+		return {};
+	}
+	std::vector<uint8_t> pixels;
+	pixels.insert(pixels.end(), img, img + x * y * 4);
+	stbi_image_free(img);
+	return {pixels, x, y, channels};
 }
 
 ImageAllocator&

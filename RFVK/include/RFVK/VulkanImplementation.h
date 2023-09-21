@@ -63,26 +63,26 @@ private:
 	uint8_t										mySwapchainImageIndex = 0;
 
 	// CORE, MEMORY
-	std::unique_ptr<class ImmediateTransferrer> myImmediateTransferrer = nullptr;
+	std::unique_ptr<class ImmediateTransferrer> myImmediateTransferrer;
 
-	std::unique_ptr<class AllocationSubmitter>  myAllocationSubmitter = nullptr;
-	std::unique_ptr<class BufferAllocator>		myBufferAllocator = nullptr;
-	std::unique_ptr<class ImageAllocator>		myImageAllocator = nullptr;
+	std::unique_ptr<class AllocationSubmitter>  myAllocationSubmitter;
+	std::unique_ptr<class BufferAllocator>		myBufferAllocator;
+	std::unique_ptr<class ImageAllocator>		myImageAllocator;
 	std::unique_ptr<class AccelerationStructureAllocator>
-												myAccelerationStructureAllocator = nullptr;
+												myAccelerationStructureAllocator;
 
-	std::unique_ptr<class RenderPassFactory>	myRenderPassFactory = nullptr;
+	std::unique_ptr<class RenderPassFactory>	myRenderPassFactory;
 
 	// OBJECT HANDLERS
-	std::shared_ptr<class UniformHandler>		myUniformHandler = nullptr;
-	std::shared_ptr<class ImageHandler>			myImageHandler = nullptr;
-	std::shared_ptr<class FontHandler>			myFontHandler = nullptr;
-	std::shared_ptr<class MeshHandler>			myMeshHandler = nullptr;
+	std::shared_ptr<class UniformHandler>		myUniformHandler;
+	std::shared_ptr<class ImageHandler>			myImageHandler;
+	std::shared_ptr<class FontHandler>			myFontHandler;
+	std::shared_ptr<class MeshHandler>			myMeshHandler;
 	std::shared_ptr<class AccelerationStructureHandler>
-												myAccStructHandler = nullptr;
+												myAccStructHandler;
 
 	// ETC
-	std::shared_ptr<class SceneGlobals>			mySceneGlobals = nullptr;
+	std::shared_ptr<class SceneGlobals>			mySceneGlobals;
 
 	// WORKERS
 	std::vector<SlottedWorkerSystem>
@@ -90,8 +90,8 @@ private:
 	std::array<VkFence, NumSwapchainImages>		myWorkerSystemsFences = {};
 	std::vector<int>							myWorkersOrder;
 	
-	std::shared_ptr<class CubeFilterer>			myCubeFilterer = nullptr;
-	std::shared_ptr<class Presenter>			myPresenter = nullptr;
+	std::shared_ptr<class CubeFilterer>			myCubeFilterer;
+	std::shared_ptr<class Presenter>			myPresenter;
 	bool										myWorkerSystemsLocked = false;
 
 	conc_map<rflx::Features, bool>				myActiveFeatures;

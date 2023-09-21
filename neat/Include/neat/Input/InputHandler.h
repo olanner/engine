@@ -2,46 +2,43 @@
 #pragma once
 
 #include <Windows.h>
-#include <Windowsx.h>
-#include <map>
 #include <array>
 
-class InputHandler
+namespace neat
 {
-public:
-	static bool TakeMessages( UINT msg, WPARAM wParam, LPARAM lParam );
-	static void BeginFrame();
-	static void EndFrame();
+	class InputHandler
+	{
+	public:
+		bool						TakeMessages(UINT msg, WPARAM wParam, LPARAM lParam);
+		void						BeginFrame();
+		void						EndFrame();
 
-	static void SetWindowSize(float x, float y);
+		void						SetWindowSize(float x, float y);
 
-	static bool IsHeld(int key);
-	//static bool GetLastKeyState( int key );
-	static bool IsPressed( int key );
-	static bool IsReleased( int key );
-	
-	static float GetWheelDelta();
-	static std::tuple<float,float> GetMousePos();
-	static std::tuple<float,float> GetNormalMousePos(); 
-	static std::tuple<float,float> GetMousePosDelta(); 
-	static std::tuple<float,float> GetScreenMousePos();
+		bool						IsHeld(int key);
+		bool						IsPressed(int key);
+		bool						IsReleased(int key);
 
-private:
-	static float ourWheelDelta;
-	static std::array<bool, 256> ourKeyStates;
-	static std::array<bool, 256> ourLastKeyStates;
+		float						GetWheelDelta();
+		std::tuple<float, float>	GetMousePos();
+		std::tuple<float, float>	GetNormalMousePos();
+		std::tuple<float, float>	GetMousePosDelta();
+		std::tuple<float, float>	GetScreenMousePos();
 
-	//static std::map<int, bool> ourKeyStates;
-	//static std::map<int, bool> ourLastKeyStates;
+	private:
+		float					myWheelDelta = 0.f;
+		std::array<bool, 256>	myKeyStates = {};
+		std::array<bool, 256>	myLastKeyStates = {};
 
-	static float ourMPosX;
-	static float ourMPosY;
-	
-	static float ourLastMPosX;
-	static float ourLastMPosY;
+		float					myMPosX = 0;
+		float					myMPosY = 0;
 
-	static float ourWindowX;
-	static float ourWindowY;
+		float					myLastMPosX = 0;
+		float					myLastMPosY = 0;
+
+		float					myWindowX = 0;
+		float					myWindowY = 0;
 
 
-};
+	};
+}

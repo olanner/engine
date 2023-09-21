@@ -79,6 +79,8 @@ public:
 	ImageCube										operator[](CubeID id);
 
 private:
+	std::tuple<std::vector<uint8_t>, int, int, int>	ReadImage(const std::string& path);
+	
 	ImageAllocator&									theirImageAllocator;
 	std::vector<QueueFamilyIndex>					myOwners;
 	std::unordered_map<neat::ImageSwizzle, VkFormat>

@@ -33,7 +33,7 @@ public:
 														QueueFamilyIndex			transferFamilyIndex,
 														QueueFamilyIndex			presentationFamilyIndex);
 
-													~AccelerationStructureAllocator();
+													~AccelerationStructureAllocator() override;
 
 	std::tuple<VkResult, VkAccelerationStructureKHR> RequestGeometryStructure(
 														AllocationSubmissionID					allocSubID,

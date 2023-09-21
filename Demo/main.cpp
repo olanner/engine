@@ -11,15 +11,19 @@
 #include "neat/General/Timer.h"
 
 #include "Reflex.h"
+#include "Glue/Glue.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "neat_Debugx64.lib")
 #pragma comment(lib, "Reflex_Debugx64.lib")
+#pragma comment(lib, "Glue_Debugx64.lib")
 #else
 #pragma comment(lib, "neat_Releasex64.lib")
 #pragma comment(lib, "Reflex_Releasex64.lib")
+#pragma comment(lib, "Glue_Releasex64.lib")
 #endif
 
+neat::InputHandler gInputHandler;
 class RenderThread : public neat::Thread
 {
 public:
@@ -28,7 +32,7 @@ public:
 	{
 		myStartFunc = [this, hWND, windowRes]()
 		{
-			myReflexInterface.Start(hWND, windowRes, "");
+			myReflexInterface.Start(hWND, windowRes, "vkdebug");
 			myTimer.Start();
 		};
 		myMainFunc = [this]()
@@ -48,7 +52,7 @@ public:
 					{ 0,1,1,1 });
 				myReflexInterface.EndPush();
 
-				if (InputHandler::IsReleased('Q'))
+				if (gInputHandler.IsReleased('Q'))
 				{
 					myReflexInterface.ToggleFeature(rflx::Features::FEATURE_DEFERRED);
 					myReflexInterface.ToggleFeature(rflx::Features::FEATURE_RAY_TRACING);
@@ -73,6 +77,7 @@ public:
 		const std::shared_ptr<std::binary_semaphore>& semaphore)
 		: Thread(semaphore)
 		, myReflexInterface(GetThreadID())
+		, myGlueInterface(GetThreadID())
 	{
 		myStartFunc = [this]()
 		{
@@ -82,23 +87,25 @@ public:
 		myMainFunc = [this]() -> void
 		{
 			myReflexInterface.BeginPush();
-			auto boyHandle = myReflexInterface.CreateMesh("Assets/test_boy/test_boy.fbx");
+			myGlueInterface.Start();
 			auto sceneHandle = myReflexInterface.CreateMesh("Assets/scene/scene.dae");
-			auto box = myReflexInterface.CreateImageCube("Assets/Cube Maps/stor_forsen.dds");
+			auto skyBox = myReflexInterface.CreateImageCube("Assets/Cube Maps/stor_forsen.dds");
+			skyBox.SetAsSkybox();
 
 			std::vector<PixelValue> pixels;
-			pixels.resize(16, {uint8_t(255), uint8_t(255), uint8_t(255), uint8_t(255)});
+			pixels.resize(16, { uint8_t(255), uint8_t(255), uint8_t(255), uint8_t(255) });
 			auto alb = myReflexInterface.CreateImage(std::move(pixels));
 			pixels = {};
-			pixels.resize(16, {uint8_t(128), uint8_t(255), 0, 0});
+			pixels.resize(16, { uint8_t(0), uint8_t(0), 0, 0 });
 			auto mat = myReflexInterface.CreateImage(std::move(pixels));
-			auto dragon = myReflexInterface.CreateMesh("Assets/Sascha/torusknot.obj", {alb, mat});
-			box.SetAsSkybox();
+			auto torus = myReflexInterface.CreateMesh("Assets/Sascha/torusknot.obj", { alb, mat });
 			myReflexInterface.EndPush();
+
 			while (IsRunning())
 			{
-				InputHandler::BeginFrame();
+				gInputHandler.BeginFrame();
 				myReflexInterface.BeginPush();
+				myGlueInterface.Tick();
 				myTimer.Tick();
 				auto dt = myTimer.GetDeltaTime();
 
@@ -107,36 +114,22 @@ public:
 				static float yRot = 0.f;
 				static float y = 1;
 
-				y += InputHandler::IsReleased(VK_SPACE);
-				y -= InputHandler::IsReleased(VK_SHIFT);
+				y += float(gInputHandler.IsReleased(VK_SPACE));
+				y -= float(gInputHandler.IsReleased(VK_SHIFT));
 
-				distance -= InputHandler::GetWheelDelta() * 128.f * dt;
-				if (InputHandler::IsHeld(VK_LBUTTON) && GetAsyncKeyState(VK_MENU))
+				distance -= gInputHandler.GetWheelDelta() * 128.f * dt;
+				if (gInputHandler.IsHeld(VK_LBUTTON) && GetAsyncKeyState(VK_MENU))
 				{
-					auto [dx, dy] = InputHandler::GetMousePosDelta();
+					auto [dx, dy] = gInputHandler.GetMousePosDelta();
 					yRot += dx * 0.05f * distance * dt;
 					xRot += -dy * 0.05f * distance * dt;
 				}
-				distance += InputHandler::IsHeld(VK_UP) * 128.f * dt;
-				distance -= InputHandler::IsHeld(VK_DOWN) * 128.f * dt;
+				distance += gInputHandler.IsHeld(VK_UP) * 128.f * dt;
+				distance -= gInputHandler.IsHeld(VK_DOWN) * 128.f * dt;
 				myReflexInterface.SetView({ 0, y, 0 }, { xRot, yRot }, distance);
 
-				if (InputHandler::IsReleased('L'))
-				{
-					static bool yeah = false;
-					yeah = !yeah;
-					if (yeah)
-					{
-						boyHandle.Unload();
-					}
-					else
-					{
-						boyHandle.Load();
-					}
-				}
-				
 				const auto tt = myTimer.GetTotalTime();
-				myReflexInterface.PushRenderCommand(dragon, {0.5,2,0}, {0.04f,0.04f,0.04f}, {0,1,0}, tt * 3.14f * 0.66f);
+				myReflexInterface.PushRenderCommand(torus, { 0.5,2,0 }, { 0.04f,0.04f,0.04f }, { 0,1,0 }, tt * 3.14f * 0.66f);
 				myReflexInterface.PushRenderCommand(sceneHandle);
 
 				auto fps = std::to_string(int(1.f / dt));
@@ -146,9 +139,9 @@ public:
 					{ -.99, 1, 0 },
 					.08f,
 					{ 0,1,1,1 });
-				
+
 				myReflexInterface.EndPush();
-				InputHandler::EndFrame();
+				gInputHandler.EndFrame();
 				const auto count = GetTickCount64();
 				while ((GetTickCount64() - count) < 5)
 				{
@@ -159,6 +152,7 @@ public:
 
 private:
 	rflx::Reflex	myReflexInterface;
+	glui::Glue		myGlueInterface;
 	Timer			myTimer;
 
 };
@@ -166,9 +160,8 @@ private:
 bool OnWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	hwnd;
-	return InputHandler::TakeMessages(msg, wParam, lParam);
+	return gInputHandler.TakeMessages(msg, wParam, lParam);
 }
-
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
