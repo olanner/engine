@@ -6,7 +6,8 @@ struct BufferXMemory
 	VkDeviceMemory	memory;
 };
 
-constexpr int MaxNumAllocationSubmissions = 1024;
+constexpr int MaxNumAllocationSubmissions = 128;
+constexpr int MaxNumCmdBuffersPerThread = 128;
 class AllocationSubmission
 {
 	friend class AllocationSubmitter;
@@ -37,13 +38,13 @@ private:
 	void									Start(
 												neat::ThreadID	threadID,
 												VkDevice		device,
-												VkCommandPool	cmdPool);
+												VkCommandBuffer	cmdPool);
 	void									End();
 
 	neat::ThreadID							myThreadID = neat::ThreadID(INVALID_ID);
 	Status									myStatus = Status::Fresh;
 	VkDevice								myDevice = nullptr;
-	VkCommandPool							myCommandPool = nullptr;
+	//VkCommandPool							myCommandPool = nullptr;
 	VkCommandBuffer							myCommandBuffer = nullptr;
 	VkFence									myExecutedFence = nullptr;
 	std::shared_ptr<VkEvent>				myExecutedEvent = nullptr;
@@ -89,8 +90,11 @@ private:
 	IDKeeper<AllocationSubmissionID>	myAllocSubIDs;
 	std::array<AllocationSubmission, MaxNumAllocationSubmissions>
 										myAllocationSubmissions;
-	conc_map<neat::ThreadID,std::array<VkCommandBuffer, MaxNumAllocationSubmissions>>
+
+	conc_map<neat::ThreadID, const std::array<VkCommandBuffer, MaxNumAllocationSubmissions>>
 										myCommandBuffers;
+	conc_map<neat::ThreadID, std::queue<VkCommandBuffer>>
+										myCommandBufferQueue;
 	
 };
 

@@ -98,7 +98,8 @@ AllocationSubmitter::TryReleasing()
 			continue;
 		}
 		myAllocSubIDs.ReturnID(allocSubID);
-		myQueuedCommandBufferDeallocs[threadID].push(cmdBuffer);
+		//myQueuedCommandBufferDeallocs[threadID].push(cmdBuffer);
+		myCommandBufferQueue[threadID].push(cmdBuffer);
 	}
 }
 
@@ -107,6 +108,7 @@ AllocationSubmitter::FreeUsedCommandBuffers(
 	neat::ThreadID	threadID,
 	int				maxCount)
 {
+	return;
 	const auto cmdPool = myCommandPools[threadID];
 	VkCommandBuffer cmdBuffer = nullptr;
 	int count = 0;
@@ -138,8 +140,13 @@ AllocationSubmitter::StartAllocSubmission()
 	}
 	const auto threadID = theirVulkanFramework.GetMainThread();
 	auto& allocSub = myAllocationSubmissions[int(id)];
-	const auto cmdPool = myCommandPools[threadID];
-	allocSub.Start(threadID, theirVulkanFramework.GetDevice(), cmdPool);
+
+	//const auto cmdPool = myCommandPools[threadID];
+	while (myCommandBufferQueue[threadID].empty())
+	{}
+	auto cmdBuffer = myCommandBufferQueue[threadID].front();
+	myCommandBufferQueue[threadID].pop();
+	allocSub.Start(threadID, theirVulkanFramework.GetDevice(), cmdBuffer);
 
 	return id;
 }
@@ -159,8 +166,13 @@ AllocationSubmitter::StartAllocSubmission(
 		return id;
 	}
 	auto& allocSub = myAllocationSubmissions[int(id)];
-	const auto cmdPool = myCommandPools[threadID];
-	allocSub.Start(threadID, theirVulkanFramework.GetDevice(), cmdPool);
+
+	while (myCommandBufferQueue[threadID].empty())
+	{
+	}
+	const auto cmdBuffer = myCommandBufferQueue[threadID].front();
+	myCommandBufferQueue[threadID].pop();
+	allocSub.Start(threadID, theirVulkanFramework.GetDevice(), cmdBuffer);
 
 	return id;
 }
@@ -205,7 +217,7 @@ void AllocationSubmitter::RegisterThread(neat::ThreadID threadID)
 	VkCommandPoolCreateInfo cmdPoolInfo{};
 	cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	cmdPoolInfo.queueFamilyIndex = myTransferFamily;
-	//cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+	cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
 	VkCommandPool pool;
 	auto result = vkCreateCommandPool(theirVulkanFramework.GetDevice(), &cmdPoolInfo, nullptr, &pool);
@@ -215,6 +227,31 @@ void AllocationSubmitter::RegisterThread(neat::ThreadID threadID)
 		return;
 	}
 	myCommandPools.insert({threadID, pool});
+
+	VkCommandBufferAllocateInfo cmdBufferAlloc{};
+	cmdBufferAlloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	cmdBufferAlloc.commandBufferCount = MaxNumAllocationSubmissions;
+	cmdBufferAlloc.commandPool = pool;
+	cmdBufferAlloc.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+
+	std::array<VkCommandBuffer, MaxNumAllocationSubmissions> cmdBuffers = {};
+	result = vkAllocateCommandBuffers(theirVulkanFramework.GetDevice(), &cmdBufferAlloc, cmdBuffers.data());
+	if (result)
+	{
+		assert(!result && "failed allocating thread allocation command buffers");
+		return;
+	}
+	myCommandBuffers.insert({threadID, cmdBuffers});
+	
+	for (size_t index = 0; index < cmdBuffers.size(); index++)
+	{
+		myCommandBufferQueue[threadID].push(cmdBuffers[index]);
+		DebugSetObjectName(
+			std::string("allocation submission cmd buffer, thread : ").append(std::to_string(int(threadID))).append(" nr : ").append(std::to_string(index)).c_str(),
+			cmdBuffers[index],
+			VK_OBJECT_TYPE_COMMAND_BUFFER,
+			theirVulkanFramework.GetDevice());
+	}
 }
 
 bool
@@ -368,14 +405,14 @@ void
 AllocationSubmission::Start(
 	neat::ThreadID	threadID,
 	VkDevice		device,
-	VkCommandPool	cmdPool)
+	VkCommandBuffer	cmdBuffer)
 {
 	assert(myStatus == Status::Fresh);
 	myThreadID = threadID;
 	myDevice = device;
-	myCommandPool = cmdPool;
+	myCommandBuffer = cmdBuffer;
 	
-	VkCommandBufferAllocateInfo cmdBufferAlloc{};
+	/*VkCommandBufferAllocateInfo cmdBufferAlloc{};
 	cmdBufferAlloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	cmdBufferAlloc.commandBufferCount = 1;
 	cmdBufferAlloc.commandPool = myCommandPool;
@@ -386,7 +423,7 @@ AllocationSubmission::Start(
 		std::string("allocation submission cmd buffer, thread : ").append(std::to_string(int(myThreadID))).c_str(),
 		myCommandBuffer,
 		VK_OBJECT_TYPE_COMMAND_BUFFER,
-		myDevice);
+		myDevice);*/
 
 	VkCommandBufferInheritanceInfo inheritInfo = {};
 	inheritInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
@@ -400,7 +437,7 @@ AllocationSubmission::Start(
 	eventInfo.sType = VK_STRUCTURE_TYPE_EVENT_CREATE_INFO;
 
 	myExecutedEvent = std::make_shared<VkEvent>();
-	result = vkCreateEvent(myDevice, &eventInfo, nullptr, &*myExecutedEvent);
+	auto result = vkCreateEvent(myDevice, &eventInfo, nullptr, &*myExecutedEvent);
 	vkResetEvent(myDevice, *myExecutedEvent);
 
 	myStatus = Status::Recording;
@@ -469,7 +506,7 @@ AllocationSubmission::Release()
 	*myExecutedEvent = nullptr;
 	myExecutedEvent = nullptr;
 
-	myCommandPool = nullptr;
+	//myCommandPool = nullptr;
 	myStatus = Status::Fresh;
 	myDevice = nullptr;
 	VkCommandBuffer cmdBuffer = myCommandBuffer;
