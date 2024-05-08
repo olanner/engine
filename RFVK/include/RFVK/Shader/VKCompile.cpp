@@ -4,17 +4,15 @@
 #include <fstream>
 #include <filesystem>
 
-#include "SPIRV/GlslangToSpv.h"
-#include "StandAlone/DirStackFileIncluder.h"
-#include "StandAlone/ResourceLimits.h"
+#include "glslang/SPIRV/GlslangToSpv.h"
+#include "DirStackFileIncluder.h"
+#include "glslang/public/ResourceLimits.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "GenericCodeGend.lib")
 #pragma comment(lib, "glslang-default-resource-limitsd.lib")
 #pragma comment(lib, "glslangd.lib")
-#pragma comment(lib, "HLSLd.lib")
 #pragma comment(lib, "MachineIndependentd.lib")
-#pragma comment(lib, "OGLCompilerd.lib")
 #pragma comment(lib, "OSDependentd.lib")
 #pragma comment(lib, "SPIRVd.lib")
 #pragma comment(lib, "SPVRemapperd.lib")
@@ -28,9 +26,7 @@
 #pragma comment(lib, "GenericCodeGen.lib")
 #pragma comment(lib, "glslang-default-resource-limits.lib")
 #pragma comment(lib, "glslang.lib")
-#pragma comment(lib, "HLSL.lib")
 #pragma comment(lib, "MachineIndependent.lib")
-#pragma comment(lib, "OGLCompiler.lib")
 #pragma comment(lib, "OSDependent.lib")
 #pragma comment(lib, "SPIRV.lib")
 #pragma comment(lib, "SPVRemapper.lib")
@@ -150,15 +146,20 @@ VKCompile(
 	auto folder = std::filesystem::path(shaderPath).parent_path().string();
 	
 	std::string preprocessed;
-
-	bool resultPreProcess = shader.preprocess(&glslang::DefaultTBuiltInResource,
-											   460,
-											   ENoProfile,
-											   false,
-											   true,
-											   messages,
-											   &preprocessed,
-											   includer);
+	const auto* resources = GetDefaultResources();
+	if (!resources)
+	{
+		return spvBin;
+	}
+	bool resultPreProcess = shader.preprocess(	
+									resources,
+									460,
+									ENoProfile,
+									false,
+									true,
+									messages,
+									&preprocessed,
+									includer);
 
 	if (!resultPreProcess)
 	{
@@ -167,7 +168,7 @@ VKCompile(
 	}
 
 	// PARSE
-	bool resultParse = shader.parse(&glslang::DefaultTBuiltInResource, 100, true, messages, includer);
+	bool resultParse = shader.parse(resources, 100, true, messages, includer);
 	if (!resultParse)
 	{
 		LOG("failed to parse :", shaderPath, '\n', shader.getInfoLog(), '\n', shader.getInfoDebugLog());

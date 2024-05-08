@@ -80,7 +80,7 @@ AccelerationStructureAllocator::RequestGeometryStructure(
 	buildInfo.pGeometries = geometries.data();
 	buildInfo.geometryCount = uint32_t(geometries.size());
 
-	VkAccelerationStructureBuildSizesInfoKHR sizeInfo;
+	VkAccelerationStructureBuildSizesInfoKHR sizeInfo{};
 	sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 	vkGetAccelerationStructureBuildSizes(
 		theirVulkanFramework.GetDevice(),
@@ -228,7 +228,7 @@ AccelerationStructureAllocator::RequestInstanceStructure(
 	buildInfo.pGeometries = &geometry;
 	
 	const uint32_t primitiveCount = uint32_t(instanceDesc.size());
-	VkAccelerationStructureBuildSizesInfoKHR sizesInfo;
+	VkAccelerationStructureBuildSizesInfoKHR sizesInfo = {};
 	sizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 	vkGetAccelerationStructureBuildSizes(
 		theirVulkanFramework.GetDevice(),
@@ -236,11 +236,11 @@ AccelerationStructureAllocator::RequestInstanceStructure(
 		&buildInfo,
 		&primitiveCount,
 		&sizesInfo);
-
+	
 	auto [resultAccStruct, accStructBuffer, accStructMemory] =
 		theirBufferAllocator.CreateBuffer(
 			allocSubID,
-			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR,
 			nullptr,
 			sizesInfo.accelerationStructureSize,
 			myOwners,

@@ -3,6 +3,7 @@
 
 #include "RFVK/VulkanFramework.h"
 #include "RFVK/Memory/ImageAllocator.h"
+#define STB_IMAGE_IMPLEMENTATION
 #include "RFVK/Misc/stb/stb_image.h"
 
 ImageHandler::ImageHandler(

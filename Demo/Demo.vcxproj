@@ -47,14 +47,14 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(SolutionDir)ext\glm\;$(SolutionDir)Glue\include\;$(SolutionDir)Reflex\include\;$(SolutionDir)RFVK\include\;$(SolutionDir)neat\include\;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(SolutionDir)ext\glslang\lib\debug\;$(SolutionDir)ext\Vulkan\Lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;$(SolutionDir)ext\assimp\lib\</LibraryPath>
+    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(SolutionDir)ext\glslang\lib\;$(SolutionDir)ext\Vulkan\Lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;$(SolutionDir)ext\assimp\lib\</LibraryPath>
     <OutDir>$(SolutionDir)..\bin\</OutDir>
     <IntDir>$(SolutionDir)..\tmp\obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(SolutionDir)ext\glm\;$(SolutionDir)Glue\include\;$(SolutionDir)Reflex\include\;$(SolutionDir)RFVK\include\;$(SolutionDir)neat\include\;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(SolutionDir)ext\glslang\lib\release\;$(SolutionDir)ext\Vulkan\Lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;$(SolutionDir)ext\assimp\lib\</LibraryPath>
+    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(SolutionDir)ext\glslang\lib\;$(SolutionDir)ext\Vulkan\Lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;$(SolutionDir)ext\assimp\lib\</LibraryPath>
     <OutDir>$(SolutionDir)..\bin\</OutDir>
     <IntDir>$(SolutionDir)..\tmp\obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>

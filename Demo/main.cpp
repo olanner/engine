@@ -4,6 +4,7 @@
 
 #include <string>
 #include <random>
+#include <filesystem>
 
 #include "neat/General/Window.h"
 #include "neat/Input/InputHandler.h"
@@ -184,7 +185,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		480, // height
 		SWP_SHOWWINDOW);
 #endif
-
+	auto path = std::filesystem::current_path();
+	int val = 0;
 
 	{
 		std::vector<std::unique_ptr<neat::Thread>> threads;

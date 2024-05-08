@@ -48,13 +48,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(SolutionDir)ext\freetype\include\;$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)ext\glslang\include\;$(SolutionDir)ext\assimp\include\;$(SolutionDir)ext\glm\</IncludePath>
-    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;$(SolutionDir)ext\Vulkan\Lib\;$(SolutionDir)ext\assimp\lib\;$(SolutionDir)ext\glslang\lib\debug\</LibraryPath>
+    <IncludePath>$(SolutionDir)ext\freetype\include\;$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\glslang_repo\StandAlone\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)ext\glslang\include\;$(SolutionDir)ext\assimp\include\;$(SolutionDir)ext\glm\</IncludePath>
+    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;$(SolutionDir)ext\Vulkan\Lib\;$(SolutionDir)ext\assimp\lib\;$(SolutionDir)ext\glslang\lib\</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(SolutionDir)ext\freetype\include\;$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)ext\glslang\include\;$(SolutionDir)ext\assimp\include\;$(SolutionDir)ext\glm\</IncludePath>
-    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;$(SolutionDir)ext\Vulkan\Lib\;$(SolutionDir)ext\assimp\lib\;$(SolutionDir)ext\glslang\lib\release\</LibraryPath>
+    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;$(SolutionDir)ext\Vulkan\Lib\;$(SolutionDir)ext\assimp\lib\;$(SolutionDir)ext\glslang\lib\</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
