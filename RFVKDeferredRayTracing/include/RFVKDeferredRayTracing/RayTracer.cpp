@@ -10,6 +10,7 @@
 #include "RFVK/Ray Tracing/AccelerationStructureHandler.h"
 #include "RFVK/Ray Tracing/RTPipelineBuilder.h"
 
+
 RayTracer::RayTracer(
 	VulkanFramework&				vulkanFramework,
 	MeshHandler&					meshHandler,
@@ -27,7 +28,6 @@ RayTracer::RayTracer(
 	, theirAccStructHandler(accStructHandler)
 	, myGBuffer(gBuffer)
 {
-	
 	// SHADERS
 	char shaderPaths[][128]
 	{
@@ -36,6 +36,7 @@ RayTracer::RayTracer(
 		"Shaders/shadow_rmiss.rmiss",
 		"Shaders/drt_rchit.rchit"
 	};
+
 	myOpaqueShader = std::make_shared<Shader>(shaderPaths,
 		_ARRAYSIZE(shaderPaths),
 		theirVulkanFramework
@@ -118,8 +119,8 @@ RayTracer::RayTracer(
 
 RayTracer::~RayTracer()
 {
-	vkDestroyPipeline(theirVulkanFramework.GetDevice(), myPipeline.pipeline, nullptr);
-	vkDestroyPipelineLayout(theirVulkanFramework.GetDevice(), myPipeline.layout, nullptr);
+	//vkDestroyPipeline(theirVulkanFramework.GetDevice(), myPipeline.pipeline, nullptr);
+	//vkDestroyPipelineLayout(theirVulkanFramework.GetDevice(), myPipeline.layout, nullptr);
 	//vkDestroyBuffer(theirVulkanFramework.GetDevice(), mySBTBuffer, nullptr);
 	//vkFreeMemory(theirVulkanFramework.GetDevice(), mySBTMemory, nullptr);
 }

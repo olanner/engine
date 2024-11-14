@@ -94,7 +94,7 @@ RawDDS ReadDDS(const char* path)
 	ret.pixelDepth = dds->header.pixelFormat.dwRGBBitCount;
 
 	ret.images.resize(ret.numLayers);
-	if (strcmp((char*)&dds->header.pixelFormat.dwFourCC, "DX10"))
+	//if (strcmp((char*)&dds->header.pixelFormat.dwFourCC, "DX10"))
 	{
 		int offset = 0;
 		for (int i = 0; i < ret.numLayers; ++i)

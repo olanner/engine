@@ -5,7 +5,6 @@
 #include <string>
 
 #pragma comment (lib, "vulkan-1.lib")
-#pragma comment (lib, "VkLayer_utils.lib")
 
 VulkanFramework::VulkanFramework()
 {
@@ -394,6 +393,7 @@ DebugCallback(
 		LOG('[', type, ']', pCallbackData->pMessage);
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 		{
+			int val = 0;
 			//system("pause");
 		}
 	}
@@ -567,6 +567,7 @@ VulkanFramework::InitDevice()
 		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 		VK_KHR_RAY_QUERY_EXTENSION_NAME,
 		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+		VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
 		
 	};
 
@@ -594,11 +595,16 @@ VulkanFramework::InitDevice()
 	rayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = {};
 	accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+	//VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {};
+	//meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+	VkPhysicalDeviceRobustness2FeaturesEXT robustnessFeatures = {};
+	robustnessFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
 	
 	features.pNext = &featuresBufferAddress;
 	featuresBufferAddress.pNext = &rayPipeFeatures;
 	rayPipeFeatures.pNext = &rayQueryFeatures;
 	rayQueryFeatures.pNext = &accelerationStructureFeatures;
+	accelerationStructureFeatures.pNext = &robustnessFeatures;
 	vkGetPhysicalDeviceFeatures2(myPhysicalDevices[myChosenPhysicalDevice], &features);
 
 	deviceInfo.pNext = &features;

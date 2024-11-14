@@ -181,7 +181,11 @@ Shader::EvaluateShaderStage(const char* path)
 	{
 		return VK_SHADER_STAGE_CALLABLE_BIT_NV;
 	}
-	assert("undefined shader stage");
+	if (ext.find(".comp") != std::string::npos)
+	{
+		return VK_SHADER_STAGE_COMPUTE_BIT;
+	}
+	assert(false && "undefined shader stage");
 	return VkShaderStageFlagBits(NULL);
 }
 

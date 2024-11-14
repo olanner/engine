@@ -92,6 +92,7 @@ private:
 	
 	std::shared_ptr<class CubeFilterer>			myCubeFilterer;
 	std::shared_ptr<class Presenter>			myPresenter;
+	std::shared_ptr<class ImageProcessor>		myImageProcessor;
 	bool										myWorkerSystemsLocked = false;
 
 	conc_map<rflx::Features, bool>				myActiveFeatures;

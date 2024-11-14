@@ -184,6 +184,11 @@ BufferAllocator::UpdateBufferData(
 	
 	// TODO: maybe do this better lol
 	auto allocSubID = theirAllocationSubmitter.StartAllocSubmission();
+	if (BAD_ID(allocSubID))
+	{
+		LOG("Out of allocation ids, skipping update of buffer.");
+		return;
+	}
 	auto& allocSub = theirAllocationSubmitter[allocSubID];
 	const auto cmdBuffer = allocSub.Record();
 

@@ -339,3 +339,5 @@ ASALocalRun/
 # BeatPulse healthcheck temp database
 healthchecksdb
 /Demo/log.txt
+/ext/glslang/include/glslang
+/ext/glslang

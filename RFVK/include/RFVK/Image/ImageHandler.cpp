@@ -5,6 +5,7 @@
 #include "RFVK/Memory/ImageAllocator.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "RFVK/Misc/stb/stb_image.h"
+#include <RFVK/Debug/DebugUtils.h>
 
 ImageHandler::ImageHandler(
 	VulkanFramework&	vulkanFramework,
@@ -125,33 +126,14 @@ ImageHandler::ImageHandler(
 		assert(!resultAlloc && "failed creating image array descriptor set");
 	}
 
-	// SAMPLER
-	VkSamplerCreateInfo samplerInfo{};
-	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerInfo.pNext = nullptr;
-	samplerInfo.flags = NULL;
-
-	samplerInfo.magFilter = VK_FILTER_LINEAR;
-	samplerInfo.minFilter = VK_FILTER_LINEAR;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-	samplerInfo.mipLodBias = 0;
-	samplerInfo.anisotropyEnable = VK_TRUE;
-	samplerInfo.maxAnisotropy = 8.f;
-	samplerInfo.compareEnable = VK_FALSE;
-	samplerInfo.minLod = 0.f;
-	samplerInfo.maxLod = FLT_MAX;
-	samplerInfo.unnormalizedCoordinates = VK_FALSE;
-
-	auto resultSampler = vkCreateSampler(theirVulkanFramework.GetDevice(), &samplerInfo, nullptr, &mySampler);
-	assert(!resultSampler && "failed creating sampler");
+	// SAMPLERS
+	CreateSampler(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, 16);
+	CreateSampler(VK_FILTER_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0);
 
 	// SAMPLER DESCRIPTOR
 	//LAYOUT
 	VkDescriptorSetLayoutBinding sampBinding;
-	sampBinding.descriptorCount = 1;
+	sampBinding.descriptorCount = mySamplers.size();
 	sampBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
 	sampBinding.binding = SamplerSetSamplersBinding;
 	sampBinding.pImmutableSamplers = nullptr;
@@ -188,8 +170,14 @@ ImageHandler::ImageHandler(
 
 	// WRITE SAMPLERS
 	{
-		VkDescriptorImageInfo samplerDescInfo = {};
-		samplerDescInfo.sampler = mySampler;
+		std::vector<VkDescriptorImageInfo> samplerDescInfos;
+		for (auto&& sampler : mySamplers)
+		{
+			VkDescriptorImageInfo info = {};
+			info.sampler = sampler;
+			samplerDescInfos.emplace_back(info);
+		}
+
 		VkWriteDescriptorSet write{};
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.pNext = nullptr;
@@ -197,9 +185,9 @@ ImageHandler::ImageHandler(
 		write.dstSet = mySamplerSet;
 		write.dstBinding = SamplerSetSamplersBinding;
 		write.dstArrayElement = 0;
-		write.descriptorCount = 1;
+		write.descriptorCount = samplerDescInfos.size();
 		write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-		write.pImageInfo = &samplerDescInfo;
+		write.pImageInfo = samplerDescInfos.data();
 		write.pBufferInfo = nullptr;
 		write.pTexelBufferView = nullptr;
 
@@ -249,7 +237,6 @@ ImageHandler::ImageHandler(
 		VkWriteDescriptorSet write{};
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.pNext = nullptr;
-
 		
 		write.dstBinding = ImageSetImages2DBinding;
 		write.dstArrayElement = 0;
@@ -379,7 +366,10 @@ ImageHandler::ImageHandler(
 
 ImageHandler::~ImageHandler()
 {
-	vkDestroySampler(theirVulkanFramework.GetDevice(), mySampler, nullptr);
+	for (auto& sampler : mySamplers)
+	{
+		vkDestroySampler(theirVulkanFramework.GetDevice(), sampler, nullptr);
+	}
 	vkDestroyDescriptorSetLayout(theirVulkanFramework.GetDevice(), myImageSetLayout, nullptr);
 	vkDestroyDescriptorSetLayout(theirVulkanFramework.GetDevice(), mySamplerSetLayout, nullptr);
 	vkDestroyDescriptorPool(theirVulkanFramework.GetDevice(), myDescriptorPool, nullptr);
@@ -476,11 +466,17 @@ ImageHandler::LoadImage2D(
 		requestInfo.mips = NUM_MIPS(std::max(dimension.x, dimension.y));
 		requestInfo.owners = myOwners;
 		requestInfo.format = format;
-		std::tie(result, myImages2D[uint32_t(imageID)].view) = theirImageAllocator.RequestImageArray(
+		auto& imageView = myImages2D[uint32_t(imageID)].view;
+		std::tie(result, imageView) = theirImageAllocator.RequestImageArray(
 			allocSubID,
 			pixelData,
 			layers,
 			requestInfo);
+		DebugSetObjectName(
+			std::string("imgHndlr imgID ").append(std::to_string(int(imageID))).c_str(),
+			theirImageAllocator.GetImage(imageView), 
+			VK_OBJECT_TYPE_IMAGE_VIEW, 
+			theirVulkanFramework.GetDevice());
 	}
 
 	if (result)
@@ -772,6 +768,37 @@ ImageHandler::ReadImage(
 	pixels.insert(pixels.end(), img, img + x * y * 4);
 	stbi_image_free(img);
 	return {pixels, x, y, channels};
+}
+
+void 
+ImageHandler::CreateSampler(
+				VkFilter				filter, 
+				VkSamplerAddressMode	samplerMode,
+				float					anisotropy)
+{
+	assert(mySamplers.emplace_back(nullptr) && "max samplers reached");
+
+	VkSamplerCreateInfo samplerInfo{};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.pNext = nullptr;
+	samplerInfo.flags = NULL;
+
+	samplerInfo.magFilter = filter;
+	samplerInfo.minFilter = filter;
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.addressModeU = samplerMode;
+	samplerInfo.addressModeV = samplerMode;
+	samplerInfo.addressModeW = samplerMode;
+	samplerInfo.mipLodBias = 0;
+	samplerInfo.anisotropyEnable = !!anisotropy;
+	samplerInfo.maxAnisotropy = anisotropy;
+	samplerInfo.compareEnable = VK_FALSE;
+	samplerInfo.minLod = 0.f;
+	samplerInfo.maxLod = FLT_MAX;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+
+	auto resultSampler = vkCreateSampler(theirVulkanFramework.GetDevice(), &samplerInfo, nullptr, &mySamplers.back());
+	assert(!resultSampler && "failed creating sampler");
 }
 
 ImageAllocator&

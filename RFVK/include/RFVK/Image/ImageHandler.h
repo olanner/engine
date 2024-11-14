@@ -80,6 +80,10 @@ public:
 
 private:
 	std::tuple<std::vector<uint8_t>, int, int, int>	ReadImage(const std::string& path);
+	void											CreateSampler(
+														VkFilter				filter, 
+														VkSamplerAddressMode	samplerMode,
+														float					anisotropy);
 	
 	ImageAllocator&									theirImageAllocator;
 	std::vector<QueueFamilyIndex>					myOwners;
@@ -92,7 +96,7 @@ private:
 	VkDescriptorSetLayout							myImageSetLayout = nullptr;
 	std::array<VkDescriptorSet, NumSwapchainImages>	myImageSets = {};
 
-	VkSampler										mySampler = nullptr;
+	neat::static_vector<VkSampler, MaxNumSamplers>	mySamplers;
 	VkDescriptorSetLayout							mySamplerSetLayout = nullptr;
 	VkDescriptorSet									mySamplerSet = nullptr;
 

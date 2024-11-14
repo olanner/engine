@@ -89,7 +89,7 @@ public:
 		{
 			myReflexInterface.BeginPush();
 			myGlueInterface.Start();
-			auto sceneHandle = myReflexInterface.CreateMesh("Assets/scene/scene.dae");
+			auto sceneHandle = myReflexInterface.CreateMesh("Assets/basic_spheres/basic_spheres.dae");
 			auto skyBox = myReflexInterface.CreateImageCube("Assets/Cube Maps/stor_forsen.dds");
 			skyBox.SetAsSkybox();
 
@@ -106,7 +106,7 @@ public:
 			{
 				gInputHandler.BeginFrame();
 				myReflexInterface.BeginPush();
-				myGlueInterface.Tick();
+				//myGlueInterface.Tick();
 				myTimer.Tick();
 				auto dt = myTimer.GetDeltaTime();
 
@@ -130,7 +130,8 @@ public:
 				myReflexInterface.SetView({ 0, y, 0 }, { xRot, yRot }, distance);
 
 				const auto tt = myTimer.GetTotalTime();
-				myReflexInterface.PushRenderCommand(torus, { 0.5,2,0 }, { 0.04f,0.04f,0.04f }, { 0,1,0 }, tt * 3.14f * 0.66f);
+				//myReflexInterface.PushRenderCommand(torus, { 0.5,2,0 }, { 0.04f,0.04f,0.04f }, { 0,1,0 }, tt * 3.14f * 0.66f);
+				//myReflexInterface.PushRenderCommand(torus);// , { 0.5,2,0 }, { 0.04f,0.04f,0.04f }, { 0,1,0 }, tt * 3.14f * 0.66f);
 				myReflexInterface.PushRenderCommand(sceneHandle);
 
 				auto fps = std::to_string(int(1.f / dt));

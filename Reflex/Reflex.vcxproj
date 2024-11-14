@@ -47,7 +47,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(SolutionDir)RFVKDeferredRayTracing\include\;$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)RFVK\include\;$(SolutionDir)ext\glm\</IncludePath>
+    <IncludePath>$(SolutionDir)RFVKDeferredRayTracing\include\;$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;C:\VulkanSDK\1.3.280.0\Include;$(SolutionDir)RFVK\include\;$(SolutionDir)ext\glm\</IncludePath>
     <LibraryPath>$(SolutionDir)..\Lib\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

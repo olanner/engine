@@ -15,6 +15,7 @@
 
 #include "Debug/DebugUtils.h"
 #include "Image/CubeFilterer.h"
+#include "Image/ImageProcessor.h"
 #include "Presenter/Presenter.h"
 #include "RenderPass/RenderPassFactory.h"
 #include "Text/FontHandler.h"
@@ -162,16 +163,16 @@ VulkanImplementation::Initialize(
 
 	// WORKER SYSTEMS
 	myPresenter = std::make_shared<Presenter>(myVulkanFramework,
-								 *myRenderPassFactory,
-								 *myImageHandler,
-								 *mySceneGlobals,
-								 myQueueFamilyIndices);
+												*myRenderPassFactory,
+												*myImageHandler,
+												*mySceneGlobals,
+												myQueueFamilyIndices);
 
 	myCubeFilterer = std::make_shared<CubeFilterer>(myVulkanFramework,
-										  *myRenderPassFactory,
-										  *myImageAllocator,
-										  *myImageHandler,
-										  myQueueFamilyIndices
+													*myRenderPassFactory,
+													*myImageAllocator,
+													*myImageHandler,
+													myQueueFamilyIndices
 
 	);
 	myCubeFilterer->PushFilterWork(
@@ -180,6 +181,12 @@ VulkanImplementation::Initialize(
 		nullptr});
 
 	RegisterWorkerSystem(myCubeFilterer);
+	myImageProcessor = std::make_shared<ImageProcessor>(
+			myVulkanFramework, 
+			*myImageAllocator, 
+			*myImageHandler, 
+			myQueueFamilyIndices);
+	RegisterWorkerSystem(myImageProcessor);
 
 	myActiveFeatures[rflx::Features::FEATURE_CORE] = true;
 	LOG("vulkan successfully started");

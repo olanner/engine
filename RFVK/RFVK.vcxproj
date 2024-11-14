@@ -48,8 +48,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(SolutionDir)ext\freetype\include\;$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\glslang_repo\StandAlone\;$(SolutionDir)ext\Vulkan\Include\;$(SolutionDir)ext\glslang\include\;$(SolutionDir)ext\assimp\include\;$(SolutionDir)ext\glm\</IncludePath>
-    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;$(SolutionDir)ext\Vulkan\Lib\;$(SolutionDir)ext\assimp\lib\;$(SolutionDir)ext\glslang\lib\</LibraryPath>
+    <IncludePath>$(SolutionDir)ext\freetype\include\;$(SolutionDir)ext\rapidjson\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)\Include\;$(SolutionDir)neat\Include\;$(SolutionDir)ext\glslang_repo\StandAlone\;C:\VulkanSDK\1.3.280.0\Include;$(SolutionDir)ext\glslang\include\;$(SolutionDir)ext\assimp\include\;$(SolutionDir)ext\glm\</IncludePath>
+    <LibraryPath>$(SolutionDir)ext\freetype\lib\;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64;$(SolutionDir)..\Lib\;C:\VulkanSDK\1.3.280.0\Lib\;$(SolutionDir)ext\assimp\lib\;$(SolutionDir)ext\glslang\lib\</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -98,6 +98,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="include\RFVK\Descriptors\DescriptorSet.h" />
+    <ClInclude Include="include\RFVK\Image\ImageProcessor.h" />
     <ClInclude Include="include\RFVK\Misc\Constants.h" />
     <ClInclude Include="include\RFVK\Misc\Macros.h" />
     <ClInclude Include="include\RFVK\Misc\Helpers.h" />
@@ -107,6 +109,7 @@
     <ClInclude Include="include\RFVK\Image\CubeFilterer.h" />
     <ClInclude Include="include\RFVK\Misc\HandlerBase.h" />
     <ClInclude Include="include\RFVK\Misc\stb\stb_image.h" />
+    <ClInclude Include="include\RFVK\Pipelines\ComputePipelineBuilder.h" />
     <ClInclude Include="include\RFVK\Pipelines\GenBlendStates.h" />
     <ClInclude Include="include\RFVK\Pipelines\GenRasterStates.h" />
     <ClInclude Include="include\RFVK\Pipelines\Pipeline.h" />
@@ -151,8 +154,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="include\RFVK\Image\CubeFilterer.cpp" />
+    <ClCompile Include="include\RFVK\Image\ImageProcessor.cpp" />
     <ClCompile Include="include\RFVK\Misc\HandlerBase.cpp" />
     <ClCompile Include="include\RFVK\Misc\stb\stb_impl.cpp" />
+    <ClCompile Include="include\RFVK\Pipelines\ComputePipelineBuilder.cpp" />
     <ClCompile Include="include\RFVK\Presenter\Presenter.cpp" />
     <ClCompile Include="include\RFVK\Memory\AllocatorBase.cpp" />
     <ClCompile Include="include\RFVK\Memory\BufferAllocator.cpp" />

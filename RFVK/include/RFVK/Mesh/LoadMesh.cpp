@@ -31,7 +31,6 @@ LoadRawMesh(
 		rawMesh.indices.resize(totalNumIndices);
 	}
 
-	Vec3f max = {};
 	uint32_t totalVertexIndex = 0;
 	for (uint32_t aiMeshIndex = 0; aiMeshIndex < scene->mNumMeshes; ++aiMeshIndex)
 	{
@@ -42,10 +41,6 @@ LoadRawMesh(
 			rawMesh.vertices[totalVertexIndex].position.y = mesh->mVertices[vertexIndex].y;
 			rawMesh.vertices[totalVertexIndex].position.z = mesh->mVertices[vertexIndex].z;
 			rawMesh.vertices[totalVertexIndex].position.w = 1.f;
-			max.x = std::max(max.x, std::abs(rawMesh.vertices[totalVertexIndex].position.x));
-			max.y = std::max(max.y, std::abs(rawMesh.vertices[totalVertexIndex].position.y));
-			max.z = std::max(max.z, std::abs(rawMesh.vertices[totalVertexIndex].position.z));
-			//rawMesh.vertices[totalVertexIndex].position = glm::normalize(rawMesh.vertices[totalVertexIndex].position);
 
 			rawMesh.vertices[totalVertexIndex].normal.x = mesh->mNormals[vertexIndex].x;
 			rawMesh.vertices[totalVertexIndex].normal.y = mesh->mNormals[vertexIndex].y;
@@ -65,22 +60,6 @@ LoadRawMesh(
 		}
 	}
 	
-	Mat4f scaleMat = glm::identity<Mat4f>();
-	scaleMat = glm::scale(scaleMat, { 1.f / max.x, 1.f / max.y, 1.f / max.z });
-	for (auto& vertex : rawMesh.vertices)
-	{
-		break;
-		//vertex.position.x /= max.x;
-		//vertex.position.y /= max.y;
-		//vertex.position.z /= max.z;
-		vertex.position = vertex.position * scaleMat;
-		vertex.normal = vertex.normal * (scaleMat);
-		vertex.tangent = vertex.tangent * (scaleMat);
-		vertex.position.w = 1;
-		vertex.normal.w = 0;
-		vertex.tangent.w = 0;
-	}
-
 	uint32_t totalIndexIndex = 0;
 	uint32_t indexOffset = 0;
 	for (uint32_t aiMeshIndex = 0; aiMeshIndex < scene->mNumMeshes; ++aiMeshIndex)

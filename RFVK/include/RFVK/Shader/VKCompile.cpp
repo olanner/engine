@@ -75,6 +75,10 @@ VKCompile(
 	{
 		stage = EShLangFragment;
 	}
+	else if (ext.find(".comp") != std::string::npos)
+	{
+		stage = EShLangCompute;
+	}
 	else if (ext.find(".rgen") != std::string::npos)
 	{
 		stage = EShLangRayGenNV;
@@ -97,7 +101,7 @@ VKCompile(
 	}
 	else if (ext.find(".rcall") != std::string::npos)
 	{
-		stage = EShLangCallableNV;;
+		stage = EShLangCallableNV;
 	}
 	else
 	{

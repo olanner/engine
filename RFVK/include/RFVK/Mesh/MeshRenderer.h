@@ -40,7 +40,9 @@ public:
 
 private:
 	RenderPassFactory&					theirRenderPassFactory;
-	const VkPipelineStageFlags			myWaitStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+	//const VkPipelineStageFlags			myWaitStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+	std::array<VkPipelineStageFlags, MaxWorkerSubmissions>				
+										myWaitStages;
 	
 	std::unique_ptr<UniformInstances>	myInstanceData;
 	UniformID							myInstanceUniformID = UniformID(INVALID_ID);

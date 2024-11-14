@@ -23,7 +23,7 @@ constexpr int	MaxNumMeshesLoaded = 512;
 constexpr int	MaxNumImages = 1024;
 constexpr int	MaxNumImagesCube = 128;
 constexpr int	MaxNumStorageImages = 8;
-constexpr int	MaxNumSamplers = 1;
+constexpr int	MaxNumSamplers = 16;
 constexpr int	MaxNumUniforms = 128;
 constexpr int	MaxNumFonts = 128;
 

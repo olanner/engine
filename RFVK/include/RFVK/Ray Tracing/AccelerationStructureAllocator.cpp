@@ -57,7 +57,7 @@ AccelerationStructureAllocator::RequestGeometryStructure(
 		asGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
 		asGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
 		asGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
-		asGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
+		asGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
 		asGeometry.geometry.triangles.vertexData = {mesh.vertexAddress};
 		asGeometry.geometry.triangles.maxVertex = mesh.numVertices;
 		asGeometry.geometry.triangles.vertexStride = sizeof(Vertex3D);
@@ -222,6 +222,7 @@ AccelerationStructureAllocator::RequestInstanceStructure(
 	geometry.geometry.instances.arrayOfPointers = false;
 
 	VkAccelerationStructureBuildGeometryInfoKHR buildInfo = {};
+	buildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
 	buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
 	buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 	buildInfo.geometryCount = 1;
@@ -481,6 +482,17 @@ AccelerationStructureAllocator::BuildInstanceStructure(
 		nullptr,
 		0,
 		nullptr);
+
+	const uint32_t primitiveCount = uint32_t(instanceDesc.size());
+	VkAccelerationStructureBuildSizesInfoKHR sizesInfo = {};
+	sizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+	vkGetAccelerationStructureBuildSizes(
+		theirVulkanFramework.GetDevice(),
+		VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+		&buildInfo,
+		&primitiveCount,
+		&sizesInfo);
+
 	vkCmdBuildAccelerationStructures(cmdBuffer, 1, &buildInfo, &pRanges);
 	/*barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
 	barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;

@@ -34,7 +34,7 @@ MeshRenderer::MeshRenderer(
 	, myDeferredRenderPass{}
 
 {
-
+	myWaitStages.fill(VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 	// INSTANCE DATA
 	myInstanceUniformID = theirUniformHandler.RequestUniformBuffer(myInstanceData.get(),
 																	sizeof UniformInstances);
@@ -258,9 +258,7 @@ MeshRenderer::RecordSubmit(
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.pNext = nullptr;
 
-	std::array<VkPipelineStageFlags, MaxWorkerSubmissions> waitStages = {};
-	waitStages.fill(myWaitStage);
-	submitInfo.pWaitDstStageMask = waitStages.data();
+	submitInfo.pWaitDstStageMask = myWaitStages.data();
 
 	submitInfo.pWaitSemaphores = waitSemaphores.data();
 	submitInfo.waitSemaphoreCount = waitSemaphores.size();

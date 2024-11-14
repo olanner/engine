@@ -104,7 +104,7 @@ private:
 
 	bool											myHasFiltered = false;
 
-	QueueFamilyIndex								myPresentationQueueIndex;
+	QueueFamilyIndex								myPresentationQueueIndex = 0;
 
 	concurrency::concurrent_queue<FilterWork>		myToDoFilterWork;
 
